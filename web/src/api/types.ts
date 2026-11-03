@@ -25,7 +25,12 @@ export interface BotContent {
   instructions: string;
   responsibilities: string[];
   runtime: Runtime;
+  /** "providerId/modelId", e.g. "groq/llama-3.1-8b-instant". */
   model: string | null;
+  /** 0 to 2. Null = platform default (0.7). */
+  temperature: number | null;
+  /** 1 to 4,096. Null = platform default (1,024). */
+  maxOutputTokens: number | null;
 }
 
 export interface Bot extends BotContent {
@@ -63,4 +68,114 @@ export interface UpdateBotInput extends Partial<BotContent> {
 export interface CreateBotInput extends Partial<BotContent> {
   name: string;
   changeNote?: string;
+}
+
+// ---------------- AI models (Phase 2) ----------------
+
+export type FreeStatus = "verified_free" | "free_tier" | "blocked";
+
+export interface ProviderView {
+  id: string;
+  displayName: string;
+  kind: "cloud" | "local";
+  connectable: boolean;
+  enabled: boolean;
+  freeConfirmed: boolean;
+  requiresFreeConfirmation: boolean;
+  freePolicyLabel: string;
+  /** The NAME of the environment variable that holds the key (never the key itself). */
+  keyEnv: string | null;
+  keyConfigured: boolean;
+  baseUrl: string;
+  baseUrlEditable: boolean;
+  dailyRequestCap: number | null;
+  status: string | null;
+  statusMessage: string | null;
+  lastCheckedAt: string | null;
+  modelCount: number;
+  enabledModelCount: number;
+  requestsToday: number;
+}
+
+export interface ModelView {
+  id: number;
+  providerId: string;
+  providerName: string;
+  modelId: string;
+  /** "providerId/modelId": the value stored on a bot. */
+  ref: string;
+  displayName: string;
+  freeStatus: FreeStatus;
+  freeSource: string;
+  freeCheckedAt: string;
+  contextWindow: number | null;
+  enabled: boolean;
+  availability: "available" | "not_installed" | "removed" | "unknown";
+  isLlama: boolean;
+  callable: boolean;
+  blockedReason: string | null;
+}
+
+export type LimitsMap = Record<string, number>;
+
+export interface LlmStatus {
+  paused: boolean;
+  /** Always true. There is no way to turn it off. */
+  freeOnly: boolean;
+  limits: LimitsMap;
+  defaults: LimitsMap;
+  maxOutputTokensCeiling: number;
+}
+
+export interface UsageTotals {
+  requests: number;
+  tokens: number;
+}
+
+export interface UsageSummary {
+  today: UsageTotals;
+  month: UsageTotals;
+  todayCloud: UsageTotals;
+  monthCloud: UsageTotals;
+  reportedCostMicroThisMonth: number;
+  byDay: { day: string; ok: number; errors: number; blocked: number; tokens: number }[];
+  byBot: { botId: string | null; botName: string; requests: number; tokens: number }[];
+  byModel: { providerId: string; modelId: string; requests: number; tokens: number; errors: number }[];
+  recentProblems: {
+    createdAt: string;
+    status: string;
+    errorCode: string | null;
+    providerId: string;
+    modelId: string;
+    botName: string;
+    note: string | null;
+  }[];
+}
+
+export interface Conversation {
+  id: string;
+  botId: string;
+  title: string;
+  createdAt: string;
+  messageCount: number;
+}
+
+export interface ChatMessageRecord {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  botVersion: number;
+  providerId: string | null;
+  modelId: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  tokensEstimated: boolean | null;
+  createdAt: string;
+}
+
+export interface ChatReply {
+  conversationId: string;
+  userMessage: ChatMessageRecord;
+  assistantMessage: ChatMessageRecord;
+  warning: string | null;
 }

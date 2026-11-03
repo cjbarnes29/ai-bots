@@ -23,7 +23,16 @@ const contentShape = {
     .array(z.string().trim().min(1).max(LIMITS.responsibility))
     .max(LIMITS.responsibilities),
   runtime: z.enum(RUNTIMES),
-  model: z.string().trim().min(1).max(LIMITS.model).nullable(),
+  // "providerId/modelId", e.g. "groq/llama-3.1-8b-instant". Checked against the model catalog by the service.
+  model: z
+    .string()
+    .trim()
+    .min(3)
+    .max(LIMITS.model)
+    .regex(/^[a-z0-9_-]{2,32}\/\S+$/, 'must look like "provider/model"')
+    .nullable(),
+  temperature: z.number().min(0).max(2).nullable(),
+  maxOutputTokens: z.number().int().min(1).max(4096).nullable(),
 };
 
 const changeNote = z.string().trim().max(LIMITS.changeNote);
@@ -37,6 +46,8 @@ export const createBotSchema = z.strictObject({
   responsibilities: contentShape.responsibilities.optional(),
   runtime: contentShape.runtime.optional(),
   model: contentShape.model.optional(),
+  temperature: contentShape.temperature.optional(),
+  maxOutputTokens: contentShape.maxOutputTokens.optional(),
   changeNote: changeNote.optional(),
 });
 
@@ -49,6 +60,8 @@ export const updateBotSchema = z.strictObject({
   responsibilities: contentShape.responsibilities.optional(),
   runtime: contentShape.runtime.optional(),
   model: contentShape.model.optional(),
+  temperature: contentShape.temperature.optional(),
+  maxOutputTokens: contentShape.maxOutputTokens.optional(),
   status: z.enum(STATUSES).optional(),
   changeNote: changeNote.optional(),
 });

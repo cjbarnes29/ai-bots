@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useBlocker } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { useUpdateBot } from "../api/hooks";
+import { useModels, useUpdateBot } from "../api/hooks";
 import type { Bot, Runtime, UpdateBotInput } from "../api/types";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ModelSelect } from "./ModelSelect";
 
 // These limits mirror the backend's rules.
-const LIMITS = { name: 80, role: 200, personality: 5000, instructions: 20000, responsibility: 300, items: 50, model: 200 };
+const LIMITS = { name: 80, role: 200, personality: 5000, instructions: 20000, responsibility: 300, items: 50 };
+const TEMPERATURE = { min: 0, max: 2, default: 0.7 };
+const MAX_TOKENS = { min: 1, max: 4096, default: 1024 };
 
 interface FormState {
   name: string;
@@ -15,7 +18,10 @@ interface FormState {
   instructions: string;
   responsibilities: string[];
   runtime: Runtime;
-  model: string;
+  model: string | null;
+  /** Kept as text while typing. Empty = use the default. */
+  temperature: string;
+  maxOutputTokens: string;
 }
 
 function toForm(bot: Bot): FormState {
@@ -26,8 +32,18 @@ function toForm(bot: Bot): FormState {
     instructions: bot.instructions,
     responsibilities: bot.responsibilities,
     runtime: bot.runtime,
-    model: bot.model ?? "",
+    model: bot.model,
+    temperature: bot.temperature === null ? "" : String(bot.temperature),
+    maxOutputTokens: bot.maxOutputTokens === null ? "" : String(bot.maxOutputTokens),
   };
+}
+
+/** Returns the number, null (empty = default), or "invalid". */
+function parseNumber(text: string, min: number, max: number, integer: boolean): number | null | "invalid" {
+  if (text.trim() === "") return null;
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < min || n > max || (integer && !Number.isInteger(n))) return "invalid";
+  return n;
 }
 
 /** Only the fields that actually changed are sent to the backend. */
@@ -41,8 +57,11 @@ function changesBetween(bot: Bot, form: FormState): UpdateBotInput {
     out.responsibilities = form.responsibilities;
   }
   if (form.runtime !== bot.runtime) out.runtime = form.runtime;
-  const model = form.model.trim() === "" ? null : form.model.trim();
-  if (model !== bot.model) out.model = model;
+  if (form.model !== bot.model) out.model = form.model;
+  const temperature = parseNumber(form.temperature, TEMPERATURE.min, TEMPERATURE.max, false);
+  if (temperature !== "invalid" && temperature !== bot.temperature) out.temperature = temperature;
+  const maxTokens = parseNumber(form.maxOutputTokens, MAX_TOKENS.min, MAX_TOKENS.max, true);
+  if (maxTokens !== "invalid" && maxTokens !== bot.maxOutputTokens) out.maxOutputTokens = maxTokens;
   return out;
 }
 
@@ -58,6 +77,7 @@ export function DetailsTab({ bot, hidden, onDirtyChange }: Props) {
   const [newItem, setNewItem] = useState("");
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const update = useUpdateBot(bot.id);
+  const models = useModels();
 
   // Reset the form when a different version of the bot arrives (after saving or restoring).
   // A status change does not change the version, so it never wipes your edits.
@@ -69,6 +89,9 @@ export function DetailsTab({ bot, hidden, onDirtyChange }: Props) {
   const changes = useMemo(() => changesBetween(bot, form), [bot, form]);
   const dirty = Object.keys(changes).length > 0;
   const nameMissing = form.name.trim() === "";
+  const temperatureInvalid = parseNumber(form.temperature, TEMPERATURE.min, TEMPERATURE.max, false) === "invalid";
+  const maxTokensInvalid = parseNumber(form.maxOutputTokens, MAX_TOKENS.min, MAX_TOKENS.max, true) === "invalid";
+  const hasInvalidField = nameMissing || temperatureInvalid || maxTokensInvalid;
   const readOnly = bot.archived;
 
   useEffect(() => {
@@ -101,7 +124,7 @@ export function DetailsTab({ bot, hidden, onDirtyChange }: Props) {
   };
 
   const save = () => {
-    if (!dirty || nameMissing) return;
+    if (!dirty || hasInvalidField) return;
     const body: UpdateBotInput = { ...changes };
     if (note.trim()) body.changeNote = note.trim();
     update.mutate(body, {
@@ -236,14 +259,64 @@ export function DetailsTab({ bot, hidden, onDirtyChange }: Props) {
             <label htmlFor="bot-model" className="label">
               AI model
             </label>
-            <input
+            <ModelSelect
               id="bot-model"
               value={form.model}
-              maxLength={LIMITS.model}
-              placeholder="Chosen in Phase 2"
-              onChange={(e) => set("model", e.target.value)}
+              models={models.data ?? []}
+              disabled={readOnly}
+              onChange={(ref) => set("model", ref)}
             />
-            <p className="hint">Leave empty for now.</p>
+            <p className="hint">Each bot uses its own provider and model. Only free models are available.</p>
+          </div>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="bot-temperature" className="label">
+              Temperature (creativity)
+            </label>
+            <input
+              id="bot-temperature"
+              type="number"
+              step="0.1"
+              min={TEMPERATURE.min}
+              max={TEMPERATURE.max}
+              value={form.temperature}
+              placeholder={`${TEMPERATURE.default} (default)`}
+              aria-invalid={temperatureInvalid}
+              onChange={(e) => set("temperature", e.target.value)}
+            />
+            {temperatureInvalid ? (
+              <p className="mt-1 text-xs text-red-600">Enter a number from {TEMPERATURE.min} to {TEMPERATURE.max}, or leave empty.</p>
+            ) : (
+              <p className="hint">0 = focused and predictable, 2 = very creative. Empty uses {TEMPERATURE.default}.</p>
+            )}
+          </div>
+          <div>
+            <label htmlFor="bot-max-tokens" className="label">
+              Max reply length (tokens)
+            </label>
+            <input
+              id="bot-max-tokens"
+              type="number"
+              step="1"
+              min={MAX_TOKENS.min}
+              max={MAX_TOKENS.max}
+              value={form.maxOutputTokens}
+              placeholder={`${MAX_TOKENS.default.toLocaleString()} (default)`}
+              aria-invalid={maxTokensInvalid}
+              onChange={(e) => set("maxOutputTokens", e.target.value)}
+            />
+            {maxTokensInvalid ? (
+              <p className="mt-1 text-xs text-red-600">
+                Enter a whole number from {MAX_TOKENS.min} to {MAX_TOKENS.max.toLocaleString()}, or leave empty.
+              </p>
+            ) : (
+              <p className="hint">
+                About 4 characters per token. The most allowed is {MAX_TOKENS.max.toLocaleString()}. Empty uses{" "}
+                {MAX_TOKENS.default.toLocaleString()}.
+              </p>
+            )}
           </div>
         </div>
 
@@ -262,7 +335,7 @@ export function DetailsTab({ bot, hidden, onDirtyChange }: Props) {
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className="btn-primary" onClick={save} disabled={!dirty || nameMissing || update.isPending || readOnly}>
+        <button type="button" className="btn-primary" onClick={save} disabled={!dirty || hasInvalidField || update.isPending || readOnly}>
           {update.isPending ? "Saving…" : "Save changes"}
         </button>
         {dirty && !readOnly && <span className="text-sm text-amber-700 dark:text-amber-400">Unsaved changes</span>}

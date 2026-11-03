@@ -28,6 +28,9 @@ function toBot(r: Row): BotRecord {
     responsibilities: parseResponsibilities(r["responsibilities"]),
     runtime: String(r["runtime"]) as Runtime,
     model: r["model"] === null ? null : String(r["model"]),
+    temperature: r["temperature"] === null || r["temperature"] === undefined ? null : Number(r["temperature"]),
+    maxOutputTokens:
+      r["max_output_tokens"] === null || r["max_output_tokens"] === undefined ? null : Number(r["max_output_tokens"]),
     status: String(r["status"]) as BotStatus,
     currentVersion: Number(r["current_version"]),
     archived: Number(r["archived"]) === 1,
@@ -46,6 +49,9 @@ function toVersion(r: Row): BotVersionRecord {
     responsibilities: parseResponsibilities(r["responsibilities"]),
     runtime: String(r["runtime"]) as Runtime,
     model: r["model"] === null ? null : String(r["model"]),
+    temperature: r["temperature"] === null || r["temperature"] === undefined ? null : Number(r["temperature"]),
+    maxOutputTokens:
+      r["max_output_tokens"] === null || r["max_output_tokens"] === undefined ? null : Number(r["max_output_tokens"]),
     changeNote: r["change_note"] === null ? null : String(r["change_note"]),
     restoredFrom: r["restored_from"] === null ? null : Number(r["restored_from"]),
     createdAt: String(r["created_at"]),
@@ -95,8 +101,9 @@ export class AgentManagerRepository {
       .prepare(
         `INSERT INTO bots
            (id, name, role, personality, instructions, responsibilities, runtime, model,
+            temperature, max_output_tokens,
             status, current_version, archived, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'disabled', 1, 0, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'disabled', 1, 0, ?, ?)`,
       )
       .run(
         id,
@@ -107,6 +114,8 @@ export class AgentManagerRepository {
         JSON.stringify(c.responsibilities),
         c.runtime,
         c.model,
+        c.temperature,
+        c.maxOutputTokens,
         now,
         now,
       );
@@ -128,7 +137,8 @@ export class AgentManagerRepository {
     this.db
       .prepare(
         `UPDATE bots SET name = ?, role = ?, personality = ?, instructions = ?,
-           responsibilities = ?, runtime = ?, model = ?, current_version = ?, updated_at = ?
+           responsibilities = ?, runtime = ?, model = ?, temperature = ?, max_output_tokens = ?,
+           current_version = ?, updated_at = ?
          WHERE id = ?`,
       )
       .run(
@@ -139,6 +149,8 @@ export class AgentManagerRepository {
         JSON.stringify(c.responsibilities),
         c.runtime,
         c.model,
+        c.temperature,
+        c.maxOutputTokens,
         version,
         now,
         id,
@@ -167,8 +179,8 @@ export class AgentManagerRepository {
       .prepare(
         `INSERT INTO bot_versions
            (bot_id, version, name, role, personality, instructions, responsibilities,
-            runtime, model, change_note, restored_from, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            runtime, model, temperature, max_output_tokens, change_note, restored_from, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         botId,
@@ -180,6 +192,8 @@ export class AgentManagerRepository {
         JSON.stringify(c.responsibilities),
         c.runtime,
         c.model,
+        c.temperature,
+        c.maxOutputTokens,
         changeNote,
         restoredFrom,
         now,

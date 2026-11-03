@@ -1,4 +1,16 @@
-import { CONNECTORS, type Bot, type BotContent, type BotVersion, type PermissionAuditEntry } from "../api/types";
+import {
+  CONNECTORS,
+  type Bot,
+  type BotContent,
+  type BotVersion,
+  type ChatMessageRecord,
+  type Conversation,
+  type LlmStatus,
+  type ModelView,
+  type PermissionAuditEntry,
+  type ProviderView,
+  type UsageSummary,
+} from "../api/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface RecordedRequest {
@@ -19,6 +31,8 @@ export function makeBot(overrides: Partial<Bot> = {}): Bot {
     responsibilities: [],
     runtime: "builtin",
     model: null,
+    temperature: null,
+    maxOutputTokens: null,
     status: "disabled",
     currentVersion: 1,
     archived: false,
@@ -34,6 +48,120 @@ export function makeBot(overrides: Partial<Bot> = {}): Bot {
   };
 }
 
+export function makeProvider(overrides: Partial<ProviderView> = {}): ProviderView {
+  return {
+    id: "gemini",
+    displayName: "Google Gemini",
+    kind: "cloud",
+    connectable: true,
+    enabled: false,
+    freeConfirmed: false,
+    requiresFreeConfirmation: true,
+    freePolicyLabel: "Free tier: free only while your Google project has no billing account",
+    keyEnv: "GEMINI_API_KEY",
+    keyConfigured: true,
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    baseUrlEditable: false,
+    dailyRequestCap: 50,
+    status: null,
+    statusMessage: null,
+    lastCheckedAt: null,
+    modelCount: 0,
+    enabledModelCount: 0,
+    requestsToday: 0,
+    ...overrides,
+  };
+}
+
+let modelCounter = 0;
+export function makeModel(overrides: Partial<ModelView> = {}): ModelView {
+  const providerId = overrides.providerId ?? "gemini";
+  const modelId = overrides.modelId ?? `model-${++modelCounter}`;
+  return {
+    id: overrides.id ?? ++modelCounter + 1000,
+    providerId,
+    providerName: providerId === "groq" ? "Groq" : providerId === "ollama" ? "Ollama (local)" : providerId === "openrouter" ? "OpenRouter" : "Google Gemini",
+    modelId,
+    ref: `${providerId}/${modelId}`,
+    displayName: modelId,
+    freeStatus: "free_tier",
+    freeSource: "Free tier, you confirm the account has no billing",
+    freeCheckedAt: new Date().toISOString(),
+    contextWindow: null,
+    enabled: true,
+    availability: "available",
+    isLlama: false,
+    callable: true,
+    blockedReason: null,
+    ...overrides,
+  };
+}
+
+export function defaultProviders(): ProviderView[] {
+  return [
+    makeProvider(),
+    makeProvider({ id: "groq", displayName: "Groq", keyEnv: "GROQ_API_KEY", baseUrl: "https://api.groq.com/openai/v1", freePolicyLabel: "Free plan: free only while your Groq account has no payment method" }),
+    makeProvider({
+      id: "openrouter",
+      displayName: "OpenRouter",
+      requiresFreeConfirmation: false,
+      keyEnv: "OPENROUTER_API_KEY",
+      baseUrl: "https://openrouter.ai/api/v1",
+      dailyRequestCap: 40,
+      freePolicyLabel: "Only models ending in :free with a live price of exactly 0 (never buy credits)",
+    }),
+    makeProvider({
+      id: "ollama",
+      displayName: "Ollama (local)",
+      kind: "local",
+      requiresFreeConfirmation: false,
+      keyEnv: null,
+      keyConfigured: true,
+      baseUrl: "http://127.0.0.1:11434/v1",
+      baseUrlEditable: true,
+      dailyRequestCap: null,
+      freePolicyLabel: "Runs on this PC: no cost, no data leaves your computer",
+    }),
+  ];
+}
+
+export const DEFAULT_LIMITS: Record<string, number> = {
+  globalDailyRequests: 100,
+  globalMonthlyRequests: 2000,
+  globalDailyTokens: 200000,
+  globalMonthlyTokens: 2000000,
+  botDailyRequests: 30,
+  botMonthlyRequests: 600,
+  botDailyTokens: 50000,
+  botMonthlyTokens: 500000,
+  botRequestsPerMinute: 6,
+  providerRequestsPerMinute: 10,
+  maxOutputTokensDefault: 1024,
+  maxPromptTokens: 12000,
+  maxMessageChars: 8000,
+  historyMessages: 20,
+  maxConcurrentCloud: 2,
+  maxConcurrentLocal: 1,
+  timeoutMs: 60000,
+  retries: 1,
+  retryDelayMs: 2000,
+  retryDelayMaxMs: 30000,
+  breakerFailures: 3,
+  breakerOpenMs: 60000,
+};
+
+export const EMPTY_USAGE: UsageSummary = {
+  today: { requests: 0, tokens: 0 },
+  month: { requests: 0, tokens: 0 },
+  todayCloud: { requests: 0, tokens: 0 },
+  monthCloud: { requests: 0, tokens: 0 },
+  reportedCostMicroThisMonth: 0,
+  byDay: [],
+  byBot: [],
+  byModel: [],
+  recentProblems: [],
+};
+
 function contentOf(b: BotContent): BotContent {
   return {
     name: b.name,
@@ -43,19 +171,44 @@ function contentOf(b: BotContent): BotContent {
     responsibilities: b.responsibilities,
     runtime: b.runtime,
     model: b.model,
+    temperature: b.temperature,
+    maxOutputTokens: b.maxOutputTokens,
   };
+}
+
+export interface FakeApiOptions {
+  providers?: ProviderView[];
+  models?: ModelView[];
+  usage?: UsageSummary;
 }
 
 /**
  * A tiny in-memory imitation of the real backend, used only by tests.
- * It follows the same rules (versions, restore, archive, permissions, no activation).
+ * It follows the same rules (versions, restore, archive, permissions, no activation,
+ * free-only, locked addresses...).
  */
-export function createFakeApi(initial: Bot[] = []) {
+export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {}) {
   const bots = new Map<string, Bot>();
   const versions = new Map<string, BotVersion[]>();
   const audit = new Map<string, PermissionAuditEntry[]>();
   const requests: RecordedRequest[] = [];
   let auditId = 1;
+
+  // ---- AI models state (tests can read and change it) ----
+  const llm = {
+    providers: new Map<string, ProviderView>((options.providers ?? defaultProviders()).map((p) => [p.id, p])),
+    models: [...(options.models ?? [])],
+    status: { paused: false, freeOnly: true, limits: { ...DEFAULT_LIMITS }, defaults: { ...DEFAULT_LIMITS }, maxOutputTokensCeiling: 4096 } as LlmStatus,
+    usage: options.usage ?? EMPTY_USAGE,
+    /** What "Refresh models" adds, per provider id. */
+    refreshable: {} as Record<string, ModelView[]>,
+    /** What "Test connection" reports, per provider id. */
+    testResult: {} as Record<string, { status: string; message: string }>,
+    conversations: new Map<string, Conversation[]>(),
+    messages: new Map<string, ChatMessageRecord[]>(),
+    /** Queue of replies for the chat endpoint. Each is a function returning a response. When empty: an echo. */
+    chatQueue: [] as ((botId: string, body: any) => Response)[],
+  };
 
   const addVersion = (b: Bot, note: string | null, restoredFrom: number | null = null) => {
     const list = versions.get(b.id) ?? [];
@@ -72,6 +225,140 @@ export function createFakeApi(initial: Bot[] = []) {
   const json = (data: unknown, status = 200) =>
     new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
   const err = (status: number, error: string, message: string) => json({ error, message }, status);
+  const validation = (path: string, message: string) =>
+    json({ error: "validation_error", message: "Invalid input", issues: [{ path, message }] }, 400);
+
+  const providerView = (p: ProviderView): ProviderView => {
+    const mine = llm.models.filter((m) => m.providerId === p.id);
+    return { ...p, modelCount: mine.length, enabledModelCount: mine.filter((m) => m.enabled).length };
+  };
+
+  const handleLlm = (method: string, parts: string[], url: URL, body: any): Response => {
+    const [, , area, id, action] = parts; // ["api","llm", area, id, action]
+    if (area === "status" && method === "GET") return json(llm.status);
+    if (area === "pause" && method === "PUT") {
+      if (typeof body?.paused !== "boolean") return validation("paused", "Expected boolean");
+      llm.status = { ...llm.status, paused: body.paused };
+      return json(llm.status);
+    }
+    if (area === "limits") {
+      if (id === "reset" && method === "POST") {
+        llm.status = { ...llm.status, limits: { ...DEFAULT_LIMITS } };
+        return json(llm.status);
+      }
+      if (method === "PUT") {
+        for (const [k, v] of Object.entries(body ?? {})) {
+          if (!(k in DEFAULT_LIMITS)) return validation(k, "Unrecognized key");
+          if (typeof v !== "number" || !Number.isInteger(v) || v < 1) return validation(k, "Must be a positive whole number");
+          if (k === "maxOutputTokensDefault" && v > 4096) return validation(k, "Too big: at most 4096");
+        }
+        llm.status = { ...llm.status, limits: { ...llm.status.limits, ...body } };
+        return json(llm.status);
+      }
+    }
+    if (area === "providers") {
+      if (!id && method === "GET") return json({ providers: [...llm.providers.values()].map(providerView) });
+      const p = id ? llm.providers.get(id) : undefined;
+      if (!p) return err(404, "provider_not_found", "Provider not found");
+      if (!action && method === "PATCH") {
+        const next = { ...p };
+        if (body.baseUrl !== undefined) {
+          if (!p.baseUrlEditable) return err(400, "base_url_locked", "The address is fixed and cannot be changed.");
+          if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/.test(body.baseUrl)) {
+            return err(400, "invalid_base_url", "The local provider's address must be on this PC (127.0.0.1 or localhost).");
+          }
+          next.baseUrl = body.baseUrl.replace(/\/+$/, "");
+        }
+        if (body.dailyRequestCap !== undefined) next.dailyRequestCap = body.dailyRequestCap;
+        if (body.freeConfirmed !== undefined) {
+          next.freeConfirmed = body.freeConfirmed;
+          if (!body.freeConfirmed) next.enabled = false;
+        }
+        if (body.enabled === true) {
+          if (p.requiresFreeConfirmation && !next.freeConfirmed) {
+            return err(409, "free_not_confirmed", `First confirm that your ${p.displayName} account has no billing.`);
+          }
+          next.enabled = true;
+        } else if (body.enabled === false) next.enabled = false;
+        llm.providers.set(p.id, next);
+        return json({ provider: providerView(next) });
+      }
+      if (action === "test" && method === "POST") {
+        const result = llm.testResult[p.id] ?? { status: "connected", message: "Connected. The provider lists 3 models." };
+        const next = { ...p, status: result.status, statusMessage: result.message, lastCheckedAt: new Date().toISOString() };
+        llm.providers.set(p.id, next);
+        return json({ provider: providerView(next) });
+      }
+      if (action === "refresh-models" && method === "POST") {
+        if (p.kind === "cloud" && !p.keyConfigured) return err(409, "llm_key_missing", `No API key found for ${p.displayName}.`);
+        for (const m of llm.refreshable[p.id] ?? []) {
+          if (!llm.models.some((x) => x.ref === m.ref)) llm.models.push({ ...m, enabled: false, callable: false, blockedReason: "This model is switched off. Enable it in Settings." });
+        }
+        const next = { ...p, status: "connected", statusMessage: "Connected.", lastCheckedAt: new Date().toISOString() };
+        llm.providers.set(p.id, next);
+        return json({ provider: providerView(next), models: llm.models.filter((m) => m.providerId === p.id) });
+      }
+    }
+    if (area === "models") {
+      if (!id && method === "GET") return json({ models: llm.models });
+      const m = llm.models.find((x) => String(x.id) === id);
+      if (!m) return err(404, "model_not_found", "Model not found");
+      if (method === "PATCH") {
+        if (body.enabled && m.freeStatus === "blocked") return err(409, "model_blocked", "This model is blocked (paid or unverified).");
+        m.enabled = body.enabled;
+        const provider = llm.providers.get(m.providerId);
+        m.callable = m.enabled && !!provider?.enabled && (!provider.requiresFreeConfirmation || provider.freeConfirmed) && m.freeStatus !== "blocked" && m.availability === "available";
+        m.blockedReason = m.callable ? null : "This model is switched off or its provider is not ready.";
+        return json({ model: m });
+      }
+    }
+    if (area === "usage" && method === "GET") return json({ usage: llm.usage });
+    return err(404, "not_found", "Not found");
+  };
+
+  const handleChat = (method: string, bot: Bot, parts: string[], body: any): Response | null => {
+    const sub = parts[3];
+    if (sub === "conversations" && method === "GET") {
+      if (!parts[4]) return json({ conversations: llm.conversations.get(bot.id) ?? [] });
+      if (parts[5] === "messages") return json({ messages: llm.messages.get(parts[4]!) ?? [] });
+    }
+    if (sub === "chat" && method === "POST") {
+      if (bot.archived) return err(409, "bot_archived", "This bot is archived. Unarchive it to chat.");
+      if (!bot.model) return err(409, "llm_no_model_selected", "Choose a model for this bot on the Details tab first.");
+      const queued = llm.chatQueue.shift();
+      if (queued) return queued(bot.id, body);
+
+      const now = new Date().toISOString();
+      let convId: string = body.conversationId;
+      const list = llm.conversations.get(bot.id) ?? [];
+      if (!convId) {
+        convId = crypto.randomUUID();
+        list.unshift({ id: convId, botId: bot.id, title: String(body.message).slice(0, 60), createdAt: now, messageCount: 0 });
+        llm.conversations.set(bot.id, list);
+      }
+      const msgs = llm.messages.get(convId) ?? [];
+      const mk = (role: "user" | "assistant", content: string): ChatMessageRecord => ({
+        id: msgs.length + 1 + Math.floor(Math.random() * 1e6),
+        role,
+        content,
+        botVersion: bot.currentVersion,
+        providerId: role === "assistant" ? bot.model!.split("/")[0]! : null,
+        modelId: role === "assistant" ? bot.model!.split("/").slice(1).join("/") : null,
+        inputTokens: role === "assistant" ? 21 : null,
+        outputTokens: role === "assistant" ? 9 : null,
+        tokensEstimated: role === "assistant" ? false : null,
+        createdAt: now,
+      });
+      const userMessage = mk("user", String(body.message));
+      const assistantMessage = mk("assistant", `Echo: ${body.message}`);
+      msgs.push(userMessage, assistantMessage);
+      llm.messages.set(convId, msgs);
+      const conv = list.find((c) => c.id === convId);
+      if (conv) conv.messageCount = msgs.length;
+      return json({ conversationId: convId, userMessage, assistantMessage, warning: null });
+    }
+    return null;
+  };
 
   const handle = (method: string, path: string, body: any): Response => {
     const url = new URL(path, "http://localhost");
@@ -79,6 +366,7 @@ export function createFakeApi(initial: Bot[] = []) {
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
+    if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);
     if (parts[0] !== "api" || parts[1] !== "bots") return err(404, "not_found", "Not found");
 
     if (!id) {
@@ -95,6 +383,9 @@ export function createFakeApi(initial: Bot[] = []) {
     }
     if (!bot) return err(404, "bot_not_found", "Bot not found");
     const sub = parts[3];
+
+    const chat = handleChat(method, bot, parts, body);
+    if (chat) return chat;
 
     if (!sub) {
       if (method === "GET") return json({ bot });
@@ -178,6 +469,7 @@ export function createFakeApi(initial: Bot[] = []) {
     fetch: fetchImpl,
     requests,
     bots,
+    llm,
     /** Requests that are not plain reads. */
     writes: () => requests.filter((r) => r.method !== "GET"),
   };

@@ -334,7 +334,7 @@ describe("database-level safety rules (cannot be broken even by buggy code)", ()
 
   it("applies migrations only once", () => {
     const { db } = seed();
-    const rows = db.prepare("SELECT version FROM schema_migrations").all();
-    expect(rows).toHaveLength(1);
+    const rows = db.prepare("SELECT version FROM schema_migrations ORDER BY version").all();
+    expect(rows.map((r) => r["version"])).toEqual(["001_init.sql", "002_llm.sql", "003_chat.sql"]);
   });
 });

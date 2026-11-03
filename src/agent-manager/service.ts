@@ -27,6 +27,8 @@ function contentOf(bot: BotContent): BotContent {
     responsibilities: bot.responsibilities,
     runtime: bot.runtime,
     model: bot.model,
+    temperature: bot.temperature,
+    maxOutputTokens: bot.maxOutputTokens,
   };
 }
 
@@ -34,8 +36,14 @@ function sameContent(a: BotContent, b: BotContent): boolean {
   return JSON.stringify(contentOf(a)) === JSON.stringify(contentOf(b));
 }
 
+/** Throws if a "provider/model" choice is not allowed (unknown model, or a blocked paid model). */
+export type ModelValidator = (modelRef: string) => void;
+
 export class AgentManagerService {
-  constructor(private readonly repo: AgentManagerRepository) {}
+  constructor(
+    private readonly repo: AgentManagerRepository,
+    private readonly validateModel: ModelValidator = () => {},
+  ) {}
 
   private now(): string {
     return new Date().toISOString();
@@ -67,6 +75,7 @@ export class AgentManagerService {
 
   /** New bots are always "disabled", with every external permission OFF. */
   createBot(input: CreateBotInput): BotWithPermissions {
+    if (input.model) this.validateModel(input.model);
     const content: BotContent = {
       name: input.name,
       role: input.role ?? "",
@@ -75,6 +84,8 @@ export class AgentManagerService {
       responsibilities: input.responsibilities ?? [],
       runtime: input.runtime ?? "builtin",
       model: input.model ?? null,
+      temperature: input.temperature ?? null,
+      maxOutputTokens: input.maxOutputTokens ?? null,
     };
     const id = randomUUID();
     const now = this.now();
@@ -99,6 +110,10 @@ export class AgentManagerService {
       );
     }
 
+    // Only a NEW model choice is checked. A model that was valid when chosen, and has since
+    // become unavailable, does not block unrelated edits (the chat explains the problem instead).
+    if (input.model && input.model !== bot.model) this.validateModel(input.model);
+
     const next: BotContent = {
       name: input.name ?? bot.name,
       role: input.role ?? bot.role,
@@ -107,6 +122,8 @@ export class AgentManagerService {
       responsibilities: input.responsibilities ?? bot.responsibilities,
       runtime: input.runtime ?? bot.runtime,
       model: input.model !== undefined ? input.model : bot.model,
+      temperature: input.temperature !== undefined ? input.temperature : bot.temperature,
+      maxOutputTokens: input.maxOutputTokens !== undefined ? input.maxOutputTokens : bot.maxOutputTokens,
     };
 
     const now = this.now();

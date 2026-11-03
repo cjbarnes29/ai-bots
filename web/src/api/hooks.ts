@@ -3,11 +3,19 @@ import { api } from "./client";
 import type {
   Bot,
   BotVersion,
+  ChatMessageRecord,
+  ChatReply,
   Connector,
+  Conversation,
   CreateBotInput,
+  LimitsMap,
+  LlmStatus,
+  ModelView,
   Permission,
   PermissionAuditEntry,
+  ProviderView,
   UpdateBotInput,
+  UsageSummary,
 } from "./types";
 
 export function useBots(includeArchived: boolean) {
@@ -105,5 +113,144 @@ export function useSetReadPermission(id: string) {
         })
       ).permissions,
     onSuccess: refresh,
+  });
+}
+
+// ---------------- AI models (Phase 2) ----------------
+
+/** Everything under ["llm"] is refetched after any change to providers, models, limits or usage. */
+function useRefreshLlm() {
+  const qc = useQueryClient();
+  return () => qc.invalidateQueries({ queryKey: ["llm"] });
+}
+
+export function useLlmStatus() {
+  return useQuery({ queryKey: ["llm", "status"], queryFn: () => api<LlmStatus>("GET", "/api/llm/status") });
+}
+
+export function useProviders() {
+  return useQuery({
+    queryKey: ["llm", "providers"],
+    queryFn: async () => (await api<{ providers: ProviderView[] }>("GET", "/api/llm/providers")).providers,
+  });
+}
+
+export function useModels() {
+  return useQuery({
+    queryKey: ["llm", "models"],
+    queryFn: async () => (await api<{ models: ModelView[] }>("GET", "/api/llm/models")).models,
+  });
+}
+
+export function useUsage(days: number) {
+  return useQuery({
+    queryKey: ["llm", "usage", days],
+    queryFn: async () => (await api<{ usage: UsageSummary }>("GET", `/api/llm/usage?days=${days}`)).usage,
+  });
+}
+
+export interface ProviderPatch {
+  enabled?: boolean;
+  freeConfirmed?: boolean;
+  dailyRequestCap?: number | null;
+  baseUrl?: string;
+}
+
+export function usePatchProvider() {
+  const refresh = useRefreshLlm();
+  return useMutation({
+    mutationFn: async (input: { id: string; patch: ProviderPatch }) =>
+      (await api<{ provider: ProviderView }>("PATCH", `/api/llm/providers/${input.id}`, input.patch)).provider,
+    onSuccess: refresh,
+  });
+}
+
+export function useTestProvider() {
+  const refresh = useRefreshLlm();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      (await api<{ provider: ProviderView }>("POST", `/api/llm/providers/${id}/test`)).provider,
+    onSuccess: refresh,
+    onError: refresh,
+  });
+}
+
+export function useRefreshModels() {
+  const refresh = useRefreshLlm();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      api<{ provider: ProviderView; models: ModelView[] }>("POST", `/api/llm/providers/${id}/refresh-models`),
+    onSuccess: refresh,
+    onError: refresh,
+  });
+}
+
+export function usePatchModel() {
+  const refresh = useRefreshLlm();
+  return useMutation({
+    mutationFn: async (input: { id: number; enabled: boolean }) =>
+      (await api<{ model: ModelView }>("PATCH", `/api/llm/models/${input.id}`, { enabled: input.enabled })).model,
+    onSuccess: refresh,
+  });
+}
+
+export function useUpdateLimits() {
+  const refresh = useRefreshLlm();
+  return useMutation({
+    mutationFn: async (limits: LimitsMap) => api<LlmStatus>("PUT", "/api/llm/limits", limits),
+    onSuccess: refresh,
+  });
+}
+
+export function useResetLimits() {
+  const refresh = useRefreshLlm();
+  return useMutation({
+    mutationFn: async () => api<LlmStatus>("POST", "/api/llm/limits/reset"),
+    onSuccess: refresh,
+  });
+}
+
+export function useSetPaused() {
+  const refresh = useRefreshLlm();
+  return useMutation({
+    mutationFn: async (paused: boolean) => api<LlmStatus>("PUT", "/api/llm/pause", { paused }),
+    onSuccess: refresh,
+  });
+}
+
+// ---------------- Test chat ----------------
+
+export function useConversations(botId: string) {
+  return useQuery({
+    queryKey: ["chat", botId, "conversations"],
+    queryFn: async () =>
+      (await api<{ conversations: Conversation[] }>("GET", `/api/bots/${botId}/conversations`)).conversations,
+  });
+}
+
+export function useMessages(botId: string, conversationId: string | null) {
+  return useQuery({
+    queryKey: ["chat", botId, "messages", conversationId],
+    enabled: conversationId !== null,
+    queryFn: async () =>
+      (
+        await api<{ messages: ChatMessageRecord[] }>(
+          "GET",
+          `/api/bots/${botId}/conversations/${conversationId}/messages`,
+        )
+      ).messages,
+  });
+}
+
+export function useSendChat(botId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { message: string; conversationId: string | null }) =>
+      api<ChatReply>("POST", `/api/bots/${botId}/chat`, {
+        message: input.message,
+        ...(input.conversationId ? { conversationId: input.conversationId } : {}),
+      }),
+    // Usage numbers change after every call, whether it worked or not.
+    onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: ["chat", botId] }), qc.invalidateQueries({ queryKey: ["llm"] })]),
   });
 }

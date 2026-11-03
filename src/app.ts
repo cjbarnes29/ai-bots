@@ -4,8 +4,18 @@ import { ZodError } from "zod";
 import { AgentManagerRepository } from "./agent-manager/repository.js";
 import { registerAgentManagerRoutes } from "./agent-manager/routes.js";
 import { AgentManagerService } from "./agent-manager/service.js";
-import { AppError } from "./agent-manager/types.js";
+import { ChatRepository } from "./chat/repository.js";
+import { registerChatRoutes } from "./chat/routes.js";
+import { ChatService } from "./chat/service.js";
 import { openDatabase } from "./db/database.js";
+import { AppError } from "./errors.js";
+import { ModelCatalogService } from "./llm/catalog.js";
+import { defaultProviderFactory, type ProviderFactory } from "./llm/factory.js";
+import { LlmRepository } from "./llm/repository.js";
+import { registerLlmRoutes } from "./llm/routes.js";
+import { LlmService } from "./llm/service.js";
+import { UsageRepository } from "./llm/usage.js";
+import { createRuntimeRegistry } from "./runtimes/registry.js";
 import { CLIENT_HEADER, registerSecurity } from "./security.js";
 
 export interface BuildAppOptions {
@@ -14,6 +24,10 @@ export interface BuildAppOptions {
   logger?: boolean;
   /** Websites allowed to call the API from a browser (the dashboard's address). */
   dashboardOrigins?: string[];
+  /** Tests can supply their own provider connections, a fake clock and a fake sleep. */
+  providerFactory?: ProviderFactory;
+  clock?: () => number;
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
@@ -65,11 +79,29 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     return reply.code(500).send({ error: "internal_error", message: "Something went wrong" });
   });
 
-  app.get("/", async () => ({ message: "Hello from the AI Workforce Platform", phase: 1 }));
+  app.get("/", async () => ({ message: "Hello from the AI Workforce Platform", phase: 2 }));
   app.get("/health", async () => ({ status: "ok" }));
 
-  const service = new AgentManagerService(new AgentManagerRepository(db));
-  await registerAgentManagerRoutes(app, service);
+  // ---- AI models (providers, models, limits, usage) ----
+  const now = options.clock ?? Date.now;
+  const llmRepo = new LlmRepository(db);
+  const usageRepo = new UsageRepository(db);
+  const factory = options.providerFactory ?? defaultProviderFactory;
+  const catalog = new ModelCatalogService(llmRepo, usageRepo, factory, now);
+  catalog.ensureProviders();
+  const llm = new LlmService(llmRepo, usageRepo, catalog, factory, {
+    now,
+    ...(options.sleep ? { sleep: options.sleep } : {}),
+  });
+
+  // ---- Agent Manager (a bot's model is checked against the catalog) ----
+  const agentService = new AgentManagerService(new AgentManagerRepository(db), (ref) => catalog.validateModelRef(ref));
+  await registerAgentManagerRoutes(app, agentService);
+  await registerLlmRoutes(app, { catalog, llm, usage: usageRepo, now });
+
+  // ---- Test chat: bots reply only when you send a message. No tools. ----
+  const chat = new ChatService(new ChatRepository(db), (id) => agentService.getBot(id), createRuntimeRegistry(llm), llm, now);
+  await registerChatRoutes(app, chat);
 
   return app;
 }

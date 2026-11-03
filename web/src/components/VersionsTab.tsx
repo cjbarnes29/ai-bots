@@ -12,11 +12,13 @@ const FIELDS: { key: keyof BotContent; label: string }[] = [
   { key: "responsibilities", label: "Responsibilities" },
   { key: "runtime", label: "Runtime" },
   { key: "model", label: "AI model" },
+  { key: "temperature", label: "Temperature" },
+  { key: "maxOutputTokens", label: "Max reply length" },
 ];
 
 function show(value: BotContent[keyof BotContent]): string {
   if (Array.isArray(value)) return value.length ? value.map((v) => `• ${v}`).join("\n") : "(none)";
-  if (value === null || value === "") return "(empty)";
+  if (value === null || value === "") return "(default)";
   return String(value);
 }
 

@@ -15,7 +15,12 @@ export interface BotContent {
   instructions: string;
   responsibilities: string[];
   runtime: Runtime;
+  /** "providerId/modelId", e.g. "groq/llama-3.1-8b-instant". Null = no model chosen yet. */
   model: string | null;
+  /** 0.0 to 2.0. Null = use the platform default (0.7). */
+  temperature: number | null;
+  /** 1 to 4096. Null = use the platform default (1,024). */
+  maxOutputTokens: number | null;
 }
 
 export interface BotRecord extends BotContent {
@@ -52,13 +57,5 @@ export interface PermissionAuditRecord {
   createdAt: string;
 }
 
-/** Errors we raise on purpose, with an HTTP status the API can return. */
-export class AppError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly code: string,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+// AppError now lives in a shared file so other modules can use it. Re-exported for compatibility.
+export { AppError } from "../errors.js";

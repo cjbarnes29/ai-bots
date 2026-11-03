@@ -1,21 +1,41 @@
-import { Link, Outlet, type RouteObject } from "react-router-dom";
+import { Link, NavLink, Outlet, type RouteObject } from "react-router-dom";
 import { BotEditor } from "./pages/BotEditor";
 import { BotList } from "./pages/BotList";
+import { Settings } from "./pages/Settings";
+import { Usage } from "./pages/Usage";
+
+const navClass = ({ isActive }: { isActive: boolean }) =>
+  `rounded-md px-3 py-1.5 text-sm font-medium ${
+    isActive
+      ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200"
+      : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+  }`;
 
 function Layout() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <Link to="/" className="text-lg font-bold">
             AI Workforce Platform
           </Link>
-          <span className="text-sm text-slate-500">Agent Manager</span>
+          <nav aria-label="Main" className="flex gap-1">
+            <NavLink to="/" end className={navClass}>
+              Bots
+            </NavLink>
+            <NavLink to="/usage" className={navClass}>
+              Usage
+            </NavLink>
+            <NavLink to="/settings" className={navClass}>
+              Settings
+            </NavLink>
+          </nav>
         </div>
       </header>
       <div className="border-b border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
         <p className="mx-auto max-w-6xl px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
-          Bots can't run yet. Execution arrives in Phase 2, and connectors arrive after the approval system is built and tested.
+          Bots reply only when you message them. Tools and outside access (Gmail, Telegram, browser) stay disabled until the
+          approval system is built and tested. Only free models can be used.
         </p>
       </div>
       <main className="mx-auto max-w-6xl px-4 py-6">
@@ -42,6 +62,8 @@ export const routes: RouteObject[] = [
     children: [
       { path: "/", element: <BotList /> },
       { path: "/bots/:id", element: <BotEditor /> },
+      { path: "/usage", element: <Usage /> },
+      { path: "/settings", element: <Settings /> },
       { path: "*", element: <NotFound /> },
     ],
   },

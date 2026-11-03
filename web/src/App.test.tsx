@@ -20,10 +20,11 @@ function renderApp(api: ReturnType<typeof createFakeApi> | { fetch: typeof fetch
 }
 
 describe("bot list", () => {
-  it("shows the Phase 2 banner and an empty state with a way to create the first bot", async () => {
+  it("shows the safety banner and an empty state with a way to create the first bot", async () => {
     renderApp(createFakeApi());
     expect(await screen.findByText("Create your first bot")).toBeInTheDocument();
-    expect(screen.getByText(/Bots can't run yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Bots reply only when you message them/)).toBeInTheDocument();
+    expect(screen.getByText(/Only free models can be used/)).toBeInTheDocument();
   });
 
   it("lists bots with status, role, access summary, and hides archived ones until asked", async () => {

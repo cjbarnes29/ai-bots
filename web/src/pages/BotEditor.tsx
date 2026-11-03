@@ -3,15 +3,17 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useArchiveBot, useBot, useDuplicateBot, useUnarchiveBot, useUpdateBot } from "../api/hooks";
 import type { BotStatus } from "../api/types";
+import { ChatTab } from "../components/ChatTab";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DetailsTab } from "../components/DetailsTab";
 import { PermissionsTab } from "../components/PermissionsTab";
 import { StatusBadge } from "../components/StatusBadge";
 import { VersionsTab } from "../components/VersionsTab";
 
-type Tab = "details" | "versions" | "permissions";
+type Tab = "details" | "chat" | "versions" | "permissions";
 const TABS: { id: Tab; label: string }[] = [
   { id: "details", label: "Details" },
+  { id: "chat", label: "Chat" },
   { id: "versions", label: "Versions" },
   { id: "permissions", label: "Permissions" },
 ];
@@ -81,7 +83,7 @@ export function BotEditor() {
               <option value="disabled">Disabled</option>
               <option value="paused">Paused</option>
               <option value="active" disabled>
-                Active (available in Phase 2)
+                Active (not available yet)
               </option>
             </select>
           </div>
@@ -133,6 +135,7 @@ export function BotEditor() {
 
       {/* Details stays mounted (just hidden) so unsaved edits survive switching tabs. */}
       <DetailsTab bot={b} hidden={tab !== "details"} onDirtyChange={handleDirty} />
+      {tab === "chat" && <ChatTab bot={b} hasUnsavedEdits={dirty} />}
       {tab === "versions" && <VersionsTab bot={b} hasUnsavedEdits={dirty} />}
       {tab === "permissions" && <PermissionsTab bot={b} />}
 
