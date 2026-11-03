@@ -119,7 +119,14 @@ function TaskNodeView({ node }: { node: TaskNode }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-medium">
             {node.assigneeName}
-            <span className="text-sm font-normal text-slate-500"> · asked by {node.requestedByName}</span>
+            <span className="text-sm font-normal text-slate-500">
+              {" · "}
+              {node.origin === "schedule"
+                ? `started by schedule “${node.originLabel}”`
+                : node.origin === "trigger"
+                  ? `started by trigger “${node.originLabel}”`
+                  : `asked by ${node.requestedByName}`}
+            </span>
           </p>
           <StatusChip status={node.status} />
         </div>

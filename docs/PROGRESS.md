@@ -26,6 +26,25 @@ Update it at the end of every phase.
 | 1 Agent Manager | `cae1fd5` backend, `60f7a7d` dashboard | SQLite, versions, permissions, React dashboard |
 | 2 (2a-2d) AI models | `60b8000` | 4 provider plugins, free-only gate, limits, usage, chat. 180 backend + 60 dashboard tests, 12 real-browser checks |
 | 3 Collaboration | `38fc8fd` | Allow-list (empty by default), task engine, Tasks page, Team tab, teamwork limits. 224 backend + 76 dashboard tests, 8 real-browser checks |
+| 4 Automation | (see `git log`) | Schedules (every N min / daily / once) and text triggers (event, task result), kill switch, run log. 299 backend + 103 dashboard tests, 13 real-browser checks |
+
+### Phase 4 facts (so they need not be re-read)
+- Code: `src/automation/` (`service.ts` is the core, `timing.ts` pure time maths, `scheduler.ts` the 30 s clock),
+  migration `005_automation.sql` (tasks gain `origin`, `origin_id`, `origin_label`, `origin_depth`). Dashboard page `/automation`.
+- Every automatic run goes through `TaskEngine.submit` (free-only gate, AI limits, pause, usage). Text only; no connectors.
+- New schedules and triggers are created OFF. Min 15 min between runs, 20 runs/day total, 10/day per source, trigger cooldown
+  >= 30 s, max 2 automatic hops, auto-OFF after 3 failures in a row. Ceilings in `src/automation/limits.ts`.
+- Never replays missed runs (more than 5 min late = skipped and logged). Nothing runs while the app is stopped.
+- Kill switch (`/api/automation/pause`) is separate from the AI pause switch; both are reported before cooldowns.
+- The real server starts the clock (`app.automation.start()` in `server.ts`; `AUTOMATION_TICK_MS` only speeds up tests).
+  `buildApp` never starts it; tests call `app.automation.tick()` with a fake clock.
+- Events enter through `POST /api/events` (test form now; Telegram/Gmail will use this same door in Phases 6-7).
+- Found and fixed by tests: `parseDays("")` meant Sunday; pause reason hidden behind cooldown; nav overflowed at 375px.
+
+### Lessons (do not repeat)
+- **Never rewrite files with PowerShell `Get-Content`/`Set-Content`** (it turns characters like the middle dot into garbage).
+  Use the Edit/Write tools. A scan for `[âÂÃ]` finds this damage.
+- The owner allowed all PowerShell calls for this project via `.claude/settings.local.json` (git-ignored).
 
 ### Phase 3 facts (so they need not be re-read)
 - Delegation = a fenced ```` ```delegate ```` JSON block in a bot's TEXT reply, read by the platform. No tools are ever
@@ -43,10 +62,14 @@ Update it at the end of every phase.
 - Owner should copy `data/app.db*` somewhere safe before first starting a new version.
 
 ## Roadmap
-~~3 Collaboration~~ done -> **4 Automation (schedules/triggers, text only) is next** -> 5 Approvals + secrets vault +
-audit -> 6 Telegram -> 7 Gmail -> 8 Browser -> 9 Android/remote access -> 10 OpenClaw (optional).
-Phase 4 must respect: scheduled runs create tasks through `TaskEngine.submit` (so all limits, pause and free-only apply),
-a global kill switch, small default frequency limits (free tiers!), and nothing running when the app is stopped.
+~~3 Collaboration~~ and ~~4 Automation~~ done -> **5 Approvals + secrets vault + audit is next** -> 6 Telegram -> 7 Gmail ->
+8 Browser -> 9 Android/remote access -> 10 OpenClaw (optional).
+Phase 5 is the gate for every external connector: tools stay OFF until the approval system exists AND is tested. Design notes:
+external READ off by default per bot (already in `bot_permissions`), external WRITE always needs the owner's approval each
+time (`write_policy` is locked to `approval_required` in the database), full audit log, secrets vault replacing `.env` keys.
+Phases 6-8 need the owner's own credentials (Telegram bot token, Google OAuth, browser) and cannot be verified against the
+real services without them; build them behind the approval gate with fake local servers in tests, and say plainly what is
+unverified. Phase 10 (OpenClaw) needs the owner's separate approval to install anything.
 
 ## How to work here
 - Backend: `src/` (Fastify, `node:sqlite`, zod). Dashboard: `web/` (React, Vite, Tailwind 4, TanStack Query).

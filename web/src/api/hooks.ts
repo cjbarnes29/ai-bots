@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
 import type {
@@ -6,12 +6,20 @@ import type {
   BotVersion,
   ChatMessageRecord,
   ChatReply,
+  AutomationRun,
+  AutomationStatus,
   Connector,
   Conversation,
   CreateBotInput,
   DelegationAuditEntry,
   DelegationLimitsResponse,
+  EventOutcome,
   RootSummary,
+  RunOutcome,
+  Schedule,
+  ScheduleInput,
+  Trigger,
+  TriggerInput,
   TaskRecord,
   TaskTree,
   TeamMember,
@@ -336,5 +344,138 @@ export function useResetDelegationLimits() {
   return useMutation({
     mutationFn: () => api<DelegationLimitsResponse>("POST", "/api/delegation/limits/reset"),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["delegation-limits"] }),
+  });
+}
+
+// ---------------- Automation (Phase 4) ----------------
+// The clock runs in the background, so these look again every 5 seconds while the page is open.
+
+const WATCH = 5000;
+
+export function useAutomationStatus() {
+  return useQuery({
+    queryKey: ["automation", "status"],
+    queryFn: () => api<AutomationStatus>("GET", "/api/automation/status"),
+    refetchInterval: WATCH,
+  });
+}
+
+export function useSchedules() {
+  return useQuery({
+    queryKey: ["automation", "schedules"],
+    queryFn: async () => (await api<{ schedules: Schedule[] }>("GET", "/api/schedules")).schedules,
+    refetchInterval: WATCH,
+  });
+}
+
+export function useTriggers() {
+  return useQuery({
+    queryKey: ["automation", "triggers"],
+    queryFn: async () => (await api<{ triggers: Trigger[] }>("GET", "/api/triggers")).triggers,
+    refetchInterval: WATCH,
+  });
+}
+
+export function useAutomationRuns(limit = 30) {
+  return useQuery({
+    queryKey: ["automation", "runs", limit],
+    queryFn: async () => (await api<{ runs: AutomationRun[] }>("GET", `/api/automation/runs?limit=${limit}`)).runs,
+    refetchInterval: WATCH,
+  });
+}
+
+function useRefreshAutomation() {
+  const qc = useQueryClient();
+  return () => Promise.all([qc.invalidateQueries({ queryKey: ["automation"] }), qc.invalidateQueries({ queryKey: ["tasks"] })]);
+}
+
+export function useSetAutomationPaused() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: (paused: boolean) => api<AutomationStatus>("PUT", "/api/automation/pause", { paused }),
+    onSuccess: refresh,
+  });
+}
+
+export function useUpdateAutomationLimits() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: (limits: Record<string, number>) => api<AutomationStatus>("PUT", "/api/automation/limits", limits),
+    onSuccess: refresh,
+  });
+}
+
+export function useResetAutomationLimits() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: () => api<AutomationStatus>("POST", "/api/automation/limits/reset"),
+    onSuccess: refresh,
+  });
+}
+
+export function useCreateSchedule() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: async (input: ScheduleInput) => (await api<{ schedule: Schedule }>("POST", "/api/schedules", input)).schedule,
+    onSuccess: refresh,
+  });
+}
+
+export function useUpdateSchedule() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: async (input: { id: string; patch: ScheduleInput }) =>
+      (await api<{ schedule: Schedule }>("PATCH", `/api/schedules/${input.id}`, input.patch)).schedule,
+    onSuccess: refresh,
+  });
+}
+
+export function useDeleteSchedule() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: (id: string) => api<void>("DELETE", `/api/schedules/${id}`),
+    onSuccess: refresh,
+  });
+}
+
+export function useRunScheduleNow() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: async (id: string) => (await api<{ outcome: RunOutcome }>("POST", `/api/schedules/${id}/run-now`)).outcome,
+    onSettled: refresh,
+  });
+}
+
+export function useCreateTrigger() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: async (input: TriggerInput) => (await api<{ trigger: Trigger }>("POST", "/api/triggers", input)).trigger,
+    onSuccess: refresh,
+  });
+}
+
+export function useUpdateTrigger() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: async (input: { id: string; patch: TriggerInput }) =>
+      (await api<{ trigger: Trigger }>("PATCH", `/api/triggers/${input.id}`, input.patch)).trigger,
+    onSuccess: refresh,
+  });
+}
+
+export function useDeleteTrigger() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: (id: string) => api<void>("DELETE", `/api/triggers/${id}`),
+    onSuccess: refresh,
+  });
+}
+
+export function useSendEvent() {
+  const refresh = useRefreshAutomation();
+  return useMutation({
+    mutationFn: async (input: { name: string; text: string }) =>
+      (await api<{ outcomes: EventOutcome[] }>("POST", "/api/events", input)).outcomes,
+    onSettled: refresh,
   });
 }

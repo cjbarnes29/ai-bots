@@ -1,4 +1,5 @@
-import { Link, NavLink, Outlet, type RouteObject } from "react-router-dom";
+﻿import { Link, NavLink, Outlet, type RouteObject } from "react-router-dom";
+import { Automation } from "./pages/Automation";
 import { BotEditor } from "./pages/BotEditor";
 import { BotList } from "./pages/BotList";
 import { Settings } from "./pages/Settings";
@@ -20,12 +21,15 @@ function Layout() {
           <Link to="/" className="text-lg font-bold">
             AI Workforce Platform
           </Link>
-          <nav aria-label="Main" className="flex gap-1">
+          <nav aria-label="Main" className="flex flex-wrap gap-1">
             <NavLink to="/" end className={navClass}>
               Bots
             </NavLink>
             <NavLink to="/tasks" className={navClass}>
               Tasks
+            </NavLink>
+            <NavLink to="/automation" className={navClass}>
+              Automation
             </NavLink>
             <NavLink to="/usage" className={navClass}>
               Usage
@@ -66,6 +70,7 @@ export const routes: RouteObject[] = [
     children: [
       { path: "/", element: <BotList /> },
       { path: "/bots/:id", element: <BotEditor /> },
+      { path: "/automation", element: <Automation /> },
       { path: "/tasks", element: <TaskList /> },
       { path: "/tasks/:id", element: <TaskDetail /> },
       { path: "/usage", element: <Usage /> },

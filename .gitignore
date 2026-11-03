@@ -23,3 +23,6 @@ data/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Personal Claude Code settings for this project (never commit)
+.claude/

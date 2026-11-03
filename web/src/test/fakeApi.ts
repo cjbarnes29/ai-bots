@@ -1,10 +1,15 @@
-import {
+﻿import {
   CONNECTORS,
   type Bot,
   type BotContent,
   type BotVersion,
   type ChatMessageRecord,
+  type AutomationRun,
   type Conversation,
+  type EventOutcome,
+  type RunOutcome,
+  type Schedule,
+  type Trigger,
   type DelegationAuditEntry,
   type TaskNode,
   type TaskTree,
@@ -403,7 +408,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
       const task: TaskNode = {
-        id, rootId: id, parentId: null, assigneeBotId: bot.id, assigneeName: bot.name, requestedBy: "user", requestedByName: "You",
+        id, rootId: id, parentId: null, assigneeBotId: bot.id, assigneeName: bot.name, requestedBy: "user", requestedByName: "You", origin: "user", originId: null, originLabel: null, originDepth: 0,
         instruction: String(body.instruction).trim(), depth: 0, status: "pending", result: null, errorCode: null, errorMessage: null,
         llmCalls: 0, inputTokens: 0, outputTokens: 0, createdAt: now, startedAt: null, finishedAt: null, children: [],
       };
@@ -446,6 +451,139 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     return null;
   };
 
+  // ---- automation state (tests can read and change it) ----
+  const auto = {
+    schedules: [] as Schedule[],
+    triggers: [] as Trigger[],
+    runs: [] as AutomationRun[],
+    paused: false,
+    runsToday: 0,
+    limits: { minIntervalMinutes: 15, maxRunsPerDay: 20, maxRunsPerSourcePerDay: 10, maxConsecutiveFailures: 3, maxHops: 2, minCooldownSeconds: 30 } as Record<string, number>,
+    /** What "Send event" and "Run now" answer. Tests can replace these. */
+    runNowOutcome: { status: "started", taskId: "11111111-1111-4111-8111-111111111111" } as RunOutcome,
+    eventOutcomes: [{ status: "skipped", reason: "No enabled trigger matched this event.", triggerId: null, triggerName: "(none)" }] as EventOutcome[],
+  };
+  const DEFAULT_AUTO_LIMITS = { ...auto.limits };
+  const autoStatus = () => ({
+    paused: auto.paused,
+    limits: auto.limits,
+    defaults: DEFAULT_AUTO_LIMITS,
+    counts: {
+      schedules: auto.schedules.length,
+      enabledSchedules: auto.schedules.filter((s) => s.enabled).length,
+      triggers: auto.triggers.length,
+      enabledTriggers: auto.triggers.filter((t) => t.enabled).length,
+    },
+    runsToday: auto.runsToday,
+  });
+
+  const handleAuto = (method: string, parts: string[], body: any): Response | null => {
+    const area = parts[1];
+    if (area === "automation") {
+      if (parts[2] === "status" && method === "GET") return json(autoStatus());
+      if (parts[2] === "runs" && method === "GET") return json({ runs: auto.runs });
+      if (parts[2] === "pause" && method === "PUT") {
+        auto.paused = !!body.paused;
+        return json(autoStatus());
+      }
+      if (parts[2] === "limits" && parts[3] === "reset" && method === "POST") {
+        auto.limits = { ...DEFAULT_AUTO_LIMITS };
+        return json(autoStatus());
+      }
+      if (parts[2] === "limits" && method === "PUT") {
+        const ceilings: Record<string, number> = { minIntervalMinutes: 1440, maxRunsPerDay: 200, maxRunsPerSourcePerDay: 100, maxConsecutiveFailures: 10, maxHops: 4, minCooldownSeconds: 3600 };
+        for (const [k, v] of Object.entries(body ?? {})) {
+          if (!(k in ceilings)) return validation(k, "Unrecognized key");
+          if (typeof v !== "number" || v > ceilings[k]!) return validation(k, `Too big: at most ${ceilings[k]}`);
+        }
+        auto.limits = { ...auto.limits, ...body };
+        return json(autoStatus());
+      }
+    }
+    if (area === "schedules") {
+      const id = parts[2];
+      const s = id ? auto.schedules.find((x) => x.id === id) : undefined;
+      if (!id && method === "GET") return json({ schedules: auto.schedules });
+      if (!id && method === "POST") {
+        if (body.kind === "interval" && body.intervalMinutes < auto.limits["minIntervalMinutes"]!) {
+          return err(400, "interval_too_short", `Runs must be at least ${auto.limits["minIntervalMinutes"]} minutes apart (this protects your free-tier limits).`);
+        }
+        const bot = bots.get(body.botId);
+        if (!bot) return err(400, "invalid_bot", "The chosen bot does not exist.");
+        const now = new Date().toISOString();
+        const created: Schedule = {
+          id: crypto.randomUUID(), name: body.name, botId: body.botId, botName: bot.name, instruction: body.instruction, kind: body.kind,
+          intervalMinutes: body.kind === "interval" ? body.intervalMinutes : null, timeOfDay: body.kind === "daily" ? body.timeOfDay : null,
+          days: body.kind === "daily" ? (body.days ?? [0, 1, 2, 3, 4, 5, 6]) : [0, 1, 2, 3, 4, 5, 6], runAt: body.kind === "once" ? body.runAt : null,
+          enabled: false, nextRunAt: null, lastRunAt: null, consecutiveFailures: 0, disabledReason: null, createdAt: now, updatedAt: now,
+        };
+        auto.schedules.push(created);
+        return json({ schedule: created }, 201);
+      }
+      if (!s) return err(404, "schedule_not_found", "Schedule not found");
+      if (!parts[3] && method === "GET") return json({ schedule: s });
+      if (!parts[3] && method === "DELETE") {
+        auto.schedules = auto.schedules.filter((x) => x.id !== id);
+        return new Response(null, { status: 204 });
+      }
+      if (!parts[3] && method === "PATCH") {
+        if (body.enabled === true) {
+          const bot = bots.get(body.botId ?? s.botId);
+          if (!bot?.model) return err(409, "bot_not_ready", `${bot?.name ?? "That bot"} has no model yet. Choose one on its Details tab.`);
+          s.nextRunAt = new Date(Date.now() + (s.intervalMinutes ?? 60) * 60_000).toISOString();
+          s.consecutiveFailures = 0;
+          s.disabledReason = null;
+        }
+        if (body.enabled === false) s.nextRunAt = null;
+        if (body.kind === "interval" && body.intervalMinutes < auto.limits["minIntervalMinutes"]!) {
+          return err(400, "interval_too_short", `Runs must be at least ${auto.limits["minIntervalMinutes"]} minutes apart (this protects your free-tier limits).`);
+        }
+        Object.assign(s, body);
+        if (body.botId) s.botName = bots.get(body.botId)?.name ?? s.botName;
+        return json({ schedule: s });
+      }
+      if (parts[3] === "run-now" && method === "POST") return json({ outcome: auto.runNowOutcome });
+    }
+    if (area === "triggers") {
+      const id = parts[2];
+      const t = id ? auto.triggers.find((x) => x.id === id) : undefined;
+      if (!id && method === "GET") return json({ triggers: auto.triggers });
+      if (!id && method === "POST") {
+        const bot = bots.get(body.botId);
+        if (!bot) return err(400, "invalid_bot", "The chosen bot does not exist.");
+        if (body.cooldownSeconds < auto.limits["minCooldownSeconds"]!) return err(400, "cooldown_too_short", `The cooldown must be at least ${auto.limits["minCooldownSeconds"]} seconds.`);
+        const now = new Date().toISOString();
+        const created: Trigger = {
+          id: crypto.randomUUID(), name: body.name, source: body.source, eventName: body.source === "event" ? String(body.eventName).toLowerCase() : null,
+          watchBotId: body.source === "task_result" ? body.watchBotId : null, watchBotName: body.source === "task_result" ? (bots.get(body.watchBotId)?.name ?? null) : null,
+          contains: body.contains ?? "", botId: body.botId, botName: bot.name, instructionTemplate: body.instructionTemplate || "A message arrived:\n\n{{text}}\n\nRespond helpfully.",
+          cooldownSeconds: body.cooldownSeconds ?? 300, enabled: false, lastFiredAt: null, consecutiveFailures: 0, disabledReason: null, createdAt: now, updatedAt: now,
+        };
+        auto.triggers.push(created);
+        return json({ trigger: created }, 201);
+      }
+      if (!t) return err(404, "trigger_not_found", "Trigger not found");
+      if (method === "GET") return json({ trigger: t });
+      if (method === "DELETE") {
+        auto.triggers = auto.triggers.filter((x) => x.id !== id);
+        return new Response(null, { status: 204 });
+      }
+      if (method === "PATCH") {
+        if (body.enabled === true) {
+          const bot = bots.get(body.botId ?? t.botId);
+          if (!bot?.model) return err(409, "bot_not_ready", `${bot?.name ?? "That bot"} has no model yet. Choose one on its Details tab.`);
+        }
+        Object.assign(t, body);
+        return json({ trigger: t });
+      }
+    }
+    if (area === "events" && method === "POST") {
+      if (String(body.text).length > 2000) return err(413, "event_too_long", "That text is too long.");
+      return json({ outcomes: auto.eventOutcomes });
+    }
+    return null;
+  };
+
   const handle = (method: string, path: string, body: any): Response => {
     const url = new URL(path, "http://localhost");
     const parts = url.pathname.split("/").filter(Boolean); // ["api","bots",id,...]
@@ -455,6 +593,9 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);
     if (parts[0] === "api" && (parts[1] === "tasks" || parts[1] === "delegation")) {
       return handleCollab(method, parts, body) ?? err(404, "not_found", "Not found");
+    }
+    if (parts[0] === "api" && ["schedules", "triggers", "events", "automation"].includes(parts[1] ?? "")) {
+      return handleAuto(method, parts, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] !== "api" || parts[1] !== "bots") return err(404, "not_found", "Not found");
 
@@ -562,6 +703,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     bots,
     llm,
     collab,
+    auto,
     /** Requests that are not plain reads. */
     writes: () => requests.filter((r) => r.method !== "GET"),
   };

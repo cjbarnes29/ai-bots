@@ -71,7 +71,8 @@ describe("bot list", () => {
     await user.type(screen.getByLabelText("Name"), "  Scout  ");
     await user.click(create);
 
-    expect(await screen.findByRole("heading", { name: "Scout" })).toBeInTheDocument();
+    // Wait for the editor's own title (level 1). The bot list briefly shows a "Scout" card with a level-2 heading first.
+    expect(await screen.findByRole("heading", { name: "Scout", level: 1 })).toBeInTheDocument();
     const post = api.writes()[0]!;
     expect(post.method).toBe("POST");
     expect(post.body).toEqual({ name: "Scout" });

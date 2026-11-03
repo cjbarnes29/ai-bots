@@ -4,6 +4,7 @@ import type { Runtime } from "../agent-manager/types.js";
 type Row = Record<string, unknown>;
 
 export type TaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type TaskOrigin = "user" | "schedule" | "trigger";
 export const FINAL_STATUSES: readonly TaskStatus[] = ["completed", "failed", "cancelled"];
 
 export interface TaskRecord {
@@ -14,6 +15,12 @@ export interface TaskRecord {
   assigneeName: string;
   requestedBy: string;
   requestedByName: string;
+  /** Who started the chain: the owner, a schedule, or a trigger. */
+  origin: TaskOrigin;
+  originId: string | null;
+  originLabel: string | null;
+  /** How many automatic hops led here (0 = started by the owner or a schedule/trigger directly from outside). */
+  originDepth: number;
   instruction: string;
   depth: number;
   status: TaskStatus;
@@ -59,7 +66,9 @@ const str = (v: unknown): string | null => (v === null || v === undefined ? null
 
 const TASK_SELECT = `
   SELECT t.*, COALESCE(a.name, '(unknown)') AS assignee_name,
-         CASE WHEN t.requested_by = 'user' THEN 'You' ELSE COALESCE(r.name, '(unknown)') END AS requested_by_name
+         CASE WHEN t.requested_by = 'user' THEN 'You'
+              WHEN t.requested_by IN ('schedule', 'trigger') THEN COALESCE(t.origin_label, t.requested_by)
+              ELSE COALESCE(r.name, '(unknown)') END AS requested_by_name
   FROM tasks t
   LEFT JOIN bots a ON a.id = t.assignee_bot_id
   LEFT JOIN bots r ON r.id = t.requested_by`;
@@ -73,6 +82,10 @@ function toTask(r: Row): TaskRecord {
     assigneeName: String(r["assignee_name"]),
     requestedBy: String(r["requested_by"]),
     requestedByName: String(r["requested_by_name"]),
+    origin: String(r["origin"]) as TaskOrigin,
+    originId: str(r["origin_id"]),
+    originLabel: str(r["origin_label"]),
+    originDepth: Number(r["origin_depth"]),
     instruction: String(r["instruction"]),
     depth: Number(r["depth"]),
     status: String(r["status"]) as TaskStatus,
@@ -97,6 +110,10 @@ export interface NewTask {
   instruction: string;
   depth: number;
   createdAt: string;
+  origin?: TaskOrigin;
+  originId?: string | null;
+  originLabel?: string | null;
+  originDepth?: number;
 }
 
 /** All SQL for tasks, the delegation allow-list and its settings. No rules here. */
@@ -119,10 +136,33 @@ export class TaskRepository {
   insertTask(t: NewTask): void {
     this.db
       .prepare(
-        `INSERT INTO tasks (id, root_id, parent_id, assignee_bot_id, requested_by, instruction, depth, status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+        `INSERT INTO tasks (id, root_id, parent_id, assignee_bot_id, requested_by, instruction, depth, status, created_at,
+                            origin, origin_id, origin_label, origin_depth)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
       )
-      .run(t.id, t.rootId, t.parentId, t.assigneeBotId, t.requestedBy, t.instruction, t.depth, t.createdAt);
+      .run(
+        t.id,
+        t.rootId,
+        t.parentId,
+        t.assigneeBotId,
+        t.requestedBy,
+        t.instruction,
+        t.depth,
+        t.createdAt,
+        t.origin ?? "user",
+        t.originId ?? null,
+        t.originLabel ?? null,
+        t.originDepth ?? 0,
+      );
+  }
+
+  /** Tasks from one schedule or trigger that have not finished yet. */
+  countActiveByOrigin(originId: string): number {
+    return Number(
+      this.db
+        .prepare("SELECT COUNT(*) AS n FROM tasks WHERE origin_id = ? AND parent_id IS NULL AND status IN ('pending', 'running')")
+        .get(originId)?.["n"] ?? 0,
+    );
   }
 
   getTask(id: string): TaskRecord | undefined {

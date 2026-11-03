@@ -8,6 +8,10 @@ import { ChatRepository } from "./chat/repository.js";
 import { registerChatRoutes } from "./chat/routes.js";
 import { ChatService } from "./chat/service.js";
 import { openDatabase } from "./db/database.js";
+import { AutomationRepository } from "./automation/repository.js";
+import { registerAutomationRoutes } from "./automation/routes.js";
+import { AutomationScheduler } from "./automation/scheduler.js";
+import { AutomationService } from "./automation/service.js";
 import { TaskEngine } from "./delegation/engine.js";
 import { TaskRepository } from "./delegation/repository.js";
 import { registerDelegationRoutes } from "./delegation/routes.js";
@@ -21,6 +25,13 @@ import { LlmService } from "./llm/service.js";
 import { UsageRepository } from "./llm/usage.js";
 import { createRuntimeRegistry } from "./runtimes/registry.js";
 import { CLIENT_HEADER, registerSecurity } from "./security.js";
+
+declare module "fastify" {
+  interface FastifyInstance {
+    /** The automation clock. The real server starts it; tests call `tick()` by hand. */
+    automation: AutomationScheduler;
+  }
+}
 
 export interface BuildAppOptions {
   /** Path to the SQLite file, or ":memory:" for a throwaway database. */
@@ -109,9 +120,24 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   // ---- Collaboration: bots hand text tasks to teammates you allow (nobody, by default) ----
   const taskRepo = new TaskRepository(db);
-  const engine = new TaskEngine({ tasks: taskRepo, getBot: (id) => agentService.getBot(id), llm, now });
+  let automation: AutomationService | undefined; // created just below; the engine tells it when a chain ends
+  const engine = new TaskEngine({
+    tasks: taskRepo,
+    getBot: (id) => agentService.getBot(id),
+    llm,
+    now,
+    onRootFinished: (task) => automation?.onRootFinished(task),
+  });
   engine.recoverInterrupted();
   await registerDelegationRoutes(app, new DelegationService(taskRepo, engine, (id) => agentService.getBot(id), now), engine);
+
+  // ---- Automation: schedules and text triggers. They start tasks through the engine above, so every
+  // limit, the pause switches and the free-only gate apply. The clock is started by server.ts, not here. ----
+  automation = new AutomationService({ repo: new AutomationRepository(db), engine, llm, getBot: (id) => agentService.getBot(id), now });
+  const scheduler = new AutomationScheduler(automation);
+  app.decorate("automation", scheduler);
+  app.addHook("onClose", async () => scheduler.stop());
+  await registerAutomationRoutes(app, automation);
 
   return app;
 }

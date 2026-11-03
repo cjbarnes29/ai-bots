@@ -2,7 +2,8 @@
 
 Create, edit and manage AI bots from a dashboard in your browser.
 
-**Current status: Phase 3 (collaboration).** You can create, edit, duplicate, archive and
+**Current status: Phase 4 (automation).** Schedules and text triggers can start tasks for your bots (all
+switched off until you switch them on, and always limited). Before that, from Phase 3: you can create, edit, duplicate, archive and
 restore bots, with full version history and per-bot permissions, and **chat with a bot** once
 you have connected a free AI provider. Each bot picks its own provider and model.
 Bots can **hand text tasks to teammates you allow** (nobody, by default) and you can watch the
@@ -62,6 +63,7 @@ Runs the type checks, all automated tests and a production build of both parts.
 | `src/runtimes/` | What makes a bot think (built-in engine now, OpenClaw later) |
 | `src/chat/` | Test chat: conversations and messages |
 | `src/delegation/` | Teamwork: allow-lists, tasks, the engine that runs a chain of bots |
+| `src/automation/` | Schedules, text triggers, the 30-second clock, the run log |
 | `src/db/` | The database and its upgrade scripts |
 | `web/` | The dashboard (React + Vite + Tailwind) |
 | `scripts/` | Helper scripts (`dev-all.mjs` starts both parts) |
@@ -72,6 +74,9 @@ Runs the type checks, all automated tests and a production build of both parts.
 - **Free-only mode is locked on.** Paid or unverified models are blocked, and a model that ever
   reports a cost is switched off automatically.
 - **No tools.** Bots only produce text, and only when you message them or give them a task.
+- **Automation is off by default and bounded.** New schedules and triggers start switched off. Runs are at least 15 minutes
+  apart, capped per day, never replayed after the app was off, and a one-click kill switch stops them all. A schedule or
+  trigger switches itself off after 3 failures in a row. Automatic runs obey every AI limit and the free-only rule.
 - **Teamwork is off by default and bounded.** A bot can only hand work to teammates you tick on its Team tab. No
   loops, limited depth, tasks and model calls per chain, a cancel button, and a permanent log.
 - Usage limits (requests and tokens per day and month, per bot and overall) are checked before

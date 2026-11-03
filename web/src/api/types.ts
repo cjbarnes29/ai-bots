@@ -1,4 +1,4 @@
-export const CONNECTORS = ["gmail", "telegram", "browser"] as const;
+﻿export const CONNECTORS = ["gmail", "telegram", "browser"] as const;
 export type Connector = (typeof CONNECTORS)[number];
 
 export const CONNECTOR_LABELS: Record<Connector, string> = {
@@ -186,6 +186,11 @@ export interface TaskRecord {
   assigneeName: string;
   requestedBy: string;
   requestedByName: string;
+  /** Who started the chain: you, a schedule, or a trigger. */
+  origin: "user" | "schedule" | "trigger";
+  originId: string | null;
+  originLabel: string | null;
+  originDepth: number;
   instruction: string;
   depth: number;
   status: TaskStatus;
@@ -253,3 +258,105 @@ export interface ChatReply {
   assistantMessage: ChatMessageRecord;
   warning: string | null;
 }
+
+// ---------------- Automation (Phase 4) ----------------
+
+export type ScheduleKind = "interval" | "daily" | "once";
+
+export interface Schedule {
+  id: string;
+  name: string;
+  botId: string;
+  botName: string;
+  instruction: string;
+  kind: ScheduleKind;
+  intervalMinutes: number | null;
+  timeOfDay: string | null;
+  /** 0 = Sunday ... 6 = Saturday */
+  days: number[];
+  runAt: string | null;
+  enabled: boolean;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  consecutiveFailures: number;
+  disabledReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TriggerSource = "event" | "task_result";
+
+export interface Trigger {
+  id: string;
+  name: string;
+  source: TriggerSource;
+  eventName: string | null;
+  watchBotId: string | null;
+  watchBotName: string | null;
+  contains: string;
+  botId: string;
+  botName: string;
+  instructionTemplate: string;
+  cooldownSeconds: number;
+  enabled: boolean;
+  lastFiredAt: string | null;
+  consecutiveFailures: number;
+  disabledReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AutomationRun {
+  id: number;
+  createdAt: string;
+  source: "schedule" | "trigger" | "event";
+  sourceId: string | null;
+  sourceName: string;
+  status: "started" | "skipped" | "failed";
+  reason: string | null;
+  taskId: string | null;
+}
+
+export interface AutomationStatus {
+  paused: boolean;
+  limits: Record<string, number>;
+  defaults: Record<string, number>;
+  counts: { schedules: number; enabledSchedules: number; triggers: number; enabledTriggers: number };
+  runsToday: number;
+}
+
+export interface RunOutcome {
+  status: "started" | "skipped" | "failed";
+  reason?: string;
+  taskId?: string;
+}
+
+export interface EventOutcome extends RunOutcome {
+  triggerId: string | null;
+  triggerName: string;
+}
+
+/** What the create and edit forms send. Only the fields for the chosen kind are included. */
+export type ScheduleInput = {
+  name?: string;
+  botId?: string;
+  instruction?: string;
+  kind?: ScheduleKind;
+  intervalMinutes?: number;
+  timeOfDay?: string;
+  days?: number[];
+  runAt?: string;
+  enabled?: boolean;
+};
+
+export type TriggerInput = {
+  name?: string;
+  source?: TriggerSource;
+  eventName?: string;
+  watchBotId?: string;
+  contains?: string;
+  botId?: string;
+  instructionTemplate?: string;
+  cooldownSeconds?: number;
+  enabled?: boolean;
+};

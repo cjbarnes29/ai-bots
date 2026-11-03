@@ -14,7 +14,16 @@ import {
   type DelegationLimitsUpdate,
 } from "./limits.js";
 import { buildDelegationAddendum, parseDelegations, stripDelegations } from "./protocol.js";
-import type { TaskRecord, TaskRepository, TeamMember } from "./repository.js";
+import type { TaskOrigin, TaskRecord, TaskRepository, TeamMember } from "./repository.js";
+
+/** Who is starting a task. Schedules and triggers use this, so their tasks are labelled and counted. */
+export interface StartOrigin {
+  type: TaskOrigin;
+  id?: string;
+  label?: string;
+  /** How many automatic hops led to this task. */
+  depth?: number;
+}
 
 const LIMITS_KEY = "limits";
 /** A teammate's answer is cut to this length before the first bot sees it, so the prompt stays small. */
@@ -39,6 +48,8 @@ export interface EngineDeps {
   getBot: (id: string) => BotRecord;
   llm: LlmService;
   now?: () => number;
+  /** Called after a chain that was started from outside finishes (completed or failed). */
+  onRootFinished?: (task: TaskRecord) => void;
 }
 
 interface Feedback {
@@ -102,7 +113,7 @@ export class TaskEngine {
   }
 
   /** Creates a task for a bot and queues it. Chains run one at a time. */
-  submit(botId: string, instruction: string): TaskRecord {
+  submit(botId: string, instruction: string, origin: StartOrigin = { type: "user" }): TaskRecord {
     const limits = this.limits();
     const text = instruction.trim();
     if (!text) throw new AppError(400, "empty_instruction", "Describe the task first.");
@@ -122,8 +133,21 @@ export class TaskEngine {
     const id = randomUUID();
     const now = this.iso();
     this.deps.tasks.transaction(() => {
-      this.deps.tasks.insertTask({ id, rootId: id, parentId: null, assigneeBotId: botId, requestedBy: "user", instruction: text, depth: 0, createdAt: now });
-      this.deps.tasks.insertEvent(id, id, "created", JSON.stringify({ assignee: bot.name }), now);
+      this.deps.tasks.insertTask({
+        id,
+        rootId: id,
+        parentId: null,
+        assigneeBotId: botId,
+        requestedBy: origin.type,
+        instruction: text,
+        depth: 0,
+        createdAt: now,
+        origin: origin.type,
+        originId: origin.id ?? null,
+        originLabel: origin.label ?? null,
+        originDepth: origin.depth ?? 0,
+      });
+      this.deps.tasks.insertEvent(id, id, "created", JSON.stringify({ assignee: bot.name, origin: origin.type, ...(origin.label ? { label: origin.label } : {}) }), now);
     });
     this.enqueue(id);
     return this.mustTask(id);
@@ -139,6 +163,11 @@ export class TaskEngine {
       .finally(() => {
         this.queued -= 1;
       });
+  }
+
+  /** How many chains from one schedule or trigger are still waiting or working. */
+  activeFromOrigin(originId: string): number {
+    return this.deps.tasks.countActiveByOrigin(originId);
   }
 
   /** Resolves when every queued chain has finished. Used by tests. */
@@ -191,11 +220,24 @@ export class TaskEngine {
         result: truncated ? `${result.slice(0, MAX_RESULT_CHARS)}\n\n[Cut: the answer was longer than ${MAX_RESULT_CHARS.toLocaleString()} characters.]` : result,
       });
       this.event(task.rootId, taskId, "completed", { characters: result.length });
+      this.notifyRootFinished(taskId);
     } catch (err) {
       if (err instanceof Cancelled) return;
       const info = this.describe(err);
       this.deps.tasks.finish(taskId, "failed", this.iso(), { errorCode: info.code, errorMessage: info.message });
       this.event(task.rootId, taskId, "failed", info);
+      this.notifyRootFinished(taskId);
+    }
+  }
+
+  /** Lets automation know a started-from-outside chain has ended. Never allowed to break the engine. */
+  private notifyRootFinished(taskId: string): void {
+    const task = this.deps.tasks.getTask(taskId);
+    if (!task || task.parentId !== null || !this.deps.onRootFinished) return;
+    try {
+      this.deps.onRootFinished(task);
+    } catch {
+      /* automation problems must never stop a task from finishing */
     }
   }
 
@@ -231,10 +273,15 @@ export class TaskEngine {
     const offered = task.depth < limits.maxDepth ? allowed.filter((t) => !ancestors.includes(t.id)) : [];
 
     const system = buildSystemPrompt(bot) + (offered.length > 0 ? `\n\n${buildDelegationAddendum(offered, limits.maxSubtasksPerTask)}` : "");
+    const label = task.originLabel ?? task.origin;
     const opening =
-      task.depth === 0
-        ? `Task from the user:\n${task.instruction}`
-        : `${task.requestedByName} asked you to do this task:\n${task.instruction}`;
+      task.depth > 0
+        ? `${task.requestedByName} asked you to do this task:\n${task.instruction}`
+        : task.origin === "schedule"
+          ? `Scheduled task "${label}":\n${task.instruction}`
+          : task.origin === "trigger"
+            ? `Task started by the trigger "${label}":\n${task.instruction}`
+            : `Task from the user:\n${task.instruction}`;
     const first: ChatMessage[] = [
       { role: "system", content: system },
       { role: "user", content: opening },
