@@ -23,7 +23,7 @@ describe("bot list", () => {
   it("shows the safety banner and an empty state with a way to create the first bot", async () => {
     renderApp(createFakeApi());
     expect(await screen.findByText("Create your first bot")).toBeInTheDocument();
-    expect(screen.getByText(/Bots reply only when you message them/)).toBeInTheDocument();
+    expect(screen.getByText(/anything that sends or changes something waits for your approval/)).toBeInTheDocument();
     expect(screen.getByText(/Only free models can be used/)).toBeInTheDocument();
   });
 

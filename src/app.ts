@@ -8,6 +8,16 @@ import { ChatRepository } from "./chat/repository.js";
 import { registerChatRoutes } from "./chat/routes.js";
 import { ChatService } from "./chat/service.js";
 import { openDatabase } from "./db/database.js";
+import { dirname, join, resolve } from "node:path";
+import { ApprovalRepository } from "./approvals/repository.js";
+import { registerApprovalRoutes } from "./approvals/routes.js";
+import { ActionGate } from "./approvals/service.js";
+import { AuditLog } from "./audit/audit.js";
+import { ConnectorRegistry, type ConnectorDefinition } from "./connectors/types.js";
+import { setSecretLookup } from "./llm/secrets.js";
+import { loadOrCreateKeyFile, newEphemeralKey } from "./vault/crypto.js";
+import { registerVaultRoutes } from "./vault/routes.js";
+import { VaultService } from "./vault/service.js";
 import { AutomationRepository } from "./automation/repository.js";
 import { registerAutomationRoutes } from "./automation/routes.js";
 import { AutomationScheduler } from "./automation/scheduler.js";
@@ -43,6 +53,10 @@ export interface BuildAppOptions {
   providerFactory?: ProviderFactory;
   clock?: () => number;
   sleep?: (ms: number) => Promise<void>;
+  /** Connectors bots may use through the approval gate. Empty in the real app until Phases 6 to 8. */
+  connectors?: ConnectorDefinition[];
+  /** The vault's encryption key. Default: a key file next to the database (or a throwaway key for ":memory:"). */
+  vaultKey?: Buffer;
 }
 
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
@@ -119,6 +133,27 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerChatRoutes(app, chat);
 
   // ---- Collaboration: bots hand text tasks to teammates you allow (nobody, by default) ----
+  // ---- Secrets vault, audit log and the approval gate (Phase 5). The connector list is EMPTY in the real app
+  // until Phases 6 to 8, so no bot can reach anything outside. Tests and test harnesses can supply fake connectors. ----
+  const audit = new AuditLog(db, now);
+  const vaultKey =
+    options.vaultKey ?? (options.dbPath === ":memory:" ? newEphemeralKey() : loadOrCreateKeyFile(join(dirname(resolve(options.dbPath)), "vault.key")));
+  const registry = new ConnectorRegistry(options.connectors ?? []);
+  const vault = new VaultService(db, vaultKey, audit, () => registry.list().flatMap((c) => c.secrets ?? []), now);
+  setSecretLookup((name) => vault.getStored(name));
+  app.addHook("onClose", async () => setSecretLookup(null));
+  await registerVaultRoutes(app, vault);
+  const gate = new ActionGate({
+    repo: new ApprovalRepository(db),
+    registry,
+    audit,
+    vault,
+    getBot: (id) => agentService.getBot(id),
+    readEnabled: (botId, connector) => agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
+    now,
+  });
+  await registerApprovalRoutes(app, gate, audit);
+
   const taskRepo = new TaskRepository(db);
   let automation: AutomationService | undefined; // created just below; the engine tells it when a chain ends
   const engine = new TaskEngine({
@@ -126,6 +161,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     getBot: (id) => agentService.getBot(id),
     llm,
     now,
+    actions: gate,
     onRootFinished: (task) => automation?.onRootFinished(task),
   });
   engine.recoverInterrupted();

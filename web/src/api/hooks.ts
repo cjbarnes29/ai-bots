@@ -7,6 +7,10 @@ import type {
   ChatMessageRecord,
   ChatReply,
   AutomationRun,
+  Approval,
+  AuditEvent,
+  ExternalStatus,
+  SecretStatus,
   AutomationStatus,
   Connector,
   Conversation,
@@ -477,5 +481,84 @@ export function useSendEvent() {
     mutationFn: async (input: { name: string; text: string }) =>
       (await api<{ outcomes: EventOutcome[] }>("POST", "/api/events", input)).outcomes,
     onSettled: refresh,
+  });
+}
+
+// ---- Approvals, outside actions, secrets vault ----
+export function useExternalStatus() {
+  return useQuery({
+    queryKey: ["external", "status"],
+    queryFn: () => api<ExternalStatus>("GET", "/api/external/status"),
+    refetchInterval: WATCH,
+  });
+}
+
+export function useApprovals(pendingOnly: boolean) {
+  return useQuery({
+    queryKey: ["approvals", pendingOnly ? "pending" : "all"],
+    queryFn: async () => (await api<{ approvals: Approval[] }>("GET", `/api/approvals${pendingOnly ? "?status=pending" : "?limit=100"}`)).approvals,
+    refetchInterval: WATCH,
+  });
+}
+
+function useRefreshApprovals() {
+  const qc = useQueryClient();
+  return () => Promise.all([qc.invalidateQueries({ queryKey: ["approvals"] }), qc.invalidateQueries({ queryKey: ["external"] }), qc.invalidateQueries({ queryKey: ["audit"] })]);
+}
+
+export function useApprove() {
+  const refresh = useRefreshApprovals();
+  return useMutation({
+    mutationFn: async (id: string) => (await api<{ approval: Approval }>("POST", `/api/approvals/${id}/approve`)).approval,
+    onSettled: refresh,
+  });
+}
+
+export function useDeny() {
+  const refresh = useRefreshApprovals();
+  return useMutation({
+    mutationFn: async (input: { id: string; reason?: string }) =>
+      (await api<{ approval: Approval }>("POST", `/api/approvals/${input.id}/deny`, input.reason ? { reason: input.reason } : {})).approval,
+    onSettled: refresh,
+  });
+}
+
+export function useSetExternalPaused() {
+  const refresh = useRefreshApprovals();
+  return useMutation({
+    mutationFn: (paused: boolean) => api<{ paused: boolean }>("PUT", "/api/external/pause", { paused }),
+    onSuccess: refresh,
+  });
+}
+
+export function useSecurityLog(limit = 50) {
+  return useQuery({
+    queryKey: ["audit", limit],
+    queryFn: async () => (await api<{ events: AuditEvent[] }>("GET", `/api/audit?limit=${limit}`)).events,
+    refetchInterval: WATCH,
+  });
+}
+
+export function useSecrets() {
+  return useQuery({
+    queryKey: ["vault"],
+    queryFn: async () => (await api<{ secrets: SecretStatus[] }>("GET", "/api/vault")).secrets,
+  });
+}
+
+export function useSetSecret() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { name: string; value: string }) =>
+      (await api<{ secrets: SecretStatus[] }>("PUT", `/api/vault/${input.name}`, { value: input.value })).secrets,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["vault"] }), qc.invalidateQueries({ queryKey: ["llm"] }), qc.invalidateQueries({ queryKey: ["audit"] })]),
+  });
+}
+
+export function useDeleteSecret() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => (await api<{ secrets: SecretStatus[] }>("DELETE", `/api/vault/${name}`)).secrets,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["vault"] }), qc.invalidateQueries({ queryKey: ["llm"] }), qc.invalidateQueries({ queryKey: ["audit"] })]),
   });
 }

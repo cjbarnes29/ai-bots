@@ -1,4 +1,6 @@
-﻿import { Link, NavLink, Outlet, type RouteObject } from "react-router-dom";
+﻿import { useExternalStatus } from "./api/hooks";
+import { Link, NavLink, Outlet, type RouteObject } from "react-router-dom";
+import { Approvals } from "./pages/Approvals";
 import { Automation } from "./pages/Automation";
 import { BotEditor } from "./pages/BotEditor";
 import { BotList } from "./pages/BotList";
@@ -14,6 +16,8 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 function Layout() {
+  const external = useExternalStatus();
+  const waiting = external.data?.pendingCount ?? 0;
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -31,6 +35,9 @@ function Layout() {
             <NavLink to="/automation" className={navClass}>
               Automation
             </NavLink>
+            <NavLink to="/approvals" className={navClass}>
+              Approvals{waiting > 0 ? ` (${waiting})` : ""}
+            </NavLink>
             <NavLink to="/usage" className={navClass}>
               Usage
             </NavLink>
@@ -42,8 +49,8 @@ function Layout() {
       </header>
       <div className="border-b border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
         <p className="mx-auto max-w-6xl px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
-          Bots reply only when you message them. Tools and outside access (Gmail, Telegram, browser) stay disabled until the
-          approval system is built and tested. Only free models can be used.
+          Bots can only ask to use outside services (Gmail, Telegram, browser): anything that sends or changes something waits for
+          your approval. Only free models can be used.
         </p>
       </div>
       <main className="mx-auto max-w-6xl px-4 py-6">
@@ -73,6 +80,7 @@ export const routes: RouteObject[] = [
       { path: "/automation", element: <Automation /> },
       { path: "/tasks", element: <TaskList /> },
       { path: "/tasks/:id", element: <TaskDetail /> },
+      { path: "/approvals", element: <Approvals /> },
       { path: "/usage", element: <Usage /> },
       { path: "/settings", element: <Settings /> },
       { path: "*", element: <NotFound /> },

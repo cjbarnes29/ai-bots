@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SecretsSection } from "../components/SecretsSection";
 import { ApiError } from "../api/client";
 import {
   useDelegationLimits,
@@ -506,6 +507,7 @@ export function Settings() {
     <div className="space-y-8">
       <h1 className="text-2xl font-bold">Settings</h1>
       <SafetySection />
+      <SecretsSection />
       <ProvidersSection />
       <ModelsSection />
       <LimitsSection />

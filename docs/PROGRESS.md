@@ -5,13 +5,13 @@ Update it at the end of every phase.
 
 ## Standing rules from the owner (do not break)
 - **Zero spend.** Free-only mode is permanently locked ON. No paid models, paid fallbacks or automatic billing.
-- **No external tools before Phase 5 is built AND tested.** Bots produce text only, only when asked. No Gmail,
-  Telegram or browser code until then. External *reads* are denied by default, enabled per bot. External *writes*
-  always need the owner's approval.
+- **Phase 5 (approval system) is now built and tested**, so connectors may be added (Phases 6-8) ONLY behind the
+  `ActionGate`. Bots still never get real tools: they ask in text. External *reads* are denied by default, enabled per bot.
+  External *writes* always need the owner's approval.
 - Internal bot-to-bot delegation is allowed (Phase 3), text only, platform-controlled.
 - OmniRoute stays untouched and disconnected. Together AI is excluded. OpenClaw and Ollama are optional and
   need the owner's separate approval to install or download.
-- **Never ask for, read or display API keys.** Keys go in the owner's `.env` (names in `.env.example`).
+- **Never ask for, read or display API keys.** The owner pastes keys into the dashboard vault (Settings) or `.env`.
 - **`data/` is the owner's REAL database** (it holds their bot "carlo"). Never modify or delete it. All tests and
   servers must use `:memory:` or a scratchpad database. A migration test on a COPY of it passed.
 - The owner is a complete beginner: explain in plain language, one step at a time.
@@ -27,6 +27,26 @@ Update it at the end of every phase.
 | 2 (2a-2d) AI models | `60b8000` | 4 provider plugins, free-only gate, limits, usage, chat. 180 backend + 60 dashboard tests, 12 real-browser checks |
 | 3 Collaboration | `38fc8fd` | Allow-list (empty by default), task engine, Tasks page, Team tab, teamwork limits. 224 backend + 76 dashboard tests, 8 real-browser checks |
 | 4 Automation | `e882c17` | Schedules (every N min / daily / once) and text triggers (event, task result), kill switch, run log. 299 backend + 103 dashboard tests, 13 real-browser checks |
+| 5 Approvals + vault + audit | (see git log) | Approval gate, connector registry (empty), encrypted vault, audit log, Approvals page. 361 backend + 115 dashboard tests, 9 real-browser checks |
+
+### Phase 5 facts (so they need not be re-read)
+- Code: `src/approvals/` (`service.ts` = `ActionGate`, `protocol.ts` parses ```` ```action ```` blocks, `repository.ts`, `routes.ts`),
+  `src/connectors/types.ts` (ConnectorDefinition/Registry), `src/vault/` (AES-256-GCM, key file `data/vault.key`, name bound as AAD),
+  `src/audit/audit.ts` (append-only), migration `006_approvals_vault.sql`. Engine hook: `src/delegation/engine.ts` (`ActionPort`).
+  Dashboard: `/approvals` page, `SecretsSection` in Settings, nav badge.
+- Production has ZERO connectors (`buildApp({connectors})` injects fakes in tests). Chat never offers actions; only tasks do.
+- Reads need per-bot read permission (else refused + audited). Writes ALWAYS become a pending approval; approve re-checks the
+  sha256 of the stored args, runs exactly once (atomic `claimApproval`), 30 s timeout; deny/expire/double-approve never run.
+  DB triggers lock request content, force the status flow and forbid deletes. Limits: 5 pending/bot, 20 requests/bot/day,
+  50 reads/bot/day, 24 h expiry, 3 actions per task. Kill switch `/api/external/pause`. Results scrubbed of keys, clipped,
+  and labelled to the bot as information, not instructions.
+- Vault values are never returned by any API or put in audit/logs; vault is checked before `.env`.
+- Mutation checks done: disabling the read-permission check (3 tests fail) and the args-hash check (1 fails) are caught.
+- Browser harness (scratchpad `harness-p5.mts`) = real `buildApp` + fake connector + fake model; 9 checks passed incl. 375px.
+- Found by tests: vault<->audit recursion (guard in `src/llm/secrets.ts`); log line overflow at 375px.
+- NOT verified against real services (none exist yet): everything about Telegram/Gmail/browser.
+- First start of a Phase 5 build on the owner's real DB applies migrations 002-006 and creates `data/vault.key`.
+  Owner should back up `data/app.db*` AND keep `data/vault.key` with it.
 
 ### Phase 4 facts (so they need not be re-read)
 - Code: `src/automation/` (`service.ts` is the core, `timing.ts` pure time maths, `scheduler.ts` the 30 s clock),
@@ -62,9 +82,9 @@ Update it at the end of every phase.
 - Owner should copy `data/app.db*` somewhere safe before first starting a new version.
 
 ## Roadmap
-~~3 Collaboration~~ and ~~4 Automation~~ done -> **5 Approvals + secrets vault + audit is next** -> 6 Telegram -> 7 Gmail ->
+~~3 Collaboration~~, ~~4 Automation~~ and ~~5 Approvals~~ done -> **6 Telegram is next** -> 7 Gmail ->
 8 Browser -> 9 Android/remote access -> 10 OpenClaw (optional).
-Phase 5 is the gate for every external connector: tools stay OFF until the approval system exists AND is tested. Design notes:
+Phase 5 is the gate for every external connector (now built and tested). Original design notes:
 external READ off by default per bot (already in `bot_permissions`), external WRITE always needs the owner's approval each
 time (`write_policy` is locked to `approval_required` in the database), full audit log, secrets vault replacing `.env` keys.
 Phases 6-8 need the owner's own credentials (Telegram bot token, Google OAuth, browser) and cannot be verified against the

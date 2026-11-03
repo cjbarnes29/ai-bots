@@ -19,6 +19,9 @@
   type PermissionAuditEntry,
   type ProviderView,
   type UsageSummary,
+  type Approval,
+  type AuditEvent,
+  type SecretStatus,
 } from "../api/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -584,12 +587,98 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     return null;
   };
 
+
+  // ---- approvals, outside actions, secrets vault (tests can read and change it) ----
+  const ext = {
+    paused: false,
+    approvals: [] as Approval[],
+    audit: [] as AuditEvent[],
+    secrets: [
+      { name: 'GEMINI_API_KEY', description: 'Google Gemini API key', inVault: false, inEnv: false, updatedAt: null },
+      { name: 'TELEGRAM_BOT_TOKEN', description: 'Telegram bot token', inVault: false, inEnv: false, updatedAt: null },
+    ] as SecretStatus[],
+    /** What the secret values were set to (so tests can prove they are never shown). */
+    stored: new Map<string, string>(),
+    /** When set, approving fails with this message. */
+    executeError: null as string | null,
+    connectors: [{ id: 'telegram', label: 'Telegram', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send a message' }] }],
+  };
+  const extLog = (kind: string, actor: string, detail: Record<string, unknown> = {}) =>
+    ext.audit.unshift({ id: ext.audit.length + 1, createdAt: new Date().toISOString(), kind, actor, botId: null, detail });
+  const handleExternal = (method: string, parts: string[], url: URL, body: any): Response | null => {
+    if (parts[1] === 'external') {
+      if (parts[2] === 'status' && method === 'GET')
+        return json({ paused: ext.paused, pendingCount: ext.approvals.filter((a) => a.status === 'pending').length, connectors: ext.connectors, limits: {} });
+      if (parts[2] === 'pause' && method === 'PUT') {
+        ext.paused = !!body.paused;
+        extLog(ext.paused ? 'external.paused' : 'external.resumed', 'owner');
+        return json({ paused: ext.paused });
+      }
+    }
+    if (parts[1] === 'audit' && method === 'GET') return json({ events: ext.audit });
+    if (parts[1] === 'vault') {
+      const name = parts[2];
+      if (!name && method === 'GET') return json({ secrets: ext.secrets });
+      const s = ext.secrets.find((x) => x.name === name);
+      if (!s) return err(400, 'unknown_secret', 'That is not a key this app uses.');
+      if (method === 'PUT') {
+        if (!String(body.value ?? '').trim()) return err(400, 'empty_secret', 'Paste the key first.');
+        ext.stored.set(s.name, body.value);
+        s.inVault = true;
+        s.updatedAt = new Date().toISOString();
+        extLog('vault.set', 'owner', { name: s.name });
+        return json({ secrets: ext.secrets });
+      }
+      if (method === 'DELETE') {
+        ext.stored.delete(s.name);
+        s.inVault = false;
+        s.updatedAt = null;
+        extLog('vault.delete', 'owner', { name: s.name });
+        return json({ secrets: ext.secrets });
+      }
+    }
+    if (parts[1] === 'approvals') {
+      const a = parts[2] ? ext.approvals.find((x) => x.id === parts[2]) : undefined;
+      if (!parts[2] && method === 'GET') {
+        const only = url.searchParams.get('status');
+        return json({ approvals: ext.approvals.filter((x) => !only || x.status === only) });
+      }
+      if (!a) return err(404, 'approval_not_found', 'That request does not exist.');
+      if (method === 'GET' && !parts[3]) return json({ approval: a });
+      if (method === 'POST' && (parts[3] === 'approve' || parts[3] === 'deny')) {
+        if (a.status !== 'pending') return err(409, 'approval_not_pending', 'This request was already decided.');
+        if (parts[3] === 'approve' && ext.paused) return err(409, 'external_paused', 'All outside actions are paused. Switch them back on before approving.');
+        a.decidedAt = new Date().toISOString();
+        a.decidedBy = 'owner';
+        if (parts[3] === 'deny') {
+          a.status = 'denied';
+          a.error = body?.reason ?? null;
+          extLog('approval.denied', 'owner');
+        } else if (ext.executeError) {
+          a.status = 'failed';
+          a.error = ext.executeError;
+          extLog('approval.failed', 'owner');
+        } else {
+          a.status = 'executed';
+          a.result = 'sent #1';
+          a.executedAt = a.decidedAt;
+          extLog('approval.executed', 'owner');
+        }
+        return json({ approval: a });
+      }
+    }
+    return null;
+  };
+
   const handle = (method: string, path: string, body: any): Response => {
     const url = new URL(path, "http://localhost");
     const parts = url.pathname.split("/").filter(Boolean); // ["api","bots",id,...]
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault"].includes(parts[1] ?? "")) {
+      return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
+    }
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);
     if (parts[0] === "api" && (parts[1] === "tasks" || parts[1] === "delegation")) {
       return handleCollab(method, parts, body) ?? err(404, "not_found", "Not found");
@@ -704,6 +793,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     llm,
     collab,
     auto,
+    ext,
     /** Requests that are not plain reads. */
     writes: () => requests.filter((r) => r.method !== "GET"),
   };

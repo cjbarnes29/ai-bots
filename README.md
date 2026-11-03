@@ -2,14 +2,18 @@
 
 Create, edit and manage AI bots from a dashboard in your browser.
 
-**Current status: Phase 4 (automation).** Schedules and text triggers can start tasks for your bots (all
+**Current status: Phase 5 (approvals, secrets vault, audit log).** The safety gate for anything outside this PC is built and
+tested, but **no real connector (Gmail, Telegram, browser) exists yet**, so no bot can reach anything outside. When connectors arrive
+(Phases 6 to 8) a bot can only *ask*: every write waits on the **Approvals** page for your click and runs once with exactly the content
+shown; reading from outside is off for every bot until you switch it on. Keys can now be pasted into an encrypted **vault** (Settings).
+Earlier: Phase 4 schedules and text triggers can start tasks for your bots (all
 switched off until you switch them on, and always limited). Before that, from Phase 3: you can create, edit, duplicate, archive and
 restore bots, with full version history and per-bot permissions, and **chat with a bot** once
 you have connected a free AI provider. Each bot picks its own provider and model.
 Bots can **hand text tasks to teammates you allow** (nobody, by default) and you can watch the
 whole chain on the **Tasks** page.
-Bots work **only when you message them or give them a task**. They have **no tools**, and no
-connectors (Gmail, Telegram, browser) exist yet. Everything runs on your own PC.
+Bots work **only when you message them or give them a task**. They have **no tools** (nothing is ever sent to a model as a tool),
+and no connectors (Gmail, Telegram, browser) exist yet. Everything runs on your own PC.
 
 **Free only.** Only free models can be used. This is locked on and cannot be turned off:
 no paid models, no paid fallbacks, no automatic billing.
@@ -64,6 +68,10 @@ Runs the type checks, all automated tests and a production build of both parts.
 | `src/chat/` | Test chat: conversations and messages |
 | `src/delegation/` | Teamwork: allow-lists, tasks, the engine that runs a chain of bots |
 | `src/automation/` | Schedules, text triggers, the 30-second clock, the run log |
+| `src/approvals/` | The outside-action gate: requests, your approval, limits, kill switch |
+| `src/connectors/` | What a connector must look like (none installed yet) |
+| `src/vault/` | The encrypted store for keys and tokens |
+| `src/audit/` | The permanent security log |
 | `src/db/` | The database and its upgrade scripts |
 | `web/` | The dashboard (React + Vite + Tailwind) |
 | `scripts/` | Helper scripts (`dev-all.mjs` starts both parts) |
@@ -73,7 +81,8 @@ Runs the type checks, all automated tests and a production build of both parts.
 - New bots start **Disabled**. A bot cannot be set to Active yet.
 - **Free-only mode is locked on.** Paid or unverified models are blocked, and a model that ever
   reports a cost is switched off automatically.
-- **No tools.** Bots only produce text, and only when you message them or give them a task.
+- **No tools.** Bots only produce text, and only when you message them or give them a task. Asking for an outside action is
+  also just text, which the platform checks and holds for you.
 - **Automation is off by default and bounded.** New schedules and triggers start switched off. Runs are at least 15 minutes
   apart, capped per day, never replayed after the app was off, and a one-click kill switch stops them all. A schedule or
   trigger switches itself off after 3 failures in a row. Automatic runs obey every AI limit and the free-only rule.
@@ -81,8 +90,12 @@ Runs the type checks, all automated tests and a production build of both parts.
   loops, limited depth, tasks and model calls per chain, a cancel button, and a permanent log.
 - Usage limits (requests and tokens per day and month, per bot and overall) are checked before
   every call. There is a one-click pause switch for all AI calls.
-- API keys live only in your `.env` file. They are never shown in the dashboard, never stored in
-  the database, and removed from error messages.
+- API keys live in the encrypted **vault** (Settings page) or in your `.env` file; the vault is used first. A saved key is never
+  shown again, never sent to a bot, never written to the logs, and removed from error messages. The vault's encryption key is the
+  file `data/vault.key` (created on first start; Git ignores it). **Back it up with `data/app.db`**: without it, saved keys cannot be read.
+- **Outside actions need you.** A bot can only ask. Writes wait for your approval on the **Approvals** page, show the exact content,
+  run once, and expire after 24 hours. Reads need a per-bot permission. One switch pauses all outside actions. Limits: 5 waiting and
+  20 requests per bot per day, 50 outside reads per bot per day. Every step goes in a permanent security log without secrets.
 - Every external **read** permission starts **off**, per bot and per connector.
 - **Writing** to the outside world (sending email, messages) will always need your approval.
   The database itself refuses any other setting.

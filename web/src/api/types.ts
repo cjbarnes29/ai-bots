@@ -360,3 +360,51 @@ export type TriggerInput = {
   cooldownSeconds?: number;
   enabled?: boolean;
 };
+
+// ---- Approvals, outside actions, secrets vault ----
+export type ApprovalStatus = "pending" | "approved" | "denied" | "expired" | "executed" | "failed";
+
+export interface Approval {
+  id: string;
+  botId: string;
+  botName: string;
+  taskId: string | null;
+  connector: string;
+  connectorLabel: string;
+  action: string;
+  summary: string;
+  /** The exact content that will be used if you approve. */
+  args: unknown;
+  status: ApprovalStatus;
+  result: string | null;
+  error: string | null;
+  createdAt: string;
+  expiresAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  executedAt: string | null;
+}
+
+export interface ExternalStatus {
+  paused: boolean;
+  pendingCount: number;
+  connectors: { id: string; label: string; actions: { name: string; kind: "read" | "write"; description: string }[] }[];
+  limits: Record<string, number>;
+}
+
+export interface AuditEvent {
+  id: number;
+  createdAt: string;
+  kind: string;
+  actor: string;
+  botId: string | null;
+  detail: Record<string, unknown>;
+}
+
+export interface SecretStatus {
+  name: string;
+  description: string;
+  inVault: boolean;
+  inEnv: boolean;
+  updatedAt: string | null;
+}
