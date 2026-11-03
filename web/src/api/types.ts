@@ -112,6 +112,8 @@ export interface ModelView {
   enabled: boolean;
   availability: "available" | "not_installed" | "removed" | "unknown";
   isLlama: boolean;
+  ownerVerified: boolean;
+  ownerOverridable: boolean;
   callable: boolean;
   blockedReason: string | null;
 }

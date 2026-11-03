@@ -647,3 +647,31 @@ describe("Settings: OmniRoute gateway", () => {
     expect(card.getByText(/Paste it in the vault above/)).toBeInTheDocument();
   });
 });
+
+describe("Settings: confirming an unpriced gateway model", () => {
+  const unpriced = () => makeModel({ providerId: "omniroute", modelId: "mystery/unknown-price", displayName: "mystery/unknown-price", freeStatus: "blocked", freeSource: "Blocked: OmniRoute pricing could not be verified as free: it did not list both an input price and an output price", enabled: false, callable: false, ownerOverridable: true, blockedReason: "blocked" });
+
+  it("asks you to confirm in plain words first, and nothing changes until you do", async () => {
+    const api = createFakeApi([], { models: [unpriced(), makeModel({ providerId: "omniroute", modelId: "paid/x", displayName: "paid/x", freeStatus: "blocked", enabled: false, callable: false, ownerOverridable: false })] });
+    renderApp(api, "/settings");
+    const row = within(await screen.findByText("mystery/unknown-price").then((e) => e.closest("li") as HTMLElement));
+    expect(screen.getAllByRole("button", { name: /I confirm this model is free/ })).toHaveLength(1); // only the unpriced one
+    await userEvent.click(row.getByRole("button", { name: /I confirm this model is free/ }));
+    expect(screen.getByText(/OmniRoute does not say what this model costs/)).toBeInTheDocument();
+    expect(api.writes().filter((w) => w.path.includes("owner-verified"))).toHaveLength(0);
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(api.writes().filter((w) => w.path.includes("owner-verified"))).toHaveLength(0);
+  });
+
+  it("confirming marks it as yours, and it can be withdrawn", async () => {
+    const api = createFakeApi([], { models: [unpriced()] });
+    renderApp(api, "/settings");
+    await userEvent.click(await screen.findByRole("button", { name: /I confirm this model is free/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Yes, I checked: it is free" }));
+    expect(await screen.findByText(/You confirmed this model is free\./)).toBeInTheDocument();
+    expect(api.writes().find((w) => w.path.includes("owner-verified"))?.body).toMatchObject({ verified: true, iUnderstand: true });
+    await userEvent.click(screen.getByRole("button", { name: "Withdraw" }));
+    await waitFor(() => expect(screen.queryByText(/You confirmed this model is free\./)).not.toBeInTheDocument());
+    expect(await screen.findByRole("button", { name: /I confirm this model is free/ })).toBeInTheDocument();
+  });
+});

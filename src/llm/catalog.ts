@@ -47,6 +47,10 @@ export interface ModelView {
   enabled: boolean;
   availability: string;
   isLlama: boolean;
+  /** You confirmed this gateway model is free (it lists no price). */
+  ownerVerified: boolean;
+  /** You could confirm it: its only problem is that no price is listed. */
+  ownerOverridable: boolean;
   callable: boolean;
   blockedReason: string | null;
 }
@@ -87,6 +91,7 @@ export class ModelCatalogService {
     private readonly usage: UsageRepository,
     private readonly factory: ProviderFactory,
     private readonly now: () => number = Date.now,
+    private readonly audit?: { record(kind: string, detail?: Record<string, unknown>, options?: { actor?: string }): void },
   ) {}
 
   private iso(): string {
@@ -252,10 +257,20 @@ export class ModelCatalogService {
     this.repo.transaction(() => {
       const present: string[] = [];
       for (const info of listed) {
-        const verdict = plugin.classifyModel(info);
+        let verdict = plugin.classifyModel(info);
         const known = this.repo.getModelByRef(id, info.id);
+        if (plugin.ownerOverridable && this.repo.isOwnerFree(id, info.id)) {
+          if (verdict.status === "blocked" && verdict.overridable) {
+            // Still lists no price: the owner's confirmation stands.
+            verdict = { status: "free_tier", source: "You confirmed this model is free (OmniRoute lists no price for it)", overridable: true };
+          } else if (verdict.status === "blocked") {
+            // It now has a price, or became a routing name: the confirmation is void.
+            this.repo.clearOwnerFree(id, info.id);
+            this.audit?.record("model.owner_free_withdrawn", { provider: id, model: info.id, reason: "no longer eligible" });
+          }
+        }
         if (verdict.status === "blocked" && !known && !plugin.storeBlocked) continue;
-        this.repo.upsertModel(id, info, verdict.status, verdict.source, "available", now);
+        this.repo.upsertModel(id, info, verdict.status, verdict.source, "available", now, verdict.overridable === true);
         present.push(info.id);
       }
       for (const suggestion of plugin.suggestedModels ?? []) {
@@ -299,6 +314,8 @@ export class ModelCatalogService {
       enabled: model.enabled,
       availability: model.availability,
       isLlama: model.isLlama,
+      ownerVerified: model.ownerVerified,
+      ownerOverridable: model.ownerOverridable,
       callable: block === null,
       blockedReason: block?.message ?? null,
     };
@@ -324,6 +341,34 @@ export class ModelCatalogService {
     }
     this.repo.setModelEnabled(id, enabled, this.iso());
     return this.modelView({ ...model, enabled }, provider, plugin);
+  }
+
+  /**
+   * The owner confirms (or withdraws) that one gateway model is free. Only possible when the model's sole problem is that
+   * no price is listed. A model with a price, a routing name, or a different provider can never be confirmed this way.
+   * The model stays OFF until the owner switches it on, and is still checked on every reply and by the daily limits.
+   */
+  setOwnerVerified(modelDbId: number, verified: boolean): ModelView {
+    const model = this.repo.getModel(modelDbId);
+    const plugin = model ? getPlugin(model.providerId) : undefined;
+    const provider = model ? this.repo.getProvider(model.providerId) : undefined;
+    if (!model || !plugin || !provider) throw new AppError(404, "model_not_found", "Model not found");
+    if (!plugin.ownerOverridable) throw new AppError(409, "not_overridable", "Only models from an AI gateway can be confirmed by hand.");
+    const now = this.iso();
+    if (verified) {
+      if (!model.ownerOverridable || model.freeStatus !== "blocked") {
+        throw new AppError(409, "not_overridable", "This model cannot be confirmed by hand: it lists a price, is a routing name, or its price status is not simply missing.");
+      }
+      this.repo.setOwnerFree(model.providerId, model.modelId, now);
+      this.repo.setFreeStatus(model.id, "free_tier", "You confirmed this model is free (OmniRoute lists no price for it)", now, false);
+      this.audit?.record("model.owner_free_confirmed", { provider: model.providerId, model: model.modelId }, { actor: "owner" });
+    } else {
+      this.repo.clearOwnerFree(model.providerId, model.modelId);
+      this.repo.setFreeStatus(model.id, "blocked", "Blocked: your confirmation was withdrawn", now, false);
+      this.audit?.record("model.owner_free_withdrawn", { provider: model.providerId, model: model.modelId }, { actor: "owner" });
+    }
+    const fresh = this.repo.getModel(model.id)!;
+    return this.modelView(fresh, provider, plugin);
   }
 
   /** Used by the Agent Manager: a bot may only be given a known, non-blocked model. */
@@ -359,11 +404,13 @@ export class ModelCatalogService {
 
   /** A gateway answered as a different model than the one requested: switch that model off until the owner looks at it. */
   blockModelForIdentity(model: ModelRow): void {
+    this.repo.clearOwnerFree(model.providerId, model.modelId);
     this.repo.blockModel(model.id, "Blocked automatically: the gateway answered as a different model than the one requested", this.iso());
   }
 
   /** A provider reported a cost on a "free" model: switch that model off for good. */
   blockModelForCost(model: ModelRow): void {
+    this.repo.clearOwnerFree(model.providerId, model.modelId);
     this.repo.blockModel(
       model.id,
       "Blocked automatically: the provider reported a cost for this model",

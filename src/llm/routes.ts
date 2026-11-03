@@ -13,6 +13,7 @@ const providerPatchSchema = z.strictObject({
 });
 
 const modelPatchSchema = z.strictObject({ enabled: z.boolean() });
+const ownerVerifySchema = z.strictObject({ verified: z.boolean(), iUnderstand: z.literal(true) });
 const pauseSchema = z.strictObject({ paused: z.boolean() });
 const usageQuerySchema = z.strictObject({
   days: z.coerce.number().int().min(1).max(90).default(14),
@@ -73,6 +74,13 @@ export async function registerLlmRoutes(app: FastifyInstance, deps: LlmRoutesDep
     const id = Number(req.params.id);
     const body = modelPatchSchema.parse(req.body);
     return { model: catalog.setModelEnabled(Number.isInteger(id) ? id : -1, body.enabled) };
+  });
+
+  // You personally confirm that one OmniRoute model is free although it lists no price. Needs an explicit acknowledgement.
+  app.put<{ Params: { id: string } }>("/api/llm/models/:id/owner-verified", async (req) => {
+    const id = Number(req.params.id);
+    const body = ownerVerifySchema.parse(req.body);
+    return { model: catalog.setOwnerVerified(Number.isInteger(id) ? id : -1, body.verified) };
   });
 
   app.get("/api/llm/usage", async (req) => {

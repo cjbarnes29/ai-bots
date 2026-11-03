@@ -39,7 +39,7 @@ function priceNumber(value: unknown): number | null {
  * Verified zero needs: an input price and an output price both present and exactly 0, and every other price field also exactly 0.
  * Missing, unreadable, negative, non-zero or disagreeing fields all block. A word such as "free" is not a number and proves nothing.
  */
-export function verifyZeroPricing(model: ModelInfo): { ok: true } | { ok: false; reason: string } {
+export function verifyZeroPricing(model: ModelInfo): { ok: true } | { ok: false; reason: string; missing?: true } {
   const fields: Record<string, unknown> =
     model.pricingFields ??
     Object.fromEntries(
@@ -69,11 +69,11 @@ export function verifyZeroPricing(model: ModelInfo): { ok: true } | { ok: false;
   if (nonZero.length > 0) {
     return { ok: false, reason: sawZero ? `its price fields disagree or are not all zero (${nonZero.join(", ")})` : `it has a price (${nonZero.join(", ")})` };
   }
-  if (!input || !output) return { ok: false, reason: "it did not list both an input price and an output price" };
+  if (!input || !output) return { ok: false, reason: "it did not list both an input price and an output price", missing: true };
   return { ok: true };
 }
 
-export function classifyOmniRouteModel(model: ModelInfo): { status: "verified_free" | "blocked"; source: string } {
+export function classifyOmniRouteModel(model: ModelInfo): { status: "verified_free" | "blocked"; source: string; overridable?: boolean } {
   if (isRoutingModelId(model.id)) {
     return { status: "blocked", source: "Blocked: this is an auto-routing, combo or fallback name, not one explicit model" };
   }
@@ -82,7 +82,8 @@ export function classifyOmniRouteModel(model: ModelInfo): { status: "verified_fr
   }
   const verdict = verifyZeroPricing(model);
   if (!verdict.ok) {
-    return { status: "blocked", source: `Blocked: OmniRoute pricing could not be verified as free: ${verdict.reason}` };
+    // Only "no price listed at all" can be settled by the owner. A price, an unreadable price or a routing name never can.
+    return { status: "blocked", source: `Blocked: OmniRoute pricing could not be verified as free: ${verdict.reason}`, overridable: verdict.missing === true };
   }
   return {
     status: "verified_free",
@@ -104,6 +105,7 @@ export const omniRoutePlugin: ProviderPlugin = {
   defaultDailyRequestCap: 40,
   storeBlocked: true,
   verifyReturnedModel: true,
+  ownerOverridable: true,
   normalizeModelId: (id) => id,
   isTextModel: (id) => !NOT_TEXT.test(id),
   classifyModel: classifyOmniRouteModel,

@@ -80,7 +80,9 @@ export interface ProviderPlugin {
   normalizeModelId(id: string): string;
   /** Filters out models that are not for text chat (embeddings, speech, images...). */
   isTextModel(id: string): boolean;
-  classifyModel(model: ModelInfo): { status: FreeStatus; source: string };
+  classifyModel(model: ModelInfo): { status: FreeStatus; source: string; overridable?: boolean };
+  /** Gateways only: the owner may personally confirm a model as free when its ONLY problem is that no price was listed. */
+  ownerOverridable?: boolean;
   /** Keep blocked models in the catalog (greyed out, with the reason) instead of hiding them. For gateways, so the owner can see why. */
   storeBlocked?: boolean;
   /** The reply must name exactly the model we asked for. Anything else (or nothing) is rejected and the model is blocked. For gateways. */

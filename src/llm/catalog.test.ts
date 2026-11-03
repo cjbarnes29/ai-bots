@@ -89,6 +89,8 @@ describe("the policy gate (checkCallable)", () => {
     freeCheckedAt: "now",
     contextWindow: null,
     enabled: true,
+    ownerVerified: false,
+    ownerOverridable: false,
     availability: "available",
     isLlama: false,
     ...over,

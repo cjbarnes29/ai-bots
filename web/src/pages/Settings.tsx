@@ -9,6 +9,7 @@ import {
   useUpdateDelegationLimits,
   useLlmStatus,
   useModels,
+  useOwnerVerifyModel,
   usePatchModel,
   usePatchProvider,
   useProviders,
@@ -19,6 +20,7 @@ import {
   useUpdateLimits,
 } from "../api/hooks";
 import type { ModelView, ProviderView } from "../api/types";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FreeBadge } from "../components/FreeBadge";
 
 const errorText = (e: unknown): string | null =>
@@ -268,6 +270,8 @@ const AVAILABILITY: Record<ModelView["availability"], string> = {
 
 function ModelRow({ model: m }: { model: ModelView }) {
   const patch = usePatchModel();
+  const verify = useOwnerVerifyModel();
+  const [confirming, setConfirming] = useState(false);
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 py-3">
       <div className="min-w-0 space-y-1">
@@ -283,7 +287,32 @@ function ModelRow({ model: m }: { model: ModelView }) {
         </p>
         <p className="text-xs text-slate-500">{m.freeSource}</p>
         {!m.callable && m.blockedReason && <p className="text-xs text-amber-700 dark:text-amber-400">Can't be used yet: {m.blockedReason}</p>}
-        <ErrorLine error={patch.error} />
+        {m.ownerOverridable && !m.ownerVerified && (
+          <button type="button" className="btn-secondary" onClick={() => setConfirming(true)}>
+            I confirm this model is free…
+          </button>
+        )}
+        {m.ownerVerified && (
+          <p className="text-xs">
+            <strong>You confirmed this model is free.</strong>{" "}
+            <button type="button" className="underline" disabled={verify.isPending} onClick={() => verify.mutate({ id: m.id, verified: false })}>
+              Withdraw
+            </button>
+          </p>
+        )}
+        <ErrorLine error={patch.error ?? verify.error} />
+        {confirming && (
+          <ConfirmDialog
+            title={`Confirm ${m.displayName} is free?`}
+            confirmLabel="Yes, I checked: it is free"
+            busy={verify.isPending}
+            onCancel={() => setConfirming(false)}
+            onConfirm={() => verify.mutate({ id: m.id, verified: true }, { onSettled: () => setConfirming(false) })}
+          >
+            <p className="mb-2">OmniRoute does not say what this model costs, so the platform cannot check it. Only confirm if YOU have checked (in OmniRoute or with the provider) that this exact model is free on your account.</p>
+            <p className="hint">The model stays off until you switch it on. It is still checked on every reply (it must answer as itself), counted against your daily limit, and switched off for good if it ever reports a cost or if OmniRoute lists a price for it.</p>
+          </ConfirmDialog>
+        )}
       </div>
       <Switch
         checked={m.enabled}

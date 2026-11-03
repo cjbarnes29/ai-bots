@@ -303,6 +303,7 @@ describe("what a phone may do", () => {
     ["PATCH", "/api/llm/providers/ollama", { enabled: true }],
     ["POST", "/api/llm/providers/ollama/refresh-models", undefined],
     ["PATCH", "/api/llm/models/1", { enabled: true }],
+    ["PUT", "/api/llm/models/1/owner-verified", { verified: true, iUnderstand: true }],
     ["PUT", "/api/llm/limits", { botRequestsPerMinute: 99 }],
     ["POST", "/api/llm/limits/reset", undefined],
     ["PUT", "/api/delegation/limits", {}],

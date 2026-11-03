@@ -54,7 +54,7 @@ describe("upgrading a database created by Phase 1", () => {
 
     const db = openDatabase(path); // applies 002 and 003
     const migrations = db.prepare("SELECT version FROM schema_migrations ORDER BY version").all().map((r: any) => r["version"]);
-    expect(migrations).toEqual(["001_init.sql", "002_llm.sql", "003_chat.sql", "004_delegation.sql", "005_automation.sql", "006_approvals_vault.sql", "007_devices.sql"]);
+    expect(migrations).toEqual(["001_init.sql", "002_llm.sql", "003_chat.sql", "004_delegation.sql", "005_automation.sql", "006_approvals_vault.sql", "007_devices.sql", "008_owner_free_models.sql"]);
 
     // The bot is exactly as it was, with new settings empty (meaning "use the defaults").
     const bot = db.prepare("SELECT * FROM bots WHERE id = 'b1'").get() as any;
@@ -98,7 +98,7 @@ describe("upgrading a database created by Phase 1", () => {
     makePhase1Database(path);
     openDatabase(path).close();
     const again = openDatabase(path);
-    expect((again.prepare("SELECT COUNT(*) AS n FROM schema_migrations").get() as any).n).toBe(7);
+    expect((again.prepare("SELECT COUNT(*) AS n FROM schema_migrations").get() as any).n).toBe(8);
     expect((again.prepare("SELECT COUNT(*) AS n FROM bots").get() as any).n).toBe(1);
     expect((again.prepare("SELECT COUNT(*) AS n FROM bot_versions").get() as any).n).toBe(2);
     again.close();

@@ -35,6 +35,7 @@ What is always true, for every provider:
 - Bots store the exact id OmniRoute returned (for example `omniroute/free-prov/Llama-3.3-70B:Instruct`).
 - **Pricing is checked field by field**: every price-like field OmniRoute lists (prompt/completion, input/output, per token or million, request, image, web search, reasoning, cache...) must be exactly 0, and input and output prices must both be present. Anything missing, unreadable, negative, non-zero or disagreeing blocks the model.
 - **Model identity is checked on every reply**: the reply must name exactly the model you asked for. A different or missing name means the reply is thrown away and that model is blocked until you switch it on again.
+- **If OmniRoute lists no price for a model**, it stays blocked, but on the PC you may press "I confirm this model is free…" after checking it yourself. That works only when the price is simply missing (never for a priced model or an auto/combo name). The model stays off until you switch it on, is still checked on every reply and by the daily cap, and your confirmation is cancelled automatically if a price appears, it answers as another model, or it reports a cost. A phone cannot do this.
 - **Refreshing** the list never deletes bots or your choices. A model that disappears becomes "unavailable" (and returns when listed again). A model that
   starts showing a price is blocked and switched off. A call that reports a cost switches the model off.
 - It keeps a daily request cap (default 40, cannot be removed) and counts toward the overall cloud limits.

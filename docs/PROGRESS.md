@@ -77,6 +77,9 @@ Totals after Phase 9: 441 backend + 124 dashboard tests, both builds, 9 + 9 real
   image, web_search, reasoning, cache; plus top-level *cost*/*price* fields). Needs input AND output present and exactly 0; any non-zero, negative, non-numeric, null,
   "free", object, or disagreeing field blocks. Currency/unit/url style labels ignored.
 - Tests: `src/llm/omniroute.test.ts` (88 tests, pretend OmniRoute server, real app + real adapter). Mutation checks on price and identity rules caught. Real-browser run (9 checks) passed.
+- Owner override (approved later): a model whose ONLY problem is that no price is listed can be confirmed free by the owner on the PC (Settings > Models, explicit acknowledgement, PC-only route,
+  migration `008_owner_free_models.sql`). It becomes `free_tier` + ownerVerified, stays OFF until switched on, survives refreshes while still unpriced, and is VOIDED (and audited) if OmniRoute lists a
+  price, it shows a routing name, it answers as another model, or reports a cost. Never possible for priced models, routing names, combos or non-gateway providers. Tests in `omniroute.test.ts`.
 - NOT verified against a real OmniRoute: its real /v1/models may not list prices. If it does not, every model shows as blocked (by design) until the owner
   decides how to authorise models (not built: "separate authorisation"). Not built: a check that the answering model equals the requested one.
 - Owner steps: see docs/PROVIDERS.md.

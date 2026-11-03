@@ -213,6 +213,15 @@ export function usePatchModel() {
   });
 }
 
+export function useOwnerVerifyModel() {
+  const refresh = useRefreshLlm();
+  return useMutation({
+    mutationFn: async (input: { id: number; verified: boolean }) =>
+      (await api<{ model: ModelView }>("PUT", `/api/llm/models/${input.id}/owner-verified`, { verified: input.verified, iUnderstand: true })).model,
+    onSuccess: refresh,
+  });
+}
+
 export function useUpdateLimits() {
   const refresh = useRefreshLlm();
   return useMutation({

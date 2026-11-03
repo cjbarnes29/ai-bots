@@ -103,6 +103,8 @@ export function makeModel(overrides: Partial<ModelView> = {}): ModelView {
     enabled: true,
     availability: "available",
     isLlama: false,
+    ownerVerified: false,
+    ownerOverridable: false,
     callable: true,
     blockedReason: null,
     ...overrides,
@@ -325,6 +327,14 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       if (!id && method === "GET") return json({ models: llm.models });
       const m = llm.models.find((x) => String(x.id) === id);
       if (!m) return err(404, "model_not_found", "Model not found");
+      if (parts[4] === "owner-verified" && method === "PUT") {
+        if (body.verified && !m.ownerOverridable) return err(409, "not_overridable", "This model cannot be confirmed by hand.");
+        m.ownerVerified = !!body.verified;
+        m.freeStatus = body.verified ? "free_tier" : "blocked";
+        m.freeSource = body.verified ? "You confirmed this model is free (OmniRoute lists no price for it)" : "Blocked: your confirmation was withdrawn";
+        m.enabled = false;
+        return json({ model: m });
+      }
       if (method === "PATCH") {
         if (body.enabled && m.freeStatus === "blocked") return err(409, "model_blocked", "This model is blocked (paid or unverified).");
         m.enabled = body.enabled;

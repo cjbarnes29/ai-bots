@@ -536,6 +536,7 @@ describe("direct providers are unaffected by the gateway model-identity rule", (
   it("only the gateway plugin asks for identity checks, and only it stores blocked models", async () => {
     const { PLUGINS } = await import("./plugins/index.js");
     expect(PLUGINS.filter((p) => p.verifyReturnedModel).map((p) => p.id)).toEqual(["omniroute"]);
+    expect(PLUGINS.filter((p) => p.ownerOverridable).map((p) => p.id)).toEqual(["omniroute"]);
     expect(PLUGINS.filter((p) => p.storeBlocked).map((p) => p.id)).toEqual(["omniroute"]);
     expect(PLUGINS.filter((p) => p.freePolicy === "gateway_verified_zero_price").map((p) => p.id)).toEqual(["omniroute"]);
   });

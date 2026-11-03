@@ -386,6 +386,110 @@ describe("OmniRoute through the whole app (pretend OmniRoute on this PC)", () =>
     });
   });
 
+  describe("you confirm a model that lists no price", () => {
+    const UNPRICED = "mystery/unknown-price";
+    const confirm = async (modelId: string, verified = true, ack = true) => {
+      const m = (await models()).find((x) => x.modelId === modelId)!;
+      return call("PUT", `/api/llm/models/${m.id}/owner-verified`, { verified, ...(ack ? { iUnderstand: true } : {}) });
+    };
+    const find = async (id: string) => (await models()).find((x) => x.modelId === id)!;
+
+    it("only a model whose sole problem is a missing price can be confirmed", async () => {
+      await connect();
+      await refresh();
+      expect(await find(UNPRICED)).toMatchObject({ ownerOverridable: true, ownerVerified: false, freeStatus: "blocked" });
+      expect(await find("half/one-sided")).toMatchObject({ ownerOverridable: true });
+      for (const id of ["paid/gpt-x", "auto", "my-combo", "fast/best-of-three"]) {
+        expect(await find(id)).toMatchObject({ ownerOverridable: false });
+        const res = await confirm(id);
+        expect(res.status, id).toBe(409);
+        expect(res.body.error).toBe("not_overridable");
+        expect(await find(id)).toMatchObject({ freeStatus: "blocked", ownerVerified: false });
+      }
+    });
+
+    it("needs an explicit acknowledgement, and unknown models are refused", async () => {
+      await connect();
+      await refresh();
+      expect((await confirm(UNPRICED, true, false)).status).toBe(400);
+      expect(await find(UNPRICED)).toMatchObject({ ownerVerified: false });
+      expect((await call("PUT", "/api/llm/models/999999/owner-verified", { verified: true, iUnderstand: true })).status).toBe(404);
+    });
+
+    it("once confirmed it is shown as yours, stays OFF until you switch it on, and then works like any other model", async () => {
+      await connect();
+      await refresh();
+      const res = await confirm(UNPRICED);
+      expect(res.status).toBe(200);
+      expect(res.body.model).toMatchObject({ freeStatus: "free_tier", ownerVerified: true, enabled: false, callable: false });
+      expect(res.body.model.freeSource).toMatch(/You confirmed/);
+      expect((await enable(UNPRICED)).status).toBe(200);
+      const bot = (await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` })).body.bot;
+      expect((await chat(bot.id)).status).toBe(200);
+      expect(om.chats()[0]!.body.model).toBe(UNPRICED);
+      expect(JSON.stringify((await call("GET", "/api/audit?limit=100")).body)).toContain("model.owner_free_confirmed");
+    });
+
+    it("the confirmation survives a refresh while OmniRoute still lists no price", async () => {
+      await connect();
+      await refresh();
+      await confirm(UNPRICED);
+      await enable(UNPRICED);
+      await refresh();
+      expect(await find(UNPRICED)).toMatchObject({ freeStatus: "free_tier", ownerVerified: true, enabled: true, callable: true });
+    });
+
+    it("a price appearing voids it, and it does NOT come back by itself when the price disappears again", async () => {
+      await connect();
+      await refresh();
+      await confirm(UNPRICED);
+      await enable(UNPRICED);
+      om.mode.models = baseModels().map((m) => (m.id === UNPRICED ? { ...m, pricing: { prompt: "0.000001", completion: "0.000002" } } : m));
+      await refresh();
+      expect(await find(UNPRICED)).toMatchObject({ freeStatus: "blocked", ownerVerified: false, enabled: false, ownerOverridable: false });
+      om.mode.models = baseModels();
+      await refresh();
+      expect(await find(UNPRICED)).toMatchObject({ freeStatus: "blocked", ownerVerified: false, enabled: false, ownerOverridable: true });
+      expect(JSON.stringify((await call("GET", "/api/audit?limit=100")).body)).toContain("model.owner_free_withdrawn");
+    });
+
+    it("withdrawing blocks it again at once and stops calls", async () => {
+      await connect();
+      await refresh();
+      await confirm(UNPRICED);
+      await enable(UNPRICED);
+      const bot = (await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` })).body.bot;
+      expect((await confirm(UNPRICED, false)).status).toBe(200);
+      expect(await find(UNPRICED)).toMatchObject({ freeStatus: "blocked", ownerVerified: false, enabled: false, callable: false });
+      expect((await chat(bot.id)).status).toBeGreaterThanOrEqual(400);
+      expect(om.chats()).toHaveLength(0);
+    });
+
+    it("a confirmed model is still held to the identity rule, the cost rule and the daily cap", async () => {
+      await connect();
+      await refresh();
+      await confirm(UNPRICED);
+      await enable(UNPRICED);
+      const bot = (await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` })).body.bot;
+      om.mode.returnModel = "paid/gpt-x";
+      expect((await chat(bot.id)).body.error).toBe("llm_model_mismatch");
+      expect(await find(UNPRICED)).toMatchObject({ freeStatus: "blocked", ownerVerified: false, enabled: false });
+      await refresh();
+      expect(await find(UNPRICED)).toMatchObject({ freeStatus: "blocked", ownerVerified: false }); // the mismatch cancelled your confirmation
+    });
+
+    it("a reported cost cancels the confirmation", async () => {
+      await connect();
+      await refresh();
+      await confirm(UNPRICED);
+      await enable(UNPRICED);
+      const bot = (await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` })).body.bot;
+      om.mode.cost = 0.01;
+      await chat(bot.id);
+      expect(await find(UNPRICED)).toMatchObject({ freeStatus: "blocked", ownerVerified: false, enabled: false });
+    });
+  });
+
   describe("model identity", () => {
     it("accepts a reply that names exactly the requested model", async () => {
       const bot = await readyBot();

@@ -39,7 +39,9 @@ export function checkCallable(provider: ProviderRow, plugin: ProviderPlugin, mod
     };
   }
   // A gateway must be called with one explicit model. Auto-routing, combos and fallbacks are refused even if a stored row says otherwise.
-  if (plugin.freePolicy === "gateway_verified_zero_price" && (model.freeStatus !== "verified_free" || isRoutingModelId(model.modelId))) {
+  // Free means: the gateway lists price 0 (verified_free), or the owner personally confirmed a model that lists no price at all (free_tier + ownerVerified).
+  const gatewayFree = model.freeStatus === "verified_free" || (model.freeStatus === "free_tier" && model.ownerVerified);
+  if (plugin.freePolicy === "gateway_verified_zero_price" && (!gatewayFree || isRoutingModelId(model.modelId))) {
     return {
       code: "blocked_by_policy",
       message: "This gateway model is blocked: it is not verified free, or it is an auto-routing, combo or fallback name. Free-only mode is locked on.",

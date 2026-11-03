@@ -26,6 +26,10 @@ export interface ModelRow {
   enabled: boolean;
   availability: Availability;
   isLlama: boolean;
+  /** The owner personally confirmed this gateway model is free (it lists no price). */
+  ownerVerified: boolean;
+  /** The only reason it is blocked is that no price was listed, so the owner may confirm it. */
+  ownerOverridable: boolean;
 }
 
 const str = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
@@ -43,6 +47,8 @@ function toProvider(r: Row): ProviderRow {
   };
 }
 
+const SELECT_MODEL = `SELECT m.*, EXISTS(SELECT 1 FROM owner_free_models o WHERE o.provider_id = m.provider_id AND o.model_id = m.model_id) AS owner_verified FROM llm_models m`;
+
 function toModel(r: Row): ModelRow {
   return {
     id: Number(r["id"]),
@@ -56,6 +62,8 @@ function toModel(r: Row): ModelRow {
     enabled: Number(r["enabled"]) === 1,
     availability: String(r["availability"]) as Availability,
     isLlama: Number(r["is_llama"]) === 1,
+    ownerVerified: Number(r["owner_verified"] ?? 0) === 1,
+    ownerOverridable: Number(r["owner_overridable"] ?? 0) === 1,
   };
 }
 
@@ -136,19 +144,19 @@ export class LlmRepository {
   listModels(providerId?: string): ModelRow[] {
     const rows =
       providerId === undefined
-        ? this.db.prepare("SELECT * FROM llm_models ORDER BY provider_id, display_name").all()
-        : this.db.prepare("SELECT * FROM llm_models WHERE provider_id = ? ORDER BY display_name").all(providerId);
+        ? this.db.prepare(`${SELECT_MODEL} ORDER BY m.provider_id, m.display_name`).all()
+        : this.db.prepare(`${SELECT_MODEL} WHERE m.provider_id = ? ORDER BY m.display_name`).all(providerId);
     return rows.map(toModel);
   }
 
   getModel(id: number): ModelRow | undefined {
-    const row = this.db.prepare("SELECT * FROM llm_models WHERE id = ?").get(id);
+    const row = this.db.prepare(`${SELECT_MODEL} WHERE m.id = ?`).get(id);
     return row ? toModel(row) : undefined;
   }
 
   getModelByRef(providerId: string, modelId: string): ModelRow | undefined {
     const row = this.db
-      .prepare("SELECT * FROM llm_models WHERE provider_id = ? AND model_id = ?")
+      .prepare(`${SELECT_MODEL} WHERE m.provider_id = ? AND m.model_id = ?`)
       .get(providerId, modelId);
     return row ? toModel(row) : undefined;
   }
@@ -161,13 +169,14 @@ export class LlmRepository {
     freeSource: string,
     availability: Availability,
     now: string,
+    overridable = false,
   ): void {
     this.db
       .prepare(
         `INSERT INTO llm_models
            (provider_id, model_id, display_name, free_status, free_source, free_checked_at,
-            context_window, enabled, availability, is_llama, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+            context_window, enabled, availability, is_llama, updated_at, owner_overridable)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
          ON CONFLICT (provider_id, model_id) DO UPDATE SET
            display_name = excluded.display_name,
            free_status = excluded.free_status,
@@ -176,6 +185,7 @@ export class LlmRepository {
            context_window = excluded.context_window,
            availability = excluded.availability,
            is_llama = excluded.is_llama,
+           owner_overridable = excluded.owner_overridable,
            enabled = CASE WHEN excluded.free_status = 'blocked' THEN 0 ELSE llm_models.enabled END,
            updated_at = excluded.updated_at`,
       )
@@ -190,6 +200,7 @@ export class LlmRepository {
         availability,
         /llama/i.test(info.id) ? 1 : 0,
         now,
+        overridable ? 1 : 0,
       );
   }
 
@@ -206,6 +217,25 @@ export class LlmRepository {
 
   setModelEnabled(id: number, enabled: boolean, now: string): void {
     this.db.prepare("UPDATE llm_models SET enabled = ?, updated_at = ? WHERE id = ?").run(enabled ? 1 : 0, now, id);
+  }
+
+  isOwnerFree(providerId: string, modelId: string): boolean {
+    return this.db.prepare("SELECT 1 AS x FROM owner_free_models WHERE provider_id = ? AND model_id = ?").get(providerId, modelId) !== undefined;
+  }
+
+  setOwnerFree(providerId: string, modelId: string, now: string): void {
+    this.db.prepare("INSERT OR REPLACE INTO owner_free_models (provider_id, model_id, confirmed_at) VALUES (?, ?, ?)").run(providerId, modelId, now);
+  }
+
+  clearOwnerFree(providerId: string, modelId: string): void {
+    this.db.prepare("DELETE FROM owner_free_models WHERE provider_id = ? AND model_id = ?").run(providerId, modelId);
+  }
+
+  /** Sets a model's free status directly (used when the owner confirms or withdraws a gateway model). */
+  setFreeStatus(id: number, status: FreeStatus, source: string, now: string, enabled?: boolean): void {
+    this.db
+      .prepare("UPDATE llm_models SET free_status = ?, free_source = ?, free_checked_at = ?, enabled = COALESCE(?, enabled), updated_at = ? WHERE id = ?")
+      .run(status, source, now, enabled === undefined ? null : enabled ? 1 : 0, now, id);
   }
 
   blockModel(id: number, source: string, now: string): void {

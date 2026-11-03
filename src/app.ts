@@ -134,7 +134,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const llmRepo = new LlmRepository(db);
   const usageRepo = new UsageRepository(db);
   const factory = options.providerFactory ?? defaultProviderFactory;
-  const catalog = new ModelCatalogService(llmRepo, usageRepo, factory, now);
+  const catalog = new ModelCatalogService(llmRepo, usageRepo, factory, now, audit);
   catalog.ensureProviders();
   const llm = new LlmService(llmRepo, usageRepo, catalog, factory, {
     now,
