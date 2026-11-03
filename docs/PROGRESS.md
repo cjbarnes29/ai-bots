@@ -56,6 +56,13 @@ Totals after Phase 9: 441 backend + 124 dashboard tests, both builds, 9 + 9 real
   worker could not register there; desktop built-app SW test passed earlier). NOT built: push notifications (needs external push services).
 - Owner steps: docs/PHONE-AND-REMOTE.md.
 
+### Monitoring and backup facts (added after Phase 11)
+- `src/monitor/monitor.ts`: GET /api/monitor/overview (read-only): bots, tasks (running / done / failed 24 h), approvals, AI calls and tokens today, automation, paired phones, the
+  pause switches, a "needs your attention" list (waiting approvals, pauses, failures, schedules switched off by failures) and one mixed activity feed (tasks, approvals,
+  automation problems, security events). Never contains secret values. Dashboard page `/monitor` ("Monitor" in the menu), refreshes every 5 s. Tests: 7 backend, 3 dashboard; layout checked at 393px.
+- `npm run backup` (`src/backup/`): consistent copy of the database (SQLite VACUUM INTO, safe while the app runs) plus `vault.key` into `data/backups/<date_time>/`; never overwrites, never changes the original.
+  3 tests. NOT run on the owner's real data folder (the owner runs it).
+
 ### OmniRoute facts (added after Phase 9, owner requirement)
 - `src/llm/plugins/omniroute.ts`: provider id `omniroute`, default address http://127.0.0.1:20128/v1 (editable, must stay on this PC), key `OMNIROUTE_API_KEY`
   (vault first, then .env), kind "cloud" so it needs a key, keeps a daily cap (default 40, cannot be removed) and counts toward the overall cloud limits.
@@ -90,7 +97,7 @@ Totals after Phase 9: 441 backend + 124 dashboard tests, both builds, 9 + 9 real
   `npm --prefix web run build` then `npm --prefix web run preview` serves it on 5173. Real Edge test: worker active, cache holds only shell + /assets.
 - NOT verified against real services: Gmail (needs the owner's Google client + consent), Browser against the real internet (never fetched in tests),
   real Android phone.
-- NOT built: phone/remote access (the backend only accepts this PC; the dashboard has no login, so opening it to a network would let anyone on it
+- (Phone access was built later, see Phase 11.) NOT built: phone/remote access (the backend only accepts this PC; the dashboard has no login, so opening it to a network would let anyone on it
   approve actions. See docs/PHONE-AND-REMOTE.md for the design that needs the owner's decision), inbound Gmail/Telegram polling into triggers.
 
 ### Phase 6 facts (so they need not be re-read)

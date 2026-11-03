@@ -4,6 +4,7 @@ import { Approvals } from "./pages/Approvals";
 import { Automation } from "./pages/Automation";
 import { BotEditor } from "./pages/BotEditor";
 import { BotList } from "./pages/BotList";
+import { Monitor } from "./pages/Monitor";
 import { Settings } from "./pages/Settings";
 import { TaskDetail, TaskList } from "./pages/Tasks";
 import { Usage } from "./pages/Usage";
@@ -28,6 +29,9 @@ function Layout() {
           <nav aria-label="Main" className="flex flex-wrap gap-1">
             <NavLink to="/" end className={navClass}>
               Bots
+            </NavLink>
+            <NavLink to="/monitor" className={navClass}>
+              Monitor
             </NavLink>
             <NavLink to="/tasks" className={navClass}>
               Tasks
@@ -78,6 +82,7 @@ export const routes: RouteObject[] = [
       { path: "/", element: <BotList /> },
       { path: "/bots/:id", element: <BotEditor /> },
       { path: "/automation", element: <Automation /> },
+      { path: "/monitor", element: <Monitor /> },
       { path: "/tasks", element: <TaskList /> },
       { path: "/tasks/:id", element: <TaskDetail /> },
       { path: "/approvals", element: <Approvals /> },

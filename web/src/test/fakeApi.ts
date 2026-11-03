@@ -607,6 +607,17 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     session: { mode: 'local' as 'local' | 'remote', remoteEnabled: true, remoteHosts: ['pc.tail1.ts.net'], paired: null as boolean | null, device: null as { id: string; name: string } | null },
     devices: [] as { id: string; name: string; userAgent: string | null; createdAt: string; lastSeenAt: string; revokedAt: string | null }[],
     pairingCode: 'ABCDE23456',
+    monitor: {
+      generatedAt: new Date().toISOString(),
+      bots: { total: 0, active: 0, archived: 0 },
+      tasks: { running: 0, completed24h: 0, failed24h: 0 },
+      approvals: { pending: 0, executed24h: 0, denied24h: 0, failed24h: 0 },
+      ai: { callsToday: 0, tokensToday: 0, errorsToday: 0, blockedToday: 0, paused: false },
+      automation: { schedulesOn: 0, triggersOn: 0, switchedOffByFailures: 0, runsToday: 0, paused: false },
+      devices: { remoteEnabled: false, paired: 0 },
+      attention: [] as { level: 'info' | 'warn' | 'error'; text: string; link: string | null }[],
+      activity: [] as { at: string; kind: 'task' | 'approval' | 'automation' | 'security'; level: 'info' | 'warn' | 'error'; summary: string; link: string | null }[],
+    },
     connectors: [
       { id: 'telegram', label: 'Telegram', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send a message' }] },
       { id: 'gmail', label: 'Gmail', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send an email' }] },
@@ -624,6 +635,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
         return json({ paused: ext.paused });
       }
     }
+    if (parts[1] === 'monitor' && method === 'GET') return json(ext.monitor);
     if (parts[1] === 'session' && method === 'GET') return json(ext.session);
     if (parts[1] === 'devices') {
       if (parts[2] === 'pairing' && method === 'POST') {
@@ -717,7 +729,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);

@@ -12,6 +12,7 @@
     "test": "vitest run",
     "install:all": "npm install && npm --prefix web install",
     "dev:all": "node scripts/dev-all.mjs",
+    "backup": "tsx src/backup/cli.ts",
     "check": "npm run typecheck && npm test && npm --prefix web run typecheck && npm --prefix web test && npm --prefix web run build"
   },
   "dependencies": {

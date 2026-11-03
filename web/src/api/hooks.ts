@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { DeviceInfo, GmailStatus, PairingCode, SessionInfo,
+import type { DeviceInfo, GmailStatus, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -599,4 +599,8 @@ export function useRevokeDevice() {
 export function useSignOutDevice() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: () => api("POST", "/api/devices/signout", {}), onSuccess: () => qc.invalidateQueries() });
+}
+
+export function useMonitor() {
+  return useQuery({ queryKey: ["monitor"], queryFn: () => api<MonitorOverview>("GET", "/api/monitor/overview"), refetchInterval: WATCH });
 }

@@ -439,3 +439,17 @@ export interface PairingCode {
   expiresAt: string;
   link: string;
 }
+
+export type ActivityLevel = "info" | "warn" | "error";
+
+export interface MonitorOverview {
+  generatedAt: string;
+  bots: { total: number; active: number; archived: number };
+  tasks: { running: number; completed24h: number; failed24h: number };
+  approvals: { pending: number; executed24h: number; denied24h: number; failed24h: number };
+  ai: { callsToday: number; tokensToday: number; errorsToday: number; blockedToday: number; paused: boolean };
+  automation: { schedulesOn: number; triggersOn: number; switchedOffByFailures: number; runsToday: number; paused: boolean };
+  devices: { remoteEnabled: boolean; paired: number };
+  attention: { level: ActivityLevel; text: string; link: string | null }[];
+  activity: { at: string; kind: "task" | "approval" | "automation" | "security"; level: ActivityLevel; summary: string; link: string | null }[];
+}

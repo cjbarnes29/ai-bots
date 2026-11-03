@@ -72,6 +72,8 @@ Runs the type checks, all automated tests and a production build of both parts.
 | `src/connectors/` | What a connector must look like, and the Telegram, Gmail and Browser connectors |
 | `src/vault/` | The encrypted store for keys and tokens |
 | `src/audit/` | The permanent security log |
+| `src/monitor/` | The Monitor page's overview of health and recent activity |
+| `src/backup/` | `npm run backup`: a safe copy of your database and vault key |
 | `src/remote/` | Phone access: who is asking, device pairing, serving the dashboard |
 | `src/db/` | The database and its upgrade scripts |
 | `web/` | The dashboard (React + Vite + Tailwind) |

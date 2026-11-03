@@ -42,6 +42,7 @@ import { registerAccess } from "./remote/access.js";
 import { DeviceService } from "./remote/devices.js";
 import { registerDashboard } from "./remote/dashboard.js";
 import { registerRemoteRoutes } from "./remote/routes.js";
+import { registerMonitorRoutes } from "./monitor/monitor.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -195,6 +196,16 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
 
   // ---- Phone access (Phase 11): sessions, device pairing, and the dashboard pages themselves ----
   await registerRemoteRoutes(app, devices, remoteHosts, now);
+
+  // ---- Monitoring: a read-only overview of health and recent activity (PC and phone) ----
+  await registerMonitorRoutes(app, {
+    db,
+    now,
+    aiPaused: () => llm.isPaused(),
+    outsidePaused: () => gate.isPaused(),
+    automationPaused: () => automation!.isPaused(),
+    remoteEnabled: remoteHosts.length > 0,
+  });
   if (options.dashboardDir) registerDashboard(app, options.dashboardDir);
 
   return app;
