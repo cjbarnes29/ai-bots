@@ -9,7 +9,10 @@
     "start": "tsx --env-file-if-exists=.env src/server.ts",
     "build": "tsc && node -e \"require('fs').cpSync('src/db/migrations','dist/db/migrations',{recursive:true})\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "install:all": "npm install && npm --prefix web install",
+    "dev:all": "node scripts/dev-all.mjs",
+    "check": "npm run typecheck && npm test && npm --prefix web run typecheck && npm --prefix web test && npm --prefix web run build"
   },
   "dependencies": {
     "@fastify/cors": "^11.4.0",
