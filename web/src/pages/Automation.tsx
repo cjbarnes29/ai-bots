@@ -21,6 +21,7 @@ import {
 } from "../api/hooks";
 import type { Bot, Schedule, ScheduleInput, ScheduleKind, Trigger, TriggerInput, TriggerSource } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { InboundSection } from "../components/InboundSection";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 
@@ -635,6 +636,7 @@ export function Automation() {
       <SafetySection />
       <SchedulesSection bots={usable} />
       <TriggersSection bots={usable} />
+      <InboundSection bots={usable} />
       <TestEventSection />
       <RunsSection />
       <LimitsSection />

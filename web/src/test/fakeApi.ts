@@ -617,6 +617,8 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     session: { mode: 'local' as 'local' | 'remote', remoteEnabled: true, remoteHosts: ['pc.tail1.ts.net'], paired: null as boolean | null, device: null as { id: string; name: string } | null },
     devices: [] as { id: string; name: string; userAgent: string | null; createdAt: string; lastSeenAt: string; revokedAt: string | null }[],
     pairingCode: 'ABCDE23456',
+    inbound: [] as any[],
+    inboundReadAllowed: true,
     monitor: {
       generatedAt: new Date().toISOString(),
       bots: { total: 0, active: 0, archived: 0 },
@@ -646,6 +648,27 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       }
     }
     if (parts[1] === 'monitor' && method === 'GET') return json(ext.monitor);
+    if (parts[1] === 'inbound') {
+      if (!parts[2] && method === 'GET') return json({ sources: ext.inbound, limits: { minIntervalMinutes: 30 } });
+      if (!parts[2] && method === 'POST') {
+        const bot = bots.get(body.botId);
+        if (ext.inbound.some((s) => s.connector === body.connector && s.botId === body.botId)) return err(409, 'duplicate_source', 'That bot already has a source for this connector.');
+        const s = { id: 'in' + (ext.inbound.length + 1), connector: body.connector, botId: body.botId, botName: bot?.name ?? '?', eventName: body.connector + '_message', intervalMinutes: 60, enabled: false, lastPollAt: null, lastNewCount: 0, consecutiveFailures: 0, disabledReason: null };
+        ext.inbound.push(s);
+        return json({ source: s }, 201);
+      }
+      const s = ext.inbound.find((x) => x.id === parts[2]);
+      if (!s) return err(404, 'inbound_not_found', 'That message source does not exist.');
+      if (method === 'PATCH') {
+        if (body.enabled === true && !ext.inboundReadAllowed) return err(409, 'read_not_allowed', 'Switch on Telegram reading on this bot\'s Permissions tab first.');
+        Object.assign(s, body);
+        return json({ source: s });
+      }
+      if (method === 'DELETE') {
+        ext.inbound = ext.inbound.filter((x) => x.id !== s.id);
+        return json({ ok: true });
+      }
+    }
     if (parts[1] === 'session' && method === 'GET') return json(ext.session);
     if (parts[1] === 'devices') {
       if (parts[2] === 'pairing' && method === 'POST') {
@@ -739,7 +762,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);

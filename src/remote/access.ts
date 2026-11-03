@@ -62,6 +62,7 @@ function cookieValue(header: string | undefined, name: string): string | undefin
 /** Things only the owner at the PC may change: secrets, provider and limit settings, safety permissions, and who may connect. */
 const OWNER_ONLY_ROUTES: RegExp[] = [
   /^\/api\/vault/,
+  /^\/api\/inbound/,
   /^\/api\/devices\/pairing/,
   /^\/api\/gmail\/oauth\/start/,
   /^\/api\/llm\/(providers|models|limits)/,

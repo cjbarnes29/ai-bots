@@ -56,6 +56,16 @@ Totals after Phase 9: 441 backend + 124 dashboard tests, both builds, 9 + 9 real
   worker could not register there; desktop built-app SW test passed earlier). NOT built: push notifications (needs external push services).
 - Owner steps: docs/PHONE-AND-REMOTE.md.
 
+### Inbound messages and phone alerts (approved after Phase 11)
+- Inbound (`src/inbound/`, migration 009, Automation page section "Inbound messages"): a source watches Telegram (read_messages) or Gmail (unread, last day) and turns each NEW message into a text event
+  (default names `telegram_message` / `gmail_message`) that the owner's triggers can use. Created OFF, PC-only to change; can be switched on only if the chosen bot has that connector's READ permission;
+  reads go through the approval gate (so they count toward the bot's 50 outside reads/day; min interval 30 min); first check is a silent baseline; max 3 events per check; paused outside/automation/AI = no checks;
+  3 failures or lost permission = switches itself off with a reason. Audit entries hold counts only, never message text. 17 backend + 3 dashboard tests; 4 mutation checks caught. Fake services only.
+- Alerts (`src/push/`, migration 010, Settings > Alerts on this device, `web/public/sw.js` push handler): content-free Web Push, no account needed. VAPID key pair made on the PC (private half in the vault as
+  PUSH_VAPID_PRIVATE_KEY). Subscriptions only for real push-service hosts (fcm.googleapis.com, Mozilla, Apple, Windows). One wake-up per newly waiting approval, max 1/min, no redirects; the phone's service worker
+  asks the app how many are waiting. Revoked phones get nothing. 17 backend + 3 service-worker + 3 dashboard tests. NOT verified with a real phone / real push service.
+- OpenClaw: researched, NOT installed. See the final report: it is a shell-capable agent with a cited CVE and no approval step by default, which conflicts with this platform's gate. Waiting for the owner to confirm after reading the risks.
+
 ### Monitoring and backup facts (added after Phase 11)
 - `src/monitor/monitor.ts`: GET /api/monitor/overview (read-only): bots, tasks (running / done / failed 24 h), approvals, AI calls and tokens today, automation, paired phones, the
   pause switches, a "needs your attention" list (waiting approvals, pauses, failures, schedules switched off by failures) and one mixed activity feed (tasks, approvals,

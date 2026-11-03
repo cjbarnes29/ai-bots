@@ -442,6 +442,20 @@ export interface PairingCode {
   link: string;
 }
 
+export interface InboundSourceInfo {
+  id: string;
+  connector: "telegram" | "gmail";
+  botId: string;
+  botName: string;
+  eventName: string;
+  intervalMinutes: number;
+  enabled: boolean;
+  lastPollAt: string | null;
+  lastNewCount: number;
+  consecutiveFailures: number;
+  disabledReason: string | null;
+}
+
 export type ActivityLevel = "info" | "warn" | "error";
 
 export interface MonitorOverview {

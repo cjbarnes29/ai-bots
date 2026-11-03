@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { DeviceInfo, GmailStatus, MonitorOverview, PairingCode, SessionInfo,
+import type { DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -612,4 +612,36 @@ export function useSignOutDevice() {
 
 export function useMonitor() {
   return useQuery({ queryKey: ["monitor"], queryFn: () => api<MonitorOverview>("GET", "/api/monitor/overview"), refetchInterval: WATCH });
+}
+
+export function useInbound() {
+  return useQuery({
+    queryKey: ["inbound"],
+    queryFn: () => api<{ sources: InboundSourceInfo[]; limits: { minIntervalMinutes: number } }>("GET", "/api/inbound"),
+    refetchInterval: WATCH,
+  });
+}
+
+export function useCreateInbound() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { connector: "telegram" | "gmail"; botId: string }) => api<{ source: InboundSourceInfo }>("POST", "/api/inbound", input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["inbound"] }),
+  });
+}
+
+export function useUpdateInbound() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; patch: { enabled?: boolean; intervalMinutes?: number } }) => api<{ source: InboundSourceInfo }>("PATCH", `/api/inbound/${input.id}`, input.patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["inbound"] }),
+  });
+}
+
+export function useDeleteInbound() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api("DELETE", `/api/inbound/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["inbound"] }),
+  });
 }

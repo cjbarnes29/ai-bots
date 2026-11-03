@@ -465,3 +465,44 @@ describe("tasks started automatically", () => {
     expect(await screen.findByText(/started by schedule “Morning summary”/)).toBeInTheDocument();
   });
 });
+
+describe("Automation: inbound messages", () => {
+  it("adds a source that starts off, and switching it on shows the permission message if reading is not allowed", async () => {
+    const api = createFakeApi([makeBot({ id: "b1", name: "Reader" })]);
+    api.ext.inboundReadAllowed = false;
+    renderApp(api, "/automation");
+    const section = within(await screen.findByRole("region", { name: "Inbound messages" }));
+    expect(section.getByText("No message sources yet.")).toBeInTheDocument();
+    await section.findByRole("option", { name: "Reader" });
+    await userEvent.selectOptions(section.getByLabelText("Bot that reads"), "b1");
+    await userEvent.click(section.getByRole("button", { name: "Add source (starts off)" }));
+    const row = within(await screen.findByRole("listitem", { name: "Telegram messages for Reader" }));
+    expect(row.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(row.getByRole("switch"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Switch on Telegram reading/);
+    expect(api.ext.inbound[0].enabled).toBe(false);
+  });
+
+  it("switches on, changes the interval, and removes only after confirming", async () => {
+    const api = createFakeApi([makeBot({ id: "b1", name: "Reader" })]);
+    api.ext.inbound.push({ id: "in1", connector: "gmail", botId: "b1", botName: "Reader", eventName: "gmail_message", intervalMinutes: 60, enabled: false, lastPollAt: null, lastNewCount: 0, consecutiveFailures: 0, disabledReason: null });
+    renderApp(api, "/automation");
+    const row = within(await screen.findByRole("listitem", { name: "Gmail messages for Reader" }));
+    await userEvent.click(row.getByRole("switch"));
+    await waitFor(() => expect(api.ext.inbound[0].enabled).toBe(true));
+    await userEvent.selectOptions(row.getByLabelText(/Check interval/), "120");
+    await waitFor(() => expect(api.ext.inbound[0].intervalMinutes).toBe(120));
+    await userEvent.click(row.getByRole("button", { name: "Remove" }));
+    expect(api.ext.inbound).toHaveLength(1);
+    await userEvent.click(screen.getAllByRole("button", { name: "Remove" }).at(-1)!);
+    await waitFor(() => expect(api.ext.inbound).toHaveLength(0));
+  });
+
+  it("shows why a source switched itself off", async () => {
+    const api = createFakeApi([makeBot({ id: "b1", name: "Reader" })]);
+    api.ext.inbound.push({ id: "in1", connector: "telegram", botId: "b1", botName: "Reader", eventName: "telegram_message", intervalMinutes: 60, enabled: false, lastPollAt: new Date().toISOString(), lastNewCount: 2, consecutiveFailures: 3, disabledReason: "Telegram is down" });
+    renderApp(api, "/automation");
+    expect(await screen.findByText(/Switched off: Telegram is down/)).toBeInTheDocument();
+    expect(screen.getByText(/2 new messages used/)).toBeInTheDocument();
+  });
+});

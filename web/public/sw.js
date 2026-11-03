@@ -45,3 +45,27 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+// Phone alerts. The push carries NO content: this worker asks the app (with the phone's own sign-in cookie) how many actions are waiting.
+self.addEventListener("push", (event) => {
+  event.waitUntil(
+    (async () => {
+      let body = "Something needs your attention.";
+      try {
+        const res = await fetch("/api/monitor/overview", { credentials: "same-origin" });
+        if (res.ok) {
+          const pending = (await res.json())?.approvals?.pending ?? 0;
+          if (pending > 0) body = pending + (pending === 1 ? " action is" : " actions are") + " waiting for your approval";
+        }
+      } catch {
+        /* offline: keep the general message */
+      }
+      await self.registration.showNotification("AI Workforce", { body, tag: "approvals", icon: "/icon-192.png", data: { url: "/approvals" } });
+    })(),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(self.clients.openWindow("/approvals"));
+});

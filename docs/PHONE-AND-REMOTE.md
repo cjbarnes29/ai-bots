@@ -36,9 +36,11 @@ the Approvals badge every 5 seconds).
 To use the app from the PC you can keep using http://127.0.0.1:5173 (development) or http://127.0.0.1:3000 (built).
 Your PC must be on, signed in to Tailscale and running the app for the phone to connect.
 
+## Alerts when an approval is waiting
+In the installed app on the phone open **Settings → Alerts on this device → Turn on alerts** and allow notifications. The alert only says how many actions are waiting (never what they are).
+It uses the phone browser's own push service (no account of yours is needed). It needs the HTTPS address from Tailscale Serve, so it cannot be tried on the PC's plain http page.
+
 ## Not built (and why)
-- **Push notifications** when an approval is waiting: the Approvals badge updates while the app is open, but the phone does not buzz when closed.
-  (Reliable push needs Google/Apple push services, which are external accounts.)
 - **Real-device test**: all of this is tested with a pretend Tailscale (an HTTPS proxy on the PC that adds the same headers) and a desktop browser in
   phone mode. It has not been tried with real Tailscale or a real Android phone. If something differs (for example the exact proxy headers), the app
   fails closed (refuses) rather than opening up.

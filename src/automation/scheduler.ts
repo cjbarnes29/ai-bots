@@ -8,7 +8,11 @@ import type { AutomationService } from "./service.js";
 export class AutomationScheduler {
   private timer: NodeJS.Timeout | null = null;
 
-  constructor(private readonly service: AutomationService) {}
+  constructor(
+    private readonly service: AutomationService,
+    /** Also run on every tick (inbound message checks). Its failures never reach the clock. */
+    private readonly extra?: () => Promise<unknown>,
+  ) {}
 
   start(everyMs = 30_000): void {
     if (this.timer) return;
@@ -28,6 +32,7 @@ export class AutomationScheduler {
   /** Runs everything that is due now. Returns how many runs started. A failure here never crashes the app. */
   tick(): number {
     try {
+      void this.extra?.().catch(() => undefined);
       return this.service.tick();
     } catch {
       return 0;

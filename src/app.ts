@@ -43,11 +43,19 @@ import { DeviceService } from "./remote/devices.js";
 import { registerDashboard } from "./remote/dashboard.js";
 import { registerRemoteRoutes } from "./remote/routes.js";
 import { registerMonitorRoutes } from "./monitor/monitor.js";
+import { registerInboundRoutes } from "./inbound/routes.js";
+import { PushService, PUSH_SECRET_NAME } from "./push/push.js";
+import { registerPushRoutes } from "./push/routes.js";
+import { InboundService } from "./inbound/service.js";
 
 declare module "fastify" {
   interface FastifyInstance {
     /** The automation clock. The real server starts it; tests call `tick()` by hand. */
     automation: AutomationScheduler;
+    /** Phone alerts. The real server sends them with the clock; tests call `push.tick()` by hand. */
+    push: PushService;
+    /** Inbound message sources. The real server checks them with the clock; tests call `inbound.tick()` by hand. */
+    inbound: InboundService;
   }
 }
 
@@ -67,6 +75,9 @@ export interface BuildAppOptions {
   googleUrls?: GoogleUrls;
   /** The vault's encryption key. Default: a key file next to the database (or a throwaway key for ":memory:"). */
   vaultKey?: Buffer;
+  /** Tests only: accept a pretend push service on this PC, and use a fake network call for alerts. */
+  pushAllowHost?: (host: string) => boolean;
+  pushFetch?: typeof fetch;
   /** Tailscale names (*.ts.net) the phone may use. Empty = remote access is off and only this PC can connect. */
   remoteHosts?: string[];
   /** Folder with the built dashboard (web/dist). When given, the app serves the dashboard itself. */
@@ -157,7 +168,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const vaultKey =
     options.vaultKey ?? (options.dbPath === ":memory:" ? newEphemeralKey() : loadOrCreateKeyFile(join(dirname(resolve(options.dbPath)), "vault.key")));
   const registry = new ConnectorRegistry(options.connectors ?? [createTelegramConnector(), createBrowserConnector(), createGmailConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })]);
-  const vault = new VaultService(db, vaultKey, audit, () => registry.list().flatMap((c) => c.secrets ?? []), now);
+  const vault = new VaultService(db, vaultKey, audit, () => [...registry.list().flatMap((c) => c.secrets ?? []), { name: PUSH_SECRET_NAME, description: "Phone alerts signing key (made automatically, do not paste)" }], now);
   setSecretLookup((name) => vault.getStored(name));
   app.addHook("onClose", async () => setSecretLookup(null));
   await registerVaultRoutes(app, vault);
@@ -189,7 +200,37 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   // ---- Automation: schedules and text triggers. They start tasks through the engine above, so every
   // limit, the pause switches and the free-only gate apply. The clock is started by server.ts, not here. ----
   automation = new AutomationService({ repo: new AutomationRepository(db), engine, llm, getBot: (id) => agentService.getBot(id), now });
-  const scheduler = new AutomationScheduler(automation);
+  // ---- Inbound messages: Telegram / Gmail messages become events (off by default, read through the approval gate) ----
+  const inbound = new InboundService({
+    db,
+    audit,
+    now,
+    read: (botId, connector, action, args) => gate.request(botId, null, { connector, action, args }),
+    readEnabled: (botId, connector) => agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
+    botName: (id) => agentService.getBot(id).name,
+    botArchived: (id) => agentService.getBot(id).archived,
+    fireEvent: (name, text) => automation!.handleEvent(name, text),
+    paused: () => (gate.isPaused() ? "outside actions paused" : automation!.isPaused() ? "automation paused" : llm.isPaused() ? "AI paused" : null),
+  });
+  app.decorate("inbound", inbound);
+  await registerInboundRoutes(app, inbound);
+  // ---- Phone alerts: a content-free wake-up when a new approval is waiting ----
+  const push = new PushService({
+    db,
+    vault,
+    audit,
+    now,
+    subject: () => (remoteHosts[0] ? `https://${remoteHosts[0]}` : "mailto:owner@localhost.invalid"),
+    pendingApprovals: () => {
+      const r = db.prepare("SELECT COUNT(*) AS n, MAX(created_at) AS newest FROM approval_requests WHERE status = 'pending'").get() as { n: number; newest: string | null };
+      return { count: Number(r.n), newestAt: r.newest };
+    },
+    ...(options.pushAllowHost ? { allowHost: options.pushAllowHost } : {}),
+    ...(options.pushFetch ? { fetchImpl: options.pushFetch } : {}),
+  });
+  app.decorate("push", push);
+  await registerPushRoutes(app, push);
+  const scheduler = new AutomationScheduler(automation, () => Promise.all([inbound.tick(), push.tick()]));
   app.decorate("automation", scheduler);
   app.addHook("onClose", async () => scheduler.stop());
   await registerAutomationRoutes(app, automation);

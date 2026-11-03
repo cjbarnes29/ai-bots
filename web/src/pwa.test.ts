@@ -82,3 +82,58 @@ describe("the service worker", () => {
     expect(fire("http://127.0.0.1:5173/random.txt")).toBe(false);
   });
 });
+
+describe("phone alerts in the service worker", () => {
+  function loadWithPush(overview: unknown | "fail") {
+    const listeners: Record<string, (e: any) => void> = {};
+    const shown: { title: string; options: any }[] = [];
+    const opened: string[] = [];
+    const self = {
+      location: { origin: "http://127.0.0.1:5173" },
+      addEventListener: (type: string, fn: (e: any) => void) => (listeners[type] = fn),
+      registration: { showNotification: async (title: string, options: any) => void shown.push({ title, options }) },
+      clients: { openWindow: async (u: string) => void opened.push(u), claim: async () => undefined },
+      skipWaiting: async () => undefined,
+    };
+    const fetched: string[] = [];
+    const fetchFn = async (url: string) => {
+      fetched.push(url);
+      if (overview === "fail") throw new Error("offline");
+      return { ok: true, json: async () => overview };
+    };
+    vm.runInNewContext(readFileSync(pub("sw.js"), "utf8"), { self, caches: {}, URL, fetch: fetchFn });
+    const push = async () => {
+      let pending: Promise<unknown> = Promise.resolve();
+      listeners["push"]!({ waitUntil: (p: Promise<unknown>) => (pending = p) });
+      await pending;
+    };
+    return { push, shown, opened, fetched, click: () => listeners["notificationclick"]!({ notification: { close: () => undefined }, waitUntil: () => undefined }) };
+  }
+
+  it("shows how many actions are waiting, learned from the app (the push itself carries nothing)", async () => {
+    const sw = loadWithPush({ approvals: { pending: 2 } });
+    await sw.push();
+    expect(sw.fetched).toEqual(["/api/monitor/overview"]);
+    expect(sw.shown).toHaveLength(1);
+    expect(sw.shown[0]!.options.body).toBe("2 actions are waiting for your approval");
+    expect(sw.shown[0]!.options.data.url).toBe("/approvals");
+  });
+
+  it("always shows something (the browser requires it), even offline or when nothing is waiting", async () => {
+    const offline = loadWithPush("fail");
+    await offline.push();
+    expect(offline.shown[0]!.options.body).toBe("Something needs your attention.");
+    const none = loadWithPush({ approvals: { pending: 0 } });
+    await none.push();
+    expect(none.shown[0]!.options.body).toBe("Something needs your attention.");
+    const one = loadWithPush({ approvals: { pending: 1 } });
+    await one.push();
+    expect(one.shown[0]!.options.body).toBe("1 action is waiting for your approval");
+  });
+
+  it("tapping the alert opens the Approvals page", () => {
+    const sw = loadWithPush({});
+    sw.click();
+    expect(sw.opened).toEqual(["/approvals"]);
+  });
+});

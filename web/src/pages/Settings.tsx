@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AlertsSection } from "../components/AlertsSection";
 import { DevicesSection } from "../components/DevicesSection";
 import { GmailSection } from "../components/GmailSection";
 import { SecretsSection } from "../components/SecretsSection";
@@ -541,6 +542,7 @@ export function Settings() {
       <SecretsSection />
       <GmailSection />
       <DevicesSection />
+      <AlertsSection />
       <ProvidersSection />
       <ModelsSection />
       <LimitsSection />
