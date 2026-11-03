@@ -2,18 +2,18 @@
 
 Create, edit and manage AI bots from a dashboard in your browser.
 
-**Current status: Phase 6 (Telegram).** The safety gate for anything outside this PC (Phase 5) is built and tested, and the first
-connector, **Telegram**, sits behind it. It does nothing until you paste a Telegram bot token in Settings. Gmail and the browser do not
-exist yet. A bot can only *ask*: every write waits on the **Approvals** page for your click and runs once with exactly the content
-shown; reading from outside is off for every bot until you switch it on. Keys can now be pasted into an encrypted **vault** (Settings).
-Earlier: Phase 4 schedules and text triggers can start tasks for your bots (all
+**Current status: Phases 7-9 built (Gmail, Browser, installable app).** Behind the Phase 5 safety gate there are now three connections:
+**Telegram**, **Gmail** and **Browser** (reads public https web pages). None does anything until you set it up in Settings. A bot can only *ask*:
+every write (sending a message or email, submitting a web form) waits on the **Approvals** page for your click and runs once with exactly the
+content shown; reading from outside is off for every bot until you switch it on. Keys live in an encrypted **vault** (Settings). The
+dashboard can be installed as an app (see docs/PHONE-AND-REMOTE.md). Earlier: Phase 4 schedules and text triggers can start tasks for your bots (all
 switched off until you switch them on, and always limited). Before that, from Phase 3: you can create, edit, duplicate, archive and
 restore bots, with full version history and per-bot permissions, and **chat with a bot** once
 you have connected a free AI provider. Each bot picks its own provider and model.
 Bots can **hand text tasks to teammates you allow** (nobody, by default) and you can watch the
 whole chain on the **Tasks** page.
 Bots work **only when you message them or give them a task**. They have **no tools** (nothing is ever sent to a model as a tool),
-and its only possible outside connection is Telegram, behind your approval (Gmail and browser do not exist yet). Everything runs on your own PC.
+and their only possible outside connections are Telegram, Gmail and the Browser reader, all behind your approval. Everything runs on your own PC.
 
 **Free only.** Only free models can be used. This is locked on and cannot be turned off:
 no paid models, no paid fallbacks, no automatic billing.
@@ -69,7 +69,7 @@ Runs the type checks, all automated tests and a production build of both parts.
 | `src/delegation/` | Teamwork: allow-lists, tasks, the engine that runs a chain of bots |
 | `src/automation/` | Schedules, text triggers, the 30-second clock, the run log |
 | `src/approvals/` | The outside-action gate: requests, your approval, limits, kill switch |
-| `src/connectors/` | What a connector must look like, and the Telegram connector |
+| `src/connectors/` | What a connector must look like, and the Telegram, Gmail and Browser connectors |
 | `src/vault/` | The encrypted store for keys and tokens |
 | `src/audit/` | The permanent security log |
 | `src/db/` | The database and its upgrade scripts |

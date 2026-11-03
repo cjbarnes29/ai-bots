@@ -10,8 +10,8 @@ export function PermissionsTab({ bot }: { bot: Bot }) {
   return (
     <div role="tabpanel" aria-label="Permissions" className="space-y-5">
       <p className="text-sm text-slate-600 dark:text-slate-400">
-        Everything starts <strong>off</strong>. These settings are saved now and take effect when connectors arrive in later
-        phases. Nothing can reach Gmail, Telegram or a browser yet.
+        Everything starts <strong>off</strong>. Reading from Gmail, Telegram or the browser works for this bot only if you switch it on here, and
+        the connection must also be set up in Settings. Anything a bot sends or submits always waits for your approval.
       </p>
 
       {bot.archived && (

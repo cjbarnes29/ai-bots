@@ -20,3 +20,10 @@ createRoot(root).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+
+// Installable app support. Only in the built version (a service worker would only get in the way while developing).
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  });
+}

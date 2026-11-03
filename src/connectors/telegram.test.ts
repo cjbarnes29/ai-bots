@@ -46,12 +46,12 @@ const act = (action: string, args: Record<string, unknown> = {}) => `${fence}act
 const reply = (text: string) => ({ ...OK_RESULT, text, inputTokens: 10, outputTokens: 5 });
 
 describe("the real app's connector list", () => {
-  it("has exactly one connector, Telegram, and it points at Telegram's own server", async () => {
+  it("includes Telegram, and it points at Telegram's own server", async () => {
     const app = await buildApp({ dbPath: ":memory:" });
     try {
       const res = await app.inject({ method: "GET", url: "/api/external/status" });
       const status = res.json();
-      expect(status.connectors.map((c: any) => c.id)).toEqual(["telegram"]);
+      expect(status.connectors.map((c: any) => c.id)).toContain("telegram");
       expect(status.connectors[0].notReady).toMatch(/paste the bot token/); // does nothing until a token is saved
       expect(TELEGRAM_BASE_URL).toBe("https://api.telegram.org");
     } finally {

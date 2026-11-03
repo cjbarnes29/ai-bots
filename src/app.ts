@@ -13,6 +13,8 @@ import { ApprovalRepository } from "./approvals/repository.js";
 import { registerApprovalRoutes } from "./approvals/routes.js";
 import { ActionGate } from "./approvals/service.js";
 import { AuditLog } from "./audit/audit.js";
+import { createBrowserConnector } from "./connectors/browser/browser.js";
+import { createGmailConnector, registerGmailOAuthRoutes, type GoogleUrls } from "./connectors/gmail.js";
 import { createTelegramConnector } from "./connectors/telegram.js";
 import { ConnectorRegistry, type ConnectorDefinition } from "./connectors/types.js";
 import { setSecretLookup } from "./llm/secrets.js";
@@ -56,6 +58,8 @@ export interface BuildAppOptions {
   sleep?: (ms: number) => Promise<void>;
   /** Connectors bots may use through the approval gate. Default: Telegram only (needs a saved token to do anything). */
   connectors?: ConnectorDefinition[];
+  /** Tests only: where the Gmail sign-in and API live (a fake Google on this PC). The real app always uses Google's own addresses. */
+  googleUrls?: GoogleUrls;
   /** The vault's encryption key. Default: a key file next to the database (or a throwaway key for ":memory:"). */
   vaultKey?: Buffer;
 }
@@ -140,11 +144,12 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const audit = new AuditLog(db, now);
   const vaultKey =
     options.vaultKey ?? (options.dbPath === ":memory:" ? newEphemeralKey() : loadOrCreateKeyFile(join(dirname(resolve(options.dbPath)), "vault.key")));
-  const registry = new ConnectorRegistry(options.connectors ?? [createTelegramConnector()]);
+  const registry = new ConnectorRegistry(options.connectors ?? [createTelegramConnector(), createBrowserConnector(), createGmailConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })]);
   const vault = new VaultService(db, vaultKey, audit, () => registry.list().flatMap((c) => c.secrets ?? []), now);
   setSecretLookup((name) => vault.getStored(name));
   app.addHook("onClose", async () => setSecretLookup(null));
   await registerVaultRoutes(app, vault);
+  if (registry.get("gmail")) await registerGmailOAuthRoutes({ app, vault, audit, now, ...(options.googleUrls ? { urls: options.googleUrls } : {}) });
   const gate = new ActionGate({
     repo: new ApprovalRepository(db),
     registry,

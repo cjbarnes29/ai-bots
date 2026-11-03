@@ -2,6 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import { vi } from "vitest";
 import { buildApp } from "./app.js";
+import type { GoogleUrls } from "./connectors/gmail.js";
 import type { ConnectorDefinition } from "./connectors/types.js";
 import { ScriptedProvider, makeCaller, modelInfo } from "./llm/test-helpers.js";
 
@@ -18,13 +19,14 @@ export interface TestApp {
 
 export const FAKE_GEMINI_KEY = "AIzaSyFAKEKEYFORTESTSONLY0123456789";
 
-export async function createTestApp(options: { connectors?: ConnectorDefinition[] } = {}): Promise<TestApp> {
+export async function createTestApp(options: { connectors?: ConnectorDefinition[]; googleUrls?: GoogleUrls } = {}): Promise<TestApp> {
   const provider = new ScriptedProvider();
   const clock = { t: new Date(2026, 5, 15, 12, 0, 0).getTime() };
   const sleeps: number[] = [];
   const app = await buildApp({
     dbPath: ":memory:",
     connectors: options.connectors ?? [], // tests never get a real connector unless they ask for one
+    ...(options.googleUrls ? { googleUrls: options.googleUrls } : {}),
     providerFactory: () => provider,
     clock: () => clock.t,
     sleep: async (ms) => {

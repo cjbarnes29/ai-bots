@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { GmailSection } from "../components/GmailSection";
 import { SecretsSection } from "../components/SecretsSection";
 import { ApiError } from "../api/client";
 import {
@@ -508,6 +509,7 @@ export function Settings() {
       <h1 className="text-2xl font-bold">Settings</h1>
       <SafetySection />
       <SecretsSection />
+      <GmailSection />
       <ProvidersSection />
       <ModelsSection />
       <LimitsSection />

@@ -168,3 +168,29 @@ describe("the secrets vault panel (Settings)", () => {
     await waitFor(() => expect(api.ext.stored.has("GEMINI_API_KEY")).toBe(false));
   });
 });
+
+describe("the Gmail panel (Settings)", () => {
+  it("cannot start signing in until the client ID and secret are saved", async () => {
+    const api = createFakeApi();
+    renderApp(api, "/settings");
+    expect(await screen.findByText("Not set up")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect Gmail" })).toBeDisabled();
+    expect(screen.getByText(/127\.0\.0\.1:3000\/api\/gmail\/oauth\/callback/)).toBeInTheDocument();
+  });
+
+  it("opens Google's sign-in page in a new tab once the client is saved, and shows Connected afterwards", async () => {
+    const api = createFakeApi();
+    api.ext.secrets.find((s) => s.name === "GOOGLE_CLIENT_ID")!.inVault = true;
+    api.ext.secrets.find((s) => s.name === "GOOGLE_CLIENT_SECRET")!.inVault = true;
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    renderApp(api, "/settings");
+    expect(await screen.findByText("Ready to sign in")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Connect Gmail" }));
+    await waitFor(() => expect(open).toHaveBeenCalledWith("https://accounts.example.test/auth?state=abc", "_blank", "noopener"));
+    expect(api.writes().filter((w) => w.path === "/api/gmail/oauth/start")).toHaveLength(1);
+    expect(api.writes().every((w) => w.headers["x-awp-client"] === "dashboard")).toBe(true);
+    api.ext.gmail.connected = true;
+    expect(await screen.findByText("Connected", {}, { timeout: 8000 })).toBeInTheDocument();
+  }, 20_000);
+});

@@ -30,6 +30,31 @@ Update it at the end of every phase.
 | 5 Approvals + vault + audit | `2d2625a` | Approval gate, connector registry (empty), encrypted vault, audit log, Approvals page. 361 backend + 115 dashboard tests, 9 real-browser checks |
 | 6 Telegram | `1c89e77` | Telegram connector (send = approval, read = per-bot permission, token in vault). 374 backend + 116 dashboard tests; fake Telegram only |
 
+| 7 Gmail | (this commit) | Gmail connector + OAuth sign-in + dashboard panel. Fake Google only |
+| 8 Browser | (this commit) | Public-https page reader + form submit (approval). Fake web only |
+| 9 Installable app (PWA) | (this commit) | Manifest, icons, safe service worker. Phone/remote access NOT built (owner decision) |
+
+Totals at this point: 441 backend + 124 dashboard tests, both builds, 9 + 9 real-browser checks (Phase 5 flow rerun; Phase 7-9 new) and a PWA check.
+
+### Phase 7-9 facts (so they need not be re-read)
+- Gmail (`src/connectors/gmail.ts`): actions search_messages (READ), read_message (READ), send_message (WRITE: 1-5 addresses, one-line subject, body <= 10000,
+  header injection impossible, non-ASCII subject RFC 2047). Secrets in vault: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN (set by the
+  sign-in, never pasted). Scopes: gmail.readonly + gmail.send ONLY. Routes: GET /api/gmail/status, POST /api/gmail/oauth/start (needs dashboard header),
+  GET /api/gmail/oauth/callback (state single use, 10 min, max 5 waiting, PKCE S256; refuses if both scopes not granted). Access tokens in memory only.
+  Redirect URI = http://127.0.0.1:${PORT||3000}/api/gmail/oauth/callback (owner uses a Desktop-app client). Google URLs fixed; only tests inject fakes
+  (`buildApp({googleUrls})`, `createGmailConnector({urls})`). Dashboard: Settings > Gmail panel.
+- Browser (`src/connectors/browser/`): netguard.ts (address rules + IP classification), fetcher.ts (pinned https, redirects re-checked, 1 MB/15 s, no
+  cookies/compression), browser.ts (read_page READ, submit_form WRITE). Not a full browser: no JavaScript or logins; that would need installing a
+  browser engine (needs the owner's approval).
+- `buildApp` default connectors = [Telegram, Browser, Gmail]; `createTestApp` default = [].
+- Mutation checks done: state single-use, PKCE verifier, private-address check, https-only check: each is caught by tests.
+- PWA: web/public (manifest, icons made by `node scripts/make-icons.mjs`, sw.js). The service worker never touches /api. Registered in the built app only.
+  `npm --prefix web run build` then `npm --prefix web run preview` serves it on 5173. Real Edge test: worker active, cache holds only shell + /assets.
+- NOT verified against real services: Gmail (needs the owner's Google client + consent), Browser against the real internet (never fetched in tests),
+  real Android phone.
+- NOT built: phone/remote access (the backend only accepts this PC; the dashboard has no login, so opening it to a network would let anyone on it
+  approve actions. See docs/PHONE-AND-REMOTE.md for the design that needs the owner's decision), inbound Gmail/Telegram polling into triggers.
+
 ### Phase 6 facts (so they need not be re-read)
 - `src/connectors/telegram.ts`: actions `send_message` (WRITE, needs approval; chat = number or @name, text 1-4000) and `read_messages`
   (READ, needs per-bot read permission; up to 20 recent text messages via getUpdates WITHOUT offset, so nothing is consumed).
@@ -94,10 +119,12 @@ Update it at the end of every phase.
   `GEMINI_API_KEY=`, says "ready". Then: check Gemini's current free terms/limits first, run ONE tiny real call,
   confirm the real reply and usage record. Groq and OpenRouter later, same way. Ollama only with approval.
 - Owner should copy `data/app.db*` somewhere safe before first starting a new version.
+- **Gmail (needs the owner):** create a Google Cloud project (free), enable the Gmail API, an OAuth client of type Desktop app, paste ID + secret in Settings, press Connect Gmail.
+- **Phone/remote access (needs the owner's decision):** see docs/PHONE-AND-REMOTE.md.
+- **OpenClaw (optional):** only with the owner's explicit approval to install.
 
 ## Roadmap
-~~3 Collaboration~~, ~~4 Automation~~ and ~~5 Approvals~~ done -> ~~6 Telegram~~ done (see Phase 6 facts) -> **7 Gmail is next** ->
-8 Browser -> 9 Android/remote access -> 10 OpenClaw (optional).
+~~3 Collaboration~~, ~~4 Automation~~ and ~~5 Approvals~~ done -> ~~6 Telegram~~ done (see Phase 6 facts) -> ~~7 Gmail~~, ~~8 Browser~~, ~~9 installable app~~ done (phone/remote access waits for the owner) -> 10 OpenClaw (optional, needs the owner's approval to install).
 Phase 5 is the gate for every external connector (now built and tested). Original design notes:
 external READ off by default per bot (already in `bot_permissions`), external WRITE always needs the owner's approval each
 time (`write_policy` is locked to `approval_required` in the database), full audit log, secrets vault replacing `.env` keys.

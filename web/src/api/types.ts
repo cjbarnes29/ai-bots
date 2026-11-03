@@ -408,3 +408,10 @@ export interface SecretStatus {
   inEnv: boolean;
   updatedAt: string | null;
 }
+
+export interface GmailStatus {
+  hasClient: boolean;
+  connected: boolean;
+  redirectUri: string;
+  scopes: string[];
+}

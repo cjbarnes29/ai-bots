@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type {
+import type { GmailStatus,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -561,4 +561,12 @@ export function useDeleteSecret() {
     mutationFn: async (name: string) => (await api<{ secrets: SecretStatus[] }>("DELETE", `/api/vault/${name}`)).secrets,
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["vault"] }), qc.invalidateQueries({ queryKey: ["llm"] }), qc.invalidateQueries({ queryKey: ["audit"] })]),
   });
+}
+
+export function useGmailStatus() {
+  return useQuery({ queryKey: ["gmail", "status"], queryFn: () => api<GmailStatus>("GET", "/api/gmail/status"), refetchInterval: WATCH });
+}
+
+export function useStartGmailSignIn() {
+  return useMutation({ mutationFn: async () => (await api<{ url: string }>("POST", "/api/gmail/oauth/start", {})).url });
 }

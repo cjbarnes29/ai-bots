@@ -15,6 +15,8 @@ export default defineConfig({
       "/api": { target: apiTarget },
     },
   },
+  // "npm run preview" serves the built app on the same address as development, so the same backend rules apply.
+  preview: { host: "127.0.0.1", port: 5173, strictPort: true, proxy: { "/api": { target: apiTarget } } },
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],

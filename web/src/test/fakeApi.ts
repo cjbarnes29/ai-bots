@@ -596,11 +596,14 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     secrets: [
       { name: 'GEMINI_API_KEY', description: 'Google Gemini API key', inVault: false, inEnv: false, updatedAt: null },
       { name: 'TELEGRAM_BOT_TOKEN', description: 'Telegram bot token', inVault: false, inEnv: false, updatedAt: null },
+      { name: 'GOOGLE_CLIENT_ID', description: 'Google OAuth client ID', inVault: false, inEnv: false, updatedAt: null },
+      { name: 'GOOGLE_CLIENT_SECRET', description: 'Google OAuth client secret', inVault: false, inEnv: false, updatedAt: null },
     ] as SecretStatus[],
     /** What the secret values were set to (so tests can prove they are never shown). */
     stored: new Map<string, string>(),
     /** When set, approving fails with this message. */
     executeError: null as string | null,
+    gmail: { connected: false, startedUrl: null as string | null },
     connectors: [{ id: 'telegram', label: 'Telegram', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send a message' }] }],
   };
   const extLog = (kind: string, actor: string, detail: Record<string, unknown> = {}) =>
@@ -613,6 +616,16 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
         ext.paused = !!body.paused;
         extLog(ext.paused ? 'external.paused' : 'external.resumed', 'owner');
         return json({ paused: ext.paused });
+      }
+    }
+    if (parts[1] === 'gmail') {
+      const hasClient = !!ext.secrets.find((s) => s.name === 'GOOGLE_CLIENT_ID')?.inVault && !!ext.secrets.find((s) => s.name === 'GOOGLE_CLIENT_SECRET')?.inVault;
+      if (parts[2] === 'status' && method === 'GET')
+        return json({ hasClient, connected: ext.gmail.connected, redirectUri: 'http://127.0.0.1:3000/api/gmail/oauth/callback', scopes: ['read', 'send'] });
+      if (parts[2] === 'oauth' && parts[3] === 'start' && method === 'POST') {
+        if (!hasClient) return err(409, 'gmail_no_client', 'Save the Google client ID and client secret first.');
+        ext.gmail.startedUrl = 'https://accounts.example.test/auth?state=abc';
+        return json({ url: ext.gmail.startedUrl });
       }
     }
     if (parts[1] === 'audit' && method === 'GET') return json({ events: ext.audit });
@@ -676,7 +689,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);
