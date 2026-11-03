@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { GmailStatus,
+import type { DeviceInfo, GmailStatus, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -569,4 +569,34 @@ export function useGmailStatus() {
 
 export function useStartGmailSignIn() {
   return useMutation({ mutationFn: async () => (await api<{ url: string }>("POST", "/api/gmail/oauth/start", {})).url });
+}
+
+export function useSession() {
+  return useQuery({ queryKey: ["session"], queryFn: () => api<SessionInfo>("GET", "/api/session"), refetchInterval: 60_000 });
+}
+
+export function usePair() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { code: string; name: string }) => api<{ device: { id: string; name: string } }>("POST", "/api/devices/pair", input),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+export function useStartPairing() {
+  return useMutation({ mutationFn: () => api<PairingCode>("POST", "/api/devices/pairing", {}) });
+}
+
+export function useDevices(enabled: boolean) {
+  return useQuery({ queryKey: ["devices"], enabled, queryFn: async () => (await api<{ devices: DeviceInfo[] }>("GET", "/api/devices")).devices, refetchInterval: WATCH });
+}
+
+export function useRevokeDevice() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (id: string) => api("DELETE", `/api/devices/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["devices"] }) });
+}
+
+export function useSignOutDevice() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: () => api("POST", "/api/devices/signout", {}), onSuccess: () => qc.invalidateQueries() });
 }

@@ -415,3 +415,27 @@ export interface GmailStatus {
   redirectUri: string;
   scopes: string[];
 }
+
+export interface SessionInfo {
+  mode: "local" | "remote";
+  remoteEnabled: boolean;
+  remoteHosts: string[];
+  /** Null on the PC. On a phone: whether it has been paired. */
+  paired: boolean | null;
+  device: { id: string; name: string } | null;
+}
+
+export interface DeviceInfo {
+  id: string;
+  name: string;
+  userAgent: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+  revokedAt: string | null;
+}
+
+export interface PairingCode {
+  code: string;
+  expiresAt: string;
+  link: string;
+}

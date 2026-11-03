@@ -32,9 +32,29 @@ Update it at the end of every phase.
 
 | 7 Gmail | `485a325` | Gmail connector + OAuth sign-in + dashboard panel. Fake Google only |
 | 8 Browser | `485a325` | Public-https page reader + form submit (approval). Fake web only |
+| 11 Android / remote access | (this commit) | Tailscale-only phone access with device pairing, owner-only rules, sync. Pretend Tailscale only |
 | 9 Installable app (PWA) | `485a325` | Manifest, icons, safe service worker. Phone/remote access NOT built (owner decision) |
 
 Totals after Phase 9: 441 backend + 124 dashboard tests, both builds, 9 + 9 real-browser checks (Phase 5 flow rerun; Phase 7-9 new) and a PWA check.
+
+### Phase 11 facts: Android / remote access (owner requirement, built after OmniRoute)
+- Model: the PC is the server (one DB). The phone is another client of the same API. The app still binds 127.0.0.1 only; **Tailscale Serve** (owner runs
+  `tailscale serve --bg 3000`) bridges HTTPS from the tailnet. The backend now also serves the built dashboard (`web/dist`, `src/remote/dashboard.ts`, CSP, no path traversal).
+- `src/remote/access.ts` (the gate): Host decides who is asking. Local names = PC (unchanged). Host in `REMOTE_HOSTS` (only *.ts.net, env, default OFF) = remote.
+  Anything else = 403. Local name + proxy headers (x-forwarded-*, forwarded, tailscale-user-*) = 403 (fails closed if a proxy rewrites Host).
+  Remote: API needs a paired device cookie (401 device_not_paired otherwise); change requests need the client header AND Origin == https://<host>.
+- `src/remote/devices.ts` + migration `007_devices.sql`: pairing = one active code (10 chars, 5 min, single use, destroyed after 5 wrong guesses, 20 tries/min),
+  device secret = 32 random bytes in an HttpOnly Secure SameSite=Strict cookie `awp_device`; DB stores sha256 only; max 10 active; 90-day idle expiry;
+  DB triggers forbid delete / revive / secret change. Routes in `src/remote/routes.ts`: GET /api/session, POST /api/devices/pairing (PC only), /pair, GET /api/devices (PC only),
+  DELETE /api/devices/:id (PC any; phone itself), POST /api/devices/signout.
+- Phone CAN: chat, tasks, bots, schedules/triggers, approve/deny, pause. Phone CANNOT (403 owner_only): vault, providers/models/limits, bot outside-access permissions and teammate lists,
+  Gmail sign-in start, pairing, switching a pause back on. Every successful remote change is audited as `remote.action` with the device name.
+- Dashboard: SessionGate (unpaired phone sees only PairScreen, link `/?pair=CODE` prefills), Settings > Devices (PC: pair/revoke; phone: sign out), global 15 s refetch for cross-device sync.
+- Tests: `src/remote/remote.test.ts` (42; mutation checks on auth, owner-only, proxy-header and Origin rules caught), `web/src/remote.test.tsx` (8). Real-browser run (12 checks) with a pretend
+  Tailscale (HTTPS proxy adding the same headers) and a phone-sized Edge: pairing, cookie flags, sync both ways, approval from the phone, audit, owner-only refusals, 393px layout, revoke.
+- NOT verified: real Tailscale Serve (exact headers/Host handling), real Android phone, installing the PWA from a real HTTPS cert (the test used a self-signed one, so the service
+  worker could not register there; desktop built-app SW test passed earlier). NOT built: push notifications (needs external push services).
+- Owner steps: docs/PHONE-AND-REMOTE.md.
 
 ### OmniRoute facts (added after Phase 9, owner requirement)
 - `src/llm/plugins/omniroute.ts`: provider id `omniroute`, default address http://127.0.0.1:20128/v1 (editable, must stay on this PC), key `OMNIROUTE_API_KEY`
@@ -138,11 +158,11 @@ Totals after Phase 9: 441 backend + 124 dashboard tests, both builds, 9 + 9 real
   confirm the real reply and usage record. Groq and OpenRouter later, same way. Ollama only with approval.
 - Owner should copy `data/app.db*` somewhere safe before first starting a new version.
 - **Gmail (needs the owner):** create a Google Cloud project (free), enable the Gmail API, an OAuth client of type Desktop app, paste ID + secret in Settings, press Connect Gmail.
-- **Phone/remote access (needs the owner's decision):** see docs/PHONE-AND-REMOTE.md.
+- **Phone access (owner does the Tailscale steps):** docs/PHONE-AND-REMOTE.md.
 - **OpenClaw (optional):** only with the owner's explicit approval to install.
 
 ## Roadmap
-~~3 Collaboration~~, ~~4 Automation~~ and ~~5 Approvals~~ done -> ~~6 Telegram~~ done (see Phase 6 facts) -> ~~7 Gmail~~, ~~8 Browser~~, ~~9 installable app~~ done (phone/remote access waits for the owner) -> 10 OpenClaw (optional, needs the owner's approval to install).
+~~3 Collaboration~~, ~~4 Automation~~ and ~~5 Approvals~~ done -> ~~6 Telegram~~ done (see Phase 6 facts) -> ~~7 Gmail~~, ~~8 Browser~~, ~~9 installable app~~ done 11 phone access done (see Phase 11 facts) -> 10 OpenClaw (optional, needs the owner's approval to install).
 Phase 5 is the gate for every external connector (now built and tested). Original design notes:
 external READ off by default per bot (already in `bot_permissions`), external WRITE always needs the owner's approval each
 time (`write_policy` is locked to `approval_required` in the database), full audit log, secrets vault replacing `.env` keys.

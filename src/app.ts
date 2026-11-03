@@ -37,7 +37,11 @@ import { registerLlmRoutes } from "./llm/routes.js";
 import { LlmService } from "./llm/service.js";
 import { UsageRepository } from "./llm/usage.js";
 import { createRuntimeRegistry } from "./runtimes/registry.js";
-import { CLIENT_HEADER, registerSecurity } from "./security.js";
+import { CLIENT_HEADER } from "./security.js";
+import { registerAccess } from "./remote/access.js";
+import { DeviceService } from "./remote/devices.js";
+import { registerDashboard } from "./remote/dashboard.js";
+import { registerRemoteRoutes } from "./remote/routes.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -62,6 +66,10 @@ export interface BuildAppOptions {
   googleUrls?: GoogleUrls;
   /** The vault's encryption key. Default: a key file next to the database (or a throwaway key for ":memory:"). */
   vaultKey?: Buffer;
+  /** Tailscale names (*.ts.net) the phone may use. Empty = remote access is off and only this PC can connect. */
+  remoteHosts?: string[];
+  /** Folder with the built dashboard (web/dist). When given, the app serves the dashboard itself. */
+  dashboardDir?: string;
 }
 
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
@@ -87,7 +95,12 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     }
   });
 
-  registerSecurity(app);
+  // Who is asking: this PC, a paired phone (only when remote access is switched on), or nobody (refused).
+  const now = options.clock ?? Date.now;
+  const audit = new AuditLog(db, now);
+  const remoteHosts = options.remoteHosts ?? [];
+  const devices = new DeviceService(db, audit, now);
+  registerAccess(app, { remoteHosts, devices, audit });
   await app.register(cors, {
     origin: options.dashboardOrigins ?? [],
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
@@ -113,11 +126,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     return reply.code(500).send({ error: "internal_error", message: "Something went wrong" });
   });
 
-  app.get("/", async () => ({ message: "Hello from the AI Workforce Platform", phase: 2 }));
+  if (!options.dashboardDir) app.get("/", async () => ({ message: "Hello from the AI Workforce Platform", phase: 2 }));
   app.get("/health", async () => ({ status: "ok" }));
 
   // ---- AI models (providers, models, limits, usage) ----
-  const now = options.clock ?? Date.now;
   const llmRepo = new LlmRepository(db);
   const usageRepo = new UsageRepository(db);
   const factory = options.providerFactory ?? defaultProviderFactory;
@@ -141,7 +153,6 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   // ---- Secrets vault, audit log and the approval gate (Phase 5). The real app has ONE connector, Telegram (Phase 6),
   // which does nothing until the owner saves a bot token. Gmail and the browser come in Phases 7 and 8.
   // Tests and test harnesses supply their own (fake) connectors instead. ----
-  const audit = new AuditLog(db, now);
   const vaultKey =
     options.vaultKey ?? (options.dbPath === ":memory:" ? newEphemeralKey() : loadOrCreateKeyFile(join(dirname(resolve(options.dbPath)), "vault.key")));
   const registry = new ConnectorRegistry(options.connectors ?? [createTelegramConnector(), createBrowserConnector(), createGmailConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })]);
@@ -181,6 +192,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   app.decorate("automation", scheduler);
   app.addHook("onClose", async () => scheduler.stop());
   await registerAutomationRoutes(app, automation);
+
+  // ---- Phone access (Phase 11): sessions, device pairing, and the dashboard pages themselves ----
+  await registerRemoteRoutes(app, devices, remoteHosts, now);
+  if (options.dashboardDir) registerDashboard(app, options.dashboardDir);
 
   return app;
 }

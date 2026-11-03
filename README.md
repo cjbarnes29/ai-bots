@@ -2,7 +2,7 @@
 
 Create, edit and manage AI bots from a dashboard in your browser.
 
-**Current status: Phases 7-9 built (Gmail, Browser, installable app).** Behind the Phase 5 safety gate there are now three connections:
+**Current status: phone access, OmniRoute and Phases 7-9 built.** You can use the platform from your Windows PC and your Android phone (private, over Tailscale; see `docs/PHONE-AND-REMOTE.md`). Earlier: Phases 7-9 (Gmail, Browser, installable app). Behind the Phase 5 safety gate there are now three connections:
 **Telegram**, **Gmail** and **Browser** (reads public https web pages). None does anything until you set it up in Settings. A bot can only *ask*:
 every write (sending a message or email, submitting a web form) waits on the **Approvals** page for your click and runs once with exactly the
 content shown; reading from outside is off for every bot until you switch it on. Keys live in an encrypted **vault** (Settings). The
@@ -72,6 +72,7 @@ Runs the type checks, all automated tests and a production build of both parts.
 | `src/connectors/` | What a connector must look like, and the Telegram, Gmail and Browser connectors |
 | `src/vault/` | The encrypted store for keys and tokens |
 | `src/audit/` | The permanent security log |
+| `src/remote/` | Phone access: who is asking, device pairing, serving the dashboard |
 | `src/db/` | The database and its upgrade scripts |
 | `web/` | The dashboard (React + Vite + Tailwind) |
 | `scripts/` | Helper scripts (`dev-all.mjs` starts both parts) |

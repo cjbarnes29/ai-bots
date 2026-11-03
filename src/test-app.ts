@@ -19,7 +19,7 @@ export interface TestApp {
 
 export const FAKE_GEMINI_KEY = "AIzaSyFAKEKEYFORTESTSONLY0123456789";
 
-export async function createTestApp(options: { connectors?: ConnectorDefinition[]; googleUrls?: GoogleUrls } = {}): Promise<TestApp> {
+export async function createTestApp(options: { connectors?: ConnectorDefinition[]; googleUrls?: GoogleUrls; remoteHosts?: string[]; dashboardDir?: string } = {}): Promise<TestApp> {
   const provider = new ScriptedProvider();
   const clock = { t: new Date(2026, 5, 15, 12, 0, 0).getTime() };
   const sleeps: number[] = [];
@@ -27,6 +27,8 @@ export async function createTestApp(options: { connectors?: ConnectorDefinition[
     dbPath: ":memory:",
     connectors: options.connectors ?? [], // tests never get a real connector unless they ask for one
     ...(options.googleUrls ? { googleUrls: options.googleUrls } : {}),
+    ...(options.remoteHosts ? { remoteHosts: options.remoteHosts } : {}),
+    ...(options.dashboardDir ? { dashboardDir: options.dashboardDir } : {}),
     providerFactory: () => provider,
     clock: () => clock.t,
     sleep: async (ms) => {

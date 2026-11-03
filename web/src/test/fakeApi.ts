@@ -604,6 +604,9 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     /** When set, approving fails with this message. */
     executeError: null as string | null,
     gmail: { connected: false, startedUrl: null as string | null },
+    session: { mode: 'local' as 'local' | 'remote', remoteEnabled: true, remoteHosts: ['pc.tail1.ts.net'], paired: null as boolean | null, device: null as { id: string; name: string } | null },
+    devices: [] as { id: string; name: string; userAgent: string | null; createdAt: string; lastSeenAt: string; revokedAt: string | null }[],
+    pairingCode: 'ABCDE23456',
     connectors: [
       { id: 'telegram', label: 'Telegram', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send a message' }] },
       { id: 'gmail', label: 'Gmail', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send an email' }] },
@@ -619,6 +622,28 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
         ext.paused = !!body.paused;
         extLog(ext.paused ? 'external.paused' : 'external.resumed', 'owner');
         return json({ paused: ext.paused });
+      }
+    }
+    if (parts[1] === 'session' && method === 'GET') return json(ext.session);
+    if (parts[1] === 'devices') {
+      if (parts[2] === 'pairing' && method === 'POST') {
+        if (!ext.session.remoteEnabled) return err(409, 'remote_off', 'Remote access is switched off.');
+        return json({ code: ext.pairingCode, expiresAt: new Date(Date.now() + 300000).toISOString(), link: 'https://pc.tail1.ts.net/?pair=' + ext.pairingCode });
+      }
+      if (parts[2] === 'pair' && method === 'POST') {
+        if (String(body.code).replace(/[^A-Za-z0-9]/g, '').toUpperCase() !== ext.pairingCode) return err(400, 'pairing_invalid', 'That pairing code is not valid. Ask for a new one on the PC.');
+        ext.session = { ...ext.session, paired: true, device: { id: 'dev1', name: body.name } };
+        return json({ device: ext.session.device });
+      }
+      if (parts[2] === 'signout' && method === 'POST') {
+        ext.session = { ...ext.session, paired: false, device: null };
+        return json({ ok: true });
+      }
+      if (!parts[2] && method === 'GET') return json({ devices: ext.devices });
+      const d = ext.devices.find((x) => x.id === parts[2]);
+      if (d && method === 'DELETE') {
+        d.revokedAt = new Date().toISOString();
+        return json({ device: d });
       }
     }
     if (parts[1] === 'gmail') {
@@ -692,7 +717,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);

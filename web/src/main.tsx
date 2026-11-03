@@ -3,10 +3,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { routes } from "./App";
+import { SessionGate } from "./components/SessionGate";
 import "./index.css";
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: true } },
+  // Every 15 seconds (while the page is open) and whenever you come back to it, the screen re-reads the server, so a change
+  // made on the phone shows on the PC and the other way round.
+  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: true, refetchInterval: 15_000, refetchIntervalInBackground: false } },
 });
 const router = createBrowserRouter(routes);
 
@@ -16,7 +19,9 @@ if (!root) throw new Error("Missing #root element");
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <SessionGate>
+        <RouterProvider router={router} />
+      </SessionGate>
     </QueryClientProvider>
   </StrictMode>,
 );
