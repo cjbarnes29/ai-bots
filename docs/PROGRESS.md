@@ -30,9 +30,9 @@ Update it at the end of every phase.
 | 5 Approvals + vault + audit | `2d2625a` | Approval gate, connector registry (empty), encrypted vault, audit log, Approvals page. 361 backend + 115 dashboard tests, 9 real-browser checks |
 | 6 Telegram | `1c89e77` | Telegram connector (send = approval, read = per-bot permission, token in vault). 374 backend + 116 dashboard tests; fake Telegram only |
 
-| 7 Gmail | (this commit) | Gmail connector + OAuth sign-in + dashboard panel. Fake Google only |
-| 8 Browser | (this commit) | Public-https page reader + form submit (approval). Fake web only |
-| 9 Installable app (PWA) | (this commit) | Manifest, icons, safe service worker. Phone/remote access NOT built (owner decision) |
+| 7 Gmail | `485a325` | Gmail connector + OAuth sign-in + dashboard panel. Fake Google only |
+| 8 Browser | `485a325` | Public-https page reader + form submit (approval). Fake web only |
+| 9 Installable app (PWA) | `485a325` | Manifest, icons, safe service worker. Phone/remote access NOT built (owner decision) |
 
 Totals at this point: 441 backend + 124 dashboard tests, both builds, 9 + 9 real-browser checks (Phase 5 flow rerun; Phase 7-9 new) and a PWA check.
 
