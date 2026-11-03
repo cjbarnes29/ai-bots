@@ -173,6 +173,80 @@ export interface ChatMessageRecord {
   createdAt: string;
 }
 
+// ---------------- Collaboration (Phase 3) ----------------
+
+export type TaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export const FINAL_TASK_STATUSES: TaskStatus[] = ["completed", "failed", "cancelled"];
+
+export interface TaskRecord {
+  id: string;
+  rootId: string;
+  parentId: string | null;
+  assigneeBotId: string;
+  assigneeName: string;
+  requestedBy: string;
+  requestedByName: string;
+  instruction: string;
+  depth: number;
+  status: TaskStatus;
+  result: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  llmCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface TaskNode extends TaskRecord {
+  children: TaskNode[];
+}
+
+export interface TaskEvent {
+  id: number;
+  taskId: string;
+  kind: string;
+  detail: string;
+  createdAt: string;
+}
+
+export interface TaskTree {
+  task: TaskNode;
+  events: TaskEvent[];
+  totals: { tasks: number; llmCalls: number; inputTokens: number; outputTokens: number };
+}
+
+export interface RootSummary extends TaskRecord {
+  chainTasks: number;
+  chainLlmCalls: number;
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  responsibilities: string[];
+  archived: boolean;
+  model: string | null;
+  runtime: Runtime;
+}
+
+export interface DelegationAuditEntry {
+  id: number;
+  targetBotId: string;
+  targetName: string;
+  action: "allowed" | "removed";
+  actor: string;
+  createdAt: string;
+}
+
+export interface DelegationLimitsResponse {
+  limits: Record<string, number>;
+  defaults: Record<string, number>;
+}
+
 export interface ChatReply {
   conversationId: string;
   userMessage: ChatMessageRecord;

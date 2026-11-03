@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/client";
 import {
+  useDelegationLimits,
+  useResetDelegationLimits,
+  useUpdateDelegationLimits,
   useLlmStatus,
   useModels,
   usePatchModel,
@@ -425,6 +428,79 @@ function LimitsSection() {
   );
 }
 
+// ---------------- delegation limits ----------------
+
+const DELEGATION_FIELDS: { key: string; label: string; hint: string }[] = [
+  { key: "maxDepth", label: "How many levels deep a chain may go", hint: "0 turns delegation off. The most allowed is 4." },
+  { key: "maxSubtasksPerTask", label: "Teammates one task may use", hint: "The most allowed is 6." },
+  { key: "maxTasksPerChain", label: "Tasks in one chain", hint: "The most allowed is 15." },
+  { key: "maxLlmCallsPerChain", label: "Model calls in one chain", hint: "Counts against your free-tier limits. The most allowed is 30." },
+  { key: "maxInstructionChars", label: "Longest instruction (characters)", hint: "The most allowed is 20,000." },
+];
+
+function DelegationLimitsSection() {
+  const data = useDelegationLimits();
+  const update = useUpdateDelegationLimits();
+  const reset = useResetDelegationLimits();
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const limits = data.data?.limits;
+
+  useEffect(() => {
+    if (limits) setDraft(Object.fromEntries(Object.entries(limits).map(([k, v]) => [k, String(v)])));
+  }, [limits]);
+
+  if (!limits) {
+    return (
+      <section aria-label="Delegation limits">
+        <h2 className="text-lg font-semibold">Teamwork limits</h2>
+        <p role="status">Loading…</p>
+      </section>
+    );
+  }
+  const changed = Object.entries(draft).filter(([k, v]) => v !== String(limits[k]));
+
+  return (
+    <section aria-label="Delegation limits" className="space-y-3">
+      <h2 className="text-lg font-semibold">Teamwork limits</h2>
+      <p className="text-sm text-slate-600 dark:text-slate-400">
+        When one bot hands work to another, these keep the chain small. Every model call in a chain also counts against the limits above.
+      </p>
+      <div className="card grid gap-4 sm:grid-cols-2">
+        {DELEGATION_FIELDS.map((f) => (
+          <div key={f.key}>
+            <label htmlFor={`delegation-${f.key}`} className="label">
+              {f.label}
+            </label>
+            <input
+              id={`delegation-${f.key}`}
+              type="number"
+              min={0}
+              value={draft[f.key] ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+            />
+            <p className="hint">{f.hint}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={changed.length === 0 || update.isPending}
+          onClick={() => update.mutate(Object.fromEntries(changed.map(([k, v]) => [k, Number(v)])))}
+        >
+          {update.isPending ? "Saving…" : "Save teamwork limits"}
+        </button>
+        <button type="button" className="btn-secondary" disabled={reset.isPending} onClick={() => reset.mutate()}>
+          Reset teamwork limits
+        </button>
+        {changed.length > 0 && <span className="text-sm text-amber-700 dark:text-amber-400">Unsaved changes</span>}
+      </div>
+      <ErrorLine error={update.error ?? reset.error} />
+    </section>
+  );
+}
+
 export function Settings() {
   return (
     <div className="space-y-8">
@@ -433,6 +509,7 @@ export function Settings() {
       <ProvidersSection />
       <ModelsSection />
       <LimitsSection />
+      <DelegationLimitsSection />
     </div>
   );
 }

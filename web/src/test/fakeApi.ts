@@ -5,6 +5,10 @@ import {
   type BotVersion,
   type ChatMessageRecord,
   type Conversation,
+  type DelegationAuditEntry,
+  type TaskNode,
+  type TaskTree,
+  type TeamMember,
   type LlmStatus,
   type ModelView,
   type PermissionAuditEntry,
@@ -210,6 +214,16 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     chatQueue: [] as ((botId: string, body: any) => Response)[],
   };
 
+  // ---- collaboration state (tests can read and change it) ----
+  const collab = {
+    teams: new Map<string, TeamMember[]>(),
+    audit: new Map<string, DelegationAuditEntry[]>(),
+    /** Task chains by root id, oldest first. Tests can edit a chain to simulate progress. */
+    trees: new Map<string, TaskTree>(),
+    limits: { maxDepth: 2, maxSubtasksPerTask: 3, maxTasksPerChain: 5, maxLlmCallsPerChain: 8, maxInstructionChars: 4000 } as Record<string, number>,
+  };
+  const DEFAULT_COLLAB_LIMITS = { ...collab.limits };
+
   const addVersion = (b: Bot, note: string | null, restoredFrom: number | null = null) => {
     const list = versions.get(b.id) ?? [];
     list.unshift({ ...contentOf(b), version: b.currentVersion, changeNote: note, restoredFrom, createdAt: new Date().toISOString() });
@@ -360,6 +374,78 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     return null;
   };
 
+  const handleCollab = (method: string, parts: string[], body: any, bot?: Bot): Response | null => {
+    // bots/:id/delegation and bots/:id/tasks
+    if (bot && parts[3] === "delegation") {
+      if (method === "GET") return json({ targets: collab.teams.get(bot.id) ?? [], audit: collab.audit.get(bot.id) ?? [] });
+      if (method === "PUT") {
+        const ids: string[] = body?.targetBotIds ?? [];
+        if (ids.includes(bot.id)) return err(400, "invalid_teammate", "A bot cannot delegate to itself.");
+        const members: TeamMember[] = [];
+        for (const id of ids) {
+          const b = bots.get(id);
+          if (!b) return err(400, "invalid_teammate", "One of the chosen teammates does not exist.");
+          members.push({ id: b.id, name: b.name, role: b.role, responsibilities: b.responsibilities, archived: b.archived, model: b.model, runtime: b.runtime });
+        }
+        const before = new Set((collab.teams.get(bot.id) ?? []).map((m) => m.id));
+        const log = collab.audit.get(bot.id) ?? [];
+        for (const m of members) if (!before.has(m.id)) log.unshift({ id: log.length + 1, targetBotId: m.id, targetName: m.name, action: "allowed", actor: "local-user", createdAt: new Date().toISOString() });
+        for (const id of before) if (!ids.includes(id)) log.unshift({ id: log.length + 1, targetBotId: id, targetName: bots.get(id)?.name ?? "?", action: "removed", actor: "local-user", createdAt: new Date().toISOString() });
+        collab.teams.set(bot.id, members);
+        collab.audit.set(bot.id, log);
+        return json({ targets: members, audit: log });
+      }
+    }
+    if (bot && parts[3] === "tasks" && method === "POST") {
+      if (!String(body?.instruction ?? "").trim()) return err(400, "empty_instruction", "Describe the task first.");
+      if (bot.archived) return err(409, "bot_archived", `${bot.name} is archived. Unarchive it first.`);
+      if (!bot.model) return err(409, "llm_no_model_selected", `${bot.name} has no model. Choose one on its Details tab first.`);
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      const task: TaskNode = {
+        id, rootId: id, parentId: null, assigneeBotId: bot.id, assigneeName: bot.name, requestedBy: "user", requestedByName: "You",
+        instruction: String(body.instruction).trim(), depth: 0, status: "pending", result: null, errorCode: null, errorMessage: null,
+        llmCalls: 0, inputTokens: 0, outputTokens: 0, createdAt: now, startedAt: null, finishedAt: null, children: [],
+      };
+      collab.trees.set(id, { task, events: [{ id: 1, taskId: id, kind: "created", detail: JSON.stringify({ assignee: bot.name }), createdAt: now }], totals: { tasks: 1, llmCalls: 0, inputTokens: 0, outputTokens: 0 } });
+      return json({ task }, 202);
+    }
+    if (parts[1] === "tasks") {
+      if (!parts[2] && method === "GET") {
+        const roots = [...collab.trees.values()].reverse().map((t) => ({ ...t.task, children: undefined, chainTasks: t.totals.tasks, chainLlmCalls: t.totals.llmCalls }));
+        return json({ tasks: roots });
+      }
+      const tree = parts[2] ? collab.trees.get(parts[2]) : undefined;
+      if (!tree) return err(404, "task_not_found", "Task not found");
+      if (!parts[3] && method === "GET") return json(tree);
+      if (parts[3] === "cancel" && method === "POST") {
+        const stop = (n: TaskNode) => {
+          if (n.status === "pending" || n.status === "running") n.status = "cancelled";
+          n.children.forEach(stop);
+        };
+        stop(tree.task);
+        return json({ task: tree.task });
+      }
+    }
+    if (parts[1] === "delegation" && parts[2] === "limits") {
+      if (method === "GET") return json({ limits: collab.limits, defaults: DEFAULT_COLLAB_LIMITS });
+      if (method === "POST" && parts[3] === "reset") {
+        collab.limits = { ...DEFAULT_COLLAB_LIMITS };
+        return json({ limits: collab.limits, defaults: DEFAULT_COLLAB_LIMITS });
+      }
+      if (method === "PUT") {
+        const ceilings: Record<string, number> = { maxDepth: 4, maxSubtasksPerTask: 6, maxTasksPerChain: 15, maxLlmCallsPerChain: 30, maxInstructionChars: 20000 };
+        for (const [k, v] of Object.entries(body ?? {})) {
+          if (!(k in ceilings)) return validation(k, "Unrecognized key");
+          if (typeof v !== "number" || v > ceilings[k]!) return validation(k, `Too big: at most ${ceilings[k]}`);
+        }
+        collab.limits = { ...collab.limits, ...body };
+        return json({ limits: collab.limits, defaults: DEFAULT_COLLAB_LIMITS });
+      }
+    }
+    return null;
+  };
+
   const handle = (method: string, path: string, body: any): Response => {
     const url = new URL(path, "http://localhost");
     const parts = url.pathname.split("/").filter(Boolean); // ["api","bots",id,...]
@@ -367,6 +453,9 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const bot = id ? bots.get(id) : undefined;
 
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);
+    if (parts[0] === "api" && (parts[1] === "tasks" || parts[1] === "delegation")) {
+      return handleCollab(method, parts, body) ?? err(404, "not_found", "Not found");
+    }
     if (parts[0] !== "api" || parts[1] !== "bots") return err(404, "not_found", "Not found");
 
     if (!id) {
@@ -386,6 +475,8 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
 
     const chat = handleChat(method, bot, parts, body);
     if (chat) return chat;
+    const team = handleCollab(method, parts, body, bot);
+    if (team) return team;
 
     if (!sub) {
       if (method === "GET") return json({ bot });
@@ -470,6 +561,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     requests,
     bots,
     llm,
+    collab,
     /** Requests that are not plain reads. */
     writes: () => requests.filter((r) => r.method !== "GET"),
   };

@@ -8,12 +8,14 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DetailsTab } from "../components/DetailsTab";
 import { PermissionsTab } from "../components/PermissionsTab";
 import { StatusBadge } from "../components/StatusBadge";
+import { TeamTab } from "../components/TeamTab";
 import { VersionsTab } from "../components/VersionsTab";
 
-type Tab = "details" | "chat" | "versions" | "permissions";
+type Tab = "details" | "chat" | "team" | "versions" | "permissions";
 const TABS: { id: Tab; label: string }[] = [
   { id: "details", label: "Details" },
   { id: "chat", label: "Chat" },
+  { id: "team", label: "Team" },
   { id: "versions", label: "Versions" },
   { id: "permissions", label: "Permissions" },
 ];
@@ -113,7 +115,7 @@ export function BotEditor() {
         </p>
       )}
 
-      <div role="tablist" aria-label="Bot sections" className="flex gap-1 border-b border-slate-200 dark:border-slate-800">
+      <div role="tablist" aria-label="Bot sections" className="flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -121,7 +123,7 @@ export function BotEditor() {
             role="tab"
             aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+            className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
               tab === t.id
                 ? "border-indigo-600 text-indigo-700 dark:text-indigo-400"
                 : "border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
@@ -136,6 +138,7 @@ export function BotEditor() {
       {/* Details stays mounted (just hidden) so unsaved edits survive switching tabs. */}
       <DetailsTab bot={b} hidden={tab !== "details"} onDirtyChange={handleDirty} />
       {tab === "chat" && <ChatTab bot={b} hasUnsavedEdits={dirty} />}
+      {tab === "team" && <TeamTab bot={b} />}
       {tab === "versions" && <VersionsTab bot={b} hasUnsavedEdits={dirty} />}
       {tab === "permissions" && <PermissionsTab bot={b} />}
 

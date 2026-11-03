@@ -8,6 +8,10 @@ import { ChatRepository } from "./chat/repository.js";
 import { registerChatRoutes } from "./chat/routes.js";
 import { ChatService } from "./chat/service.js";
 import { openDatabase } from "./db/database.js";
+import { TaskEngine } from "./delegation/engine.js";
+import { TaskRepository } from "./delegation/repository.js";
+import { registerDelegationRoutes } from "./delegation/routes.js";
+import { DelegationService } from "./delegation/service.js";
 import { AppError } from "./errors.js";
 import { ModelCatalogService } from "./llm/catalog.js";
 import { defaultProviderFactory, type ProviderFactory } from "./llm/factory.js";
@@ -102,6 +106,12 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   // ---- Test chat: bots reply only when you send a message. No tools. ----
   const chat = new ChatService(new ChatRepository(db), (id) => agentService.getBot(id), createRuntimeRegistry(llm), llm, now);
   await registerChatRoutes(app, chat);
+
+  // ---- Collaboration: bots hand text tasks to teammates you allow (nobody, by default) ----
+  const taskRepo = new TaskRepository(db);
+  const engine = new TaskEngine({ tasks: taskRepo, getBot: (id) => agentService.getBot(id), llm, now });
+  engine.recoverInterrupted();
+  await registerDelegationRoutes(app, new DelegationService(taskRepo, engine, (id) => agentService.getBot(id), now), engine);
 
   return app;
 }

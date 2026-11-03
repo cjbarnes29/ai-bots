@@ -2,11 +2,13 @@
 
 Create, edit and manage AI bots from a dashboard in your browser.
 
-**Current status: Phase 2 (AI models).** You can create, edit, duplicate, archive and
+**Current status: Phase 3 (collaboration).** You can create, edit, duplicate, archive and
 restore bots, with full version history and per-bot permissions, and **chat with a bot** once
 you have connected a free AI provider. Each bot picks its own provider and model.
-Bots reply **only when you message them**. They have **no tools**, and no connectors (Gmail,
-Telegram, browser) exist yet. Everything runs on your own PC.
+Bots can **hand text tasks to teammates you allow** (nobody, by default) and you can watch the
+whole chain on the **Tasks** page.
+Bots work **only when you message them or give them a task**. They have **no tools**, and no
+connectors (Gmail, Telegram, browser) exist yet. Everything runs on your own PC.
 
 **Free only.** Only free models can be used. This is locked on and cannot be turned off:
 no paid models, no paid fallbacks, no automatic billing.
@@ -59,6 +61,7 @@ Runs the type checks, all automated tests and a production build of both parts.
 | `src/llm/` | AI providers, models, the free-only gate, limits and usage tracking |
 | `src/runtimes/` | What makes a bot think (built-in engine now, OpenClaw later) |
 | `src/chat/` | Test chat: conversations and messages |
+| `src/delegation/` | Teamwork: allow-lists, tasks, the engine that runs a chain of bots |
 | `src/db/` | The database and its upgrade scripts |
 | `web/` | The dashboard (React + Vite + Tailwind) |
 | `scripts/` | Helper scripts (`dev-all.mjs` starts both parts) |
@@ -68,7 +71,9 @@ Runs the type checks, all automated tests and a production build of both parts.
 - New bots start **Disabled**. A bot cannot be set to Active yet.
 - **Free-only mode is locked on.** Paid or unverified models are blocked, and a model that ever
   reports a cost is switched off automatically.
-- **No tools.** Bots only produce text, and only when you message them.
+- **No tools.** Bots only produce text, and only when you message them or give them a task.
+- **Teamwork is off by default and bounded.** A bot can only hand work to teammates you tick on its Team tab. No
+  loops, limited depth, tasks and model calls per chain, a cancel button, and a permanent log.
 - Usage limits (requests and tokens per day and month, per bot and overall) are checked before
   every call. There is a one-click pause switch for all AI calls.
 - API keys live only in your `.env` file. They are never shown in the dashboard, never stored in

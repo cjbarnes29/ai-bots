@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, type RouteObject } from "react-router-dom";
 import { BotEditor } from "./pages/BotEditor";
 import { BotList } from "./pages/BotList";
 import { Settings } from "./pages/Settings";
+import { TaskDetail, TaskList } from "./pages/Tasks";
 import { Usage } from "./pages/Usage";
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -22,6 +23,9 @@ function Layout() {
           <nav aria-label="Main" className="flex gap-1">
             <NavLink to="/" end className={navClass}>
               Bots
+            </NavLink>
+            <NavLink to="/tasks" className={navClass}>
+              Tasks
             </NavLink>
             <NavLink to="/usage" className={navClass}>
               Usage
@@ -62,6 +66,8 @@ export const routes: RouteObject[] = [
     children: [
       { path: "/", element: <BotList /> },
       { path: "/bots/:id", element: <BotEditor /> },
+      { path: "/tasks", element: <TaskList /> },
+      { path: "/tasks/:id", element: <TaskDetail /> },
       { path: "/usage", element: <Usage /> },
       { path: "/settings", element: <Settings /> },
       { path: "*", element: <NotFound /> },

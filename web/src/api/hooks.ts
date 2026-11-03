@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
+import { FINAL_TASK_STATUSES } from "./types";
 import type {
   Bot,
   BotVersion,
@@ -8,6 +9,12 @@ import type {
   Connector,
   Conversation,
   CreateBotInput,
+  DelegationAuditEntry,
+  DelegationLimitsResponse,
+  RootSummary,
+  TaskRecord,
+  TaskTree,
+  TeamMember,
   LimitsMap,
   LlmStatus,
   ModelView,
@@ -252,5 +259,82 @@ export function useSendChat(botId: string) {
       }),
     // Usage numbers change after every call, whether it worked or not.
     onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: ["chat", botId] }), qc.invalidateQueries({ queryKey: ["llm"] })]),
+  });
+}
+
+// ---------------- Collaboration (Phase 3) ----------------
+
+export function useTeam(botId: string) {
+  return useQuery({
+    queryKey: ["team", botId],
+    queryFn: () => api<{ targets: TeamMember[]; audit: DelegationAuditEntry[] }>("GET", `/api/bots/${botId}/delegation`),
+  });
+}
+
+export function useSetTeam(botId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (targetBotIds: string[]) =>
+      api<{ targets: TeamMember[]; audit: DelegationAuditEntry[] }>("PUT", `/api/bots/${botId}/delegation`, { targetBotIds }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["team"] }),
+  });
+}
+
+/** While any task is still working, look again every 1.5 seconds. */
+export function useTasks() {
+  return useQuery({
+    queryKey: ["tasks"],
+    queryFn: async () => (await api<{ tasks: RootSummary[] }>("GET", "/api/tasks")).tasks,
+    refetchInterval: (query) =>
+      query.state.data?.some((t) => !FINAL_TASK_STATUSES.includes(t.status)) ? 1500 : false,
+  });
+}
+
+export function useTaskTree(id: string) {
+  return useQuery({
+    queryKey: ["tasks", id],
+    queryFn: () => api<TaskTree>("GET", `/api/tasks/${id}`),
+    refetchInterval: (query) =>
+      query.state.data && !FINAL_TASK_STATUSES.includes(query.state.data.task.status) ? 1500 : false,
+  });
+}
+
+export function useSubmitTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { botId: string; instruction: string }) =>
+      (await api<{ task: TaskRecord }>("POST", `/api/bots/${input.botId}/tasks`, { instruction: input.instruction })).task,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["tasks"] }), qc.invalidateQueries({ queryKey: ["llm"] })]),
+  });
+}
+
+export function useCancelTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await api<{ task: TaskRecord }>("POST", `/api/tasks/${id}/cancel`)).task,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+}
+
+export function useDelegationLimits() {
+  return useQuery({
+    queryKey: ["delegation-limits"],
+    queryFn: () => api<DelegationLimitsResponse>("GET", "/api/delegation/limits"),
+  });
+}
+
+export function useUpdateDelegationLimits() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (limits: Record<string, number>) => api<DelegationLimitsResponse>("PUT", "/api/delegation/limits", limits),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["delegation-limits"] }),
+  });
+}
+
+export function useResetDelegationLimits() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<DelegationLimitsResponse>("POST", "/api/delegation/limits/reset"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["delegation-limits"] }),
   });
 }
