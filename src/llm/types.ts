@@ -27,6 +27,8 @@ export interface CompletionResult {
   costReportedMicro: number | null;
   /** True if the model asked to use a tool. We never run tools; the request is ignored. */
   toolCallsIgnored: boolean;
+  /** The model name the provider says answered (the "model" field of its reply). Null/absent when it did not say. */
+  modelReturned?: string | null;
 }
 
 export interface ModelInfo {
@@ -38,6 +40,8 @@ export interface ModelInfo {
   priceOutput: number | null;
   /** Who the provider says owns the model (gateways such as OmniRoute: the upstream provider, or "combo"). Optional. */
   ownedBy?: string | null;
+  /** Every price-like field the provider listed, exactly as received (for gateways, which must be checked field by field). */
+  pricingFields?: Record<string, unknown>;
 }
 
 export interface LlmProvider {
@@ -79,6 +83,8 @@ export interface ProviderPlugin {
   classifyModel(model: ModelInfo): { status: FreeStatus; source: string };
   /** Keep blocked models in the catalog (greyed out, with the reason) instead of hiding them. For gateways, so the owner can see why. */
   storeBlocked?: boolean;
+  /** The reply must name exactly the model we asked for. Anything else (or nothing) is rejected and the model is blocked. For gateways. */
+  verifyReturnedModel?: boolean;
   /** Models we suggest even before they are installed (local provider). */
   suggestedModels?: { id: string; displayName: string }[];
 }

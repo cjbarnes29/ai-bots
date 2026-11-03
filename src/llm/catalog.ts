@@ -357,6 +357,11 @@ export class ModelCatalogService {
     return { provider, plugin, model };
   }
 
+  /** A gateway answered as a different model than the one requested: switch that model off until the owner looks at it. */
+  blockModelForIdentity(model: ModelRow): void {
+    this.repo.blockModel(model.id, "Blocked automatically: the gateway answered as a different model than the one requested", this.iso());
+  }
+
   /** A provider reported a cost on a "free" model: switch that model off for good. */
   blockModelForCost(model: ModelRow): void {
     this.repo.blockModel(

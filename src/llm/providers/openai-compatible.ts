@@ -30,6 +30,19 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+/** Collects every price-like field of a listed model, untouched, so a gateway can be checked field by field. */
+function pricingFieldsOf(rec: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const pricing = rec["pricing"];
+  if (pricing !== undefined) {
+    const obj = asRecord(pricing);
+    if (obj) for (const [k, v] of Object.entries(obj)) out[`pricing.${k}`] = v;
+    else out["pricing"] = pricing;
+  }
+  for (const [k, v] of Object.entries(rec)) if (k !== "pricing" && /(cost|price|pricing)/i.test(k)) out[k] = v;
+  return out;
+}
+
 function numberOrNull(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -112,6 +125,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         priceInput: price(pricing?.["prompt"] ?? pricing?.["input"]),
         priceOutput: price(pricing?.["completion"] ?? pricing?.["output"]),
         ...(typeof rec["owned_by"] === "string" ? { ownedBy: rec["owned_by"] } : {}),
+        ...(Object.keys(pricingFieldsOf(rec)).length > 0 ? { pricingFields: pricingFieldsOf(rec) } : {}),
       });
     }
     return models;
@@ -243,6 +257,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       finishReason,
       costReportedMicro: cost === null ? null : Math.round(cost * 1_000_000),
       toolCallsIgnored,
+      modelReturned: typeof root["model"] === "string" ? root["model"] : null,
     };
   }
 }

@@ -226,6 +226,29 @@ export class LlmService {
       }
       slots.release();
 
+      // Gateways (OmniRoute) may answer with another model than the one asked for, for example a paid fallback.
+      // The reply must name exactly the requested model. Missing or different = rejected, never silently accepted.
+      if (plugin.verifyReturnedModel && result.modelReturned !== model.modelId) {
+        const said = result.modelReturned === null || result.modelReturned === undefined ? null : cleanForMessage(result.modelReturned);
+        this.record(base, {
+          status: "error",
+          errorCode: "model_mismatch",
+          inputTokens: result.inputTokens ?? estimatedInput,
+          outputTokens: result.outputTokens ?? estimateTokens(result.text),
+          tokensEstimated: result.inputTokens === null || result.outputTokens === null,
+          latencyMs: this.now() - started,
+          note: said === null ? "model_missing" : "model_mismatch",
+        });
+        this.catalog.blockModelForIdentity(model);
+        breaker.trip(limits.breakerOpenMs);
+        throw new LlmError(
+          "model_mismatch",
+          said === null
+            ? `${plugin.displayName} did not say which model answered, so the reply was discarded and ${model.modelId} was blocked.`
+            : `${plugin.displayName} answered as "${said}" instead of "${model.modelId}". The reply was discarded and the model was blocked.`,
+        );
+      }
+
       const latencyMs = this.now() - started;
       const estimated = result.inputTokens === null || result.outputTokens === null;
       const inputTokens = result.inputTokens ?? estimatedInput;
@@ -369,4 +392,11 @@ export class LlmService {
       note: extra.note ?? null,
     });
   }
+}
+
+/** A model name from outside, made safe to show: one line, no control characters, short. */
+function cleanForMessage(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  const one = text.replace(/[ -]/g, " ").trim();
+  return one.length > 80 ? `${one.slice(0, 80)}...` : one;
 }

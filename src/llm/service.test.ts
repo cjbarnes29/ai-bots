@@ -523,3 +523,20 @@ describe("the usage log", () => {
     expect(s.today.requests).toBe(3);
   });
 });
+
+describe("direct providers are unaffected by the gateway model-identity rule", () => {
+  it("Gemini and Ollama replies are accepted whatever model name the provider echoes (or omits)", async () => {
+    const ctx = await setup();
+    ctx.provider.script.push({ ...OK_RESULT, modelReturned: "models/gemini-test-001-preview" }, { ...OK_RESULT, modelReturned: null });
+    expect((await ctx.llm.complete(input(ctx))).text).toBe(OK_RESULT.text);
+    expect((await ctx.llm.complete(input(ctx))).text).toBe(OK_RESULT.text);
+    expect(ctx.catalog.listModels("gemini")[0]).toMatchObject({ enabled: true, callable: true });
+  });
+
+  it("only the gateway plugin asks for identity checks, and only it stores blocked models", async () => {
+    const { PLUGINS } = await import("./plugins/index.js");
+    expect(PLUGINS.filter((p) => p.verifyReturnedModel).map((p) => p.id)).toEqual(["omniroute"]);
+    expect(PLUGINS.filter((p) => p.storeBlocked).map((p) => p.id)).toEqual(["omniroute"]);
+    expect(PLUGINS.filter((p) => p.freePolicy === "gateway_verified_zero_price").map((p) => p.id)).toEqual(["omniroute"]);
+  });
+});

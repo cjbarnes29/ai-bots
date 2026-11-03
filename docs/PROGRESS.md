@@ -34,7 +34,7 @@ Update it at the end of every phase.
 | 8 Browser | `485a325` | Public-https page reader + form submit (approval). Fake web only |
 | 9 Installable app (PWA) | `485a325` | Manifest, icons, safe service worker. Phone/remote access NOT built (owner decision) |
 
-Totals at this point: 441 backend + 124 dashboard tests, both builds, 9 + 9 real-browser checks (Phase 5 flow rerun; Phase 7-9 new) and a PWA check.
+Totals after Phase 9: 441 backend + 124 dashboard tests, both builds, 9 + 9 real-browser checks (Phase 5 flow rerun; Phase 7-9 new) and a PWA check.
 
 ### OmniRoute facts (added after Phase 9, owner requirement)
 - `src/llm/plugins/omniroute.ts`: provider id `omniroute`, default address http://127.0.0.1:20128/v1 (editable, must stay on this PC), key `OMNIROUTE_API_KEY`
@@ -44,7 +44,12 @@ Totals at this point: 441 backend + 124 dashboard tests, both builds, 9 + 9 real
   `checkCallable` re-checks this at call time, so a stored row cannot bypass it. Blocked models are stored (greyed out with the reason) so the owner can see why.
 - Same adapter as the other providers: sends only model, messages, temperature, max_tokens, stream=false. Connection test and model discovery = existing
   Test connection / Refresh models (GET /v1/models). Refresh keeps bots and enabled choices; vanished models become unavailable and return later; a model that gains a price is blocked and switched off.
-- Tests: `src/llm/omniroute.test.ts` (44 tests, pretend OmniRoute server, real app + real adapter). Mutation checks on the price rules caught.
+- Model identity (plugin flag `verifyReturnedModel`, gateway only): the reply's `model` must equal the requested id EXACTLY (case, spaces, prefix). Missing or different = reply discarded,
+  tokens still counted, error `llm_model_mismatch`, model auto-blocked (a refresh does not re-enable it), breaker tripped. Direct providers are not subject to it (tested).
+- Pricing (`verifyZeroPricing`): EVERY price-like field is checked (whole `pricing` object in any naming: prompt/completion, input/output, per token/million, request,
+  image, web_search, reasoning, cache; plus top-level *cost*/*price* fields). Needs input AND output present and exactly 0; any non-zero, negative, non-numeric, null,
+  "free", object, or disagreeing field blocks. Currency/unit/url style labels ignored.
+- Tests: `src/llm/omniroute.test.ts` (88 tests, pretend OmniRoute server, real app + real adapter). Mutation checks on price and identity rules caught. Real-browser run (9 checks) passed.
 - NOT verified against a real OmniRoute: its real /v1/models may not list prices. If it does not, every model shows as blocked (by design) until the owner
   decides how to authorise models (not built: "separate authorisation"). Not built: a check that the answering model equals the requested one.
 - Owner steps: see docs/PROVIDERS.md.

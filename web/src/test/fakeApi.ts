@@ -604,7 +604,10 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     /** When set, approving fails with this message. */
     executeError: null as string | null,
     gmail: { connected: false, startedUrl: null as string | null },
-    connectors: [{ id: 'telegram', label: 'Telegram', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send a message' }] }],
+    connectors: [
+      { id: 'telegram', label: 'Telegram', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send a message' }] },
+      { id: 'gmail', label: 'Gmail', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send an email' }] },
+    ],
   };
   const extLog = (kind: string, actor: string, detail: Record<string, unknown> = {}) =>
     ext.audit.unshift({ id: ext.audit.length + 1, createdAt: new Date().toISOString(), kind, actor, botId: null, detail });

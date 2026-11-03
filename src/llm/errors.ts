@@ -19,7 +19,8 @@ export type LlmErrorCode =
   | "provider_unavailable"
   | "circuit_open"
   | "bad_request"
-  | "bad_response";
+  | "bad_response"
+  | "model_mismatch";
 
 const HTTP_STATUS: Record<LlmErrorCode, number> = {
   paused: 409,
@@ -40,6 +41,7 @@ const HTTP_STATUS: Record<LlmErrorCode, number> = {
   circuit_open: 503,
   bad_request: 502,
   bad_response: 502,
+  model_mismatch: 502,
 };
 
 export interface LlmErrorOptions {

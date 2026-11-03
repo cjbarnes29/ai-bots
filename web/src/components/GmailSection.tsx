@@ -1,11 +1,18 @@
 import { ApiError } from "../api/client";
-import { useGmailStatus, useStartGmailSignIn } from "../api/hooks";
+import { useExternalStatus, useGmailStatus, useStartGmailSignIn } from "../api/hooks";
 
 /**
  * Connect Gmail. Nothing is sent from here: it only opens Google's own sign-in page. The sign-in comes back to this computer,
  * and only an encrypted token is kept. Bots still need read permission per bot, and every email they send needs approval.
  */
+/** Shown only when the Gmail connector is installed in this backend. */
 export function GmailSection() {
+  const ext = useExternalStatus();
+  if (!ext.data?.connectors.some((c) => c.id === "gmail")) return null;
+  return <GmailPanel />;
+}
+
+function GmailPanel() {
   const status = useGmailStatus();
   const start = useStartGmailSignIn();
   const s = status.data;

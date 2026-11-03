@@ -18,6 +18,61 @@ export function isRoutingModelId(id: string): boolean {
 
 const NOT_TEXT = /embed|rerank|moderation|whisper|tts|speech|transcri|dall-?e|image|imagen|video|audio|ocr/i;
 
+/** Fields that describe a price but are not an amount (currency name, unit, link...). Ignored. */
+const PRICE_METADATA = /(^|[_.-])(currency|unit|units|per|source|updated|updated_at|type|tier|note|notes|description|url|link|id)$/i;
+const NOT_INPUT_OR_OUTPUT = /cache|audio|image|video|modalit|reasoning|search/;
+
+const snake = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+const isInputKey = (k: string) => /(^|[_.-])(prompt|input)([_.-]|$)/.test(k) && !NOT_INPUT_OR_OUTPUT.test(k);
+const isOutputKey = (k: string) => /(^|[_.-])(completion|output)([_.-]|$)/.test(k) && !NOT_INPUT_OR_OUTPUT.test(k);
+
+/** A price as a number, or null when it is not clearly a number ("free", "varies", empty, an object, true...). */
+function priceNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && /^\s*[-+]?(\d+(\.\d*)?|\.\d+)(e[-+]?\d+)?\s*$/i.test(value)) return Number(value);
+  return null;
+}
+
+/**
+ * Checks EVERY price-like field OmniRoute listed for a model (the whole "pricing" object in any format, plus any top-level
+ * field with cost/price in its name: prompt/completion, input/output, per token, per million, per request, images, cache, search...).
+ * Verified zero needs: an input price and an output price both present and exactly 0, and every other price field also exactly 0.
+ * Missing, unreadable, negative, non-zero or disagreeing fields all block. A word such as "free" is not a number and proves nothing.
+ */
+export function verifyZeroPricing(model: ModelInfo): { ok: true } | { ok: false; reason: string } {
+  const fields: Record<string, unknown> =
+    model.pricingFields ??
+    Object.fromEntries(
+      [
+        ["pricing.prompt", model.priceInput],
+        ["pricing.completion", model.priceOutput],
+      ].filter(([, v]) => v !== null),
+    );
+  let input = false;
+  let output = false;
+  let sawZero = false;
+  const nonZero: string[] = [];
+  for (const [rawKey, value] of Object.entries(fields)) {
+    const key = snake(rawKey.replace(/^pricing\./, ""));
+    if (PRICE_METADATA.test(key)) continue;
+    const n = priceNumber(value);
+    if (n === null) return { ok: false, reason: `the price field "${rawKey}" is not a clear number` };
+    if (n < 0) return { ok: false, reason: `the price field "${rawKey}" is negative` };
+    if (n !== 0) {
+      nonZero.push(rawKey);
+      continue;
+    }
+    sawZero = true;
+    if (isInputKey(key)) input = true;
+    if (isOutputKey(key)) output = true;
+  }
+  if (nonZero.length > 0) {
+    return { ok: false, reason: sawZero ? `its price fields disagree or are not all zero (${nonZero.join(", ")})` : `it has a price (${nonZero.join(", ")})` };
+  }
+  if (!input || !output) return { ok: false, reason: "it did not list both an input price and an output price" };
+  return { ok: true };
+}
+
 export function classifyOmniRouteModel(model: ModelInfo): { status: "verified_free" | "blocked"; source: string } {
   if (isRoutingModelId(model.id)) {
     return { status: "blocked", source: "Blocked: this is an auto-routing, combo or fallback name, not one explicit model" };
@@ -25,16 +80,13 @@ export function classifyOmniRouteModel(model: ModelInfo): { status: "verified_fr
   if ((model.ownedBy ?? "").toLowerCase() === "combo") {
     return { status: "blocked", source: "Blocked: OmniRoute says this is a combo (it can switch to other models)" };
   }
-  const { priceInput, priceOutput } = model;
-  if (priceInput === null || priceOutput === null) {
-    return { status: "blocked", source: "Blocked: OmniRoute did not list a price for this model, so it cannot be verified as free" };
-  }
-  if (priceInput !== 0 || priceOutput !== 0) {
-    return { status: "blocked", source: `Blocked: OmniRoute lists a price (input ${priceInput}, output ${priceOutput} per token), so it is not free` };
+  const verdict = verifyZeroPricing(model);
+  if (!verdict.ok) {
+    return { status: "blocked", source: `Blocked: OmniRoute pricing could not be verified as free: ${verdict.reason}` };
   }
   return {
     status: "verified_free",
-    source: `OmniRoute lists price 0 for input and output${model.ownedBy ? ` (provider: ${model.ownedBy})` : ""}`,
+    source: `OmniRoute lists a price of exactly 0 in every price field, input and output included${model.ownedBy ? ` (provider: ${model.ownedBy})` : ""}`,
   };
 }
 
@@ -51,6 +103,7 @@ export const omniRoutePlugin: ProviderPlugin = {
   baseUrlEditable: true,
   defaultDailyRequestCap: 40,
   storeBlocked: true,
+  verifyReturnedModel: true,
   normalizeModelId: (id) => id,
   isTextModel: (id) => !NOT_TEXT.test(id),
   classifyModel: classifyOmniRouteModel,
