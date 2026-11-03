@@ -33,6 +33,13 @@ describe("the Approvals page", () => {
     expect(screen.getByText(/No connections \(Gmail, Telegram, browser\) are installed yet/)).toBeInTheDocument();
   });
 
+  it("says when a connection still needs its token", async () => {
+    const api = createFakeApi();
+    (api.ext.connectors[0] as any).notReady = "paste the bot token in Settings first.";
+    renderApp(api);
+    expect(await screen.findByText(/not set up yet: paste the bot token in Settings first/)).toBeInTheDocument();
+  });
+
   it("shows the exact content of a waiting request, and nothing runs until you confirm", async () => {
     const api = createFakeApi();
     const r = request();

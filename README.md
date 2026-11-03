@@ -2,9 +2,9 @@
 
 Create, edit and manage AI bots from a dashboard in your browser.
 
-**Current status: Phase 5 (approvals, secrets vault, audit log).** The safety gate for anything outside this PC is built and
-tested, but **no real connector (Gmail, Telegram, browser) exists yet**, so no bot can reach anything outside. When connectors arrive
-(Phases 6 to 8) a bot can only *ask*: every write waits on the **Approvals** page for your click and runs once with exactly the content
+**Current status: Phase 6 (Telegram).** The safety gate for anything outside this PC (Phase 5) is built and tested, and the first
+connector, **Telegram**, sits behind it. It does nothing until you paste a Telegram bot token in Settings. Gmail and the browser do not
+exist yet. A bot can only *ask*: every write waits on the **Approvals** page for your click and runs once with exactly the content
 shown; reading from outside is off for every bot until you switch it on. Keys can now be pasted into an encrypted **vault** (Settings).
 Earlier: Phase 4 schedules and text triggers can start tasks for your bots (all
 switched off until you switch them on, and always limited). Before that, from Phase 3: you can create, edit, duplicate, archive and
@@ -13,7 +13,7 @@ you have connected a free AI provider. Each bot picks its own provider and model
 Bots can **hand text tasks to teammates you allow** (nobody, by default) and you can watch the
 whole chain on the **Tasks** page.
 Bots work **only when you message them or give them a task**. They have **no tools** (nothing is ever sent to a model as a tool),
-and no connectors (Gmail, Telegram, browser) exist yet. Everything runs on your own PC.
+and its only possible outside connection is Telegram, behind your approval (Gmail and browser do not exist yet). Everything runs on your own PC.
 
 **Free only.** Only free models can be used. This is locked on and cannot be turned off:
 no paid models, no paid fallbacks, no automatic billing.
@@ -69,7 +69,7 @@ Runs the type checks, all automated tests and a production build of both parts.
 | `src/delegation/` | Teamwork: allow-lists, tasks, the engine that runs a chain of bots |
 | `src/automation/` | Schedules, text triggers, the 30-second clock, the run log |
 | `src/approvals/` | The outside-action gate: requests, your approval, limits, kill switch |
-| `src/connectors/` | What a connector must look like (none installed yet) |
+| `src/connectors/` | What a connector must look like, and the Telegram connector |
 | `src/vault/` | The encrypted store for keys and tokens |
 | `src/audit/` | The permanent security log |
 | `src/db/` | The database and its upgrade scripts |

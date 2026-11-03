@@ -156,7 +156,9 @@ export function Approvals() {
           <ul className="text-sm">
             {status.data.connectors.map((c) => (
               <li key={c.id}>
-                <strong>{c.label}:</strong> {c.actions.map((x) => `${x.name} (${x.kind === "write" ? "needs approval" : "read"})`).join(", ")}
+                <strong>{c.label}:</strong>{" "}
+                {c.notReady ? <span>not set up yet: {c.notReady}</span> : null}
+                {!c.notReady && c.actions.map((x) => `${x.name} (${x.kind === "write" ? "needs approval" : "read"})`).join(", ")}
               </li>
             ))}
           </ul>

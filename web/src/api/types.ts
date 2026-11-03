@@ -388,7 +388,7 @@ export interface Approval {
 export interface ExternalStatus {
   paused: boolean;
   pendingCount: number;
-  connectors: { id: string; label: string; actions: { name: string; kind: "read" | "write"; description: string }[] }[];
+  connectors: { id: string; label: string; notReady?: string | null; actions: { name: string; kind: "read" | "write"; description: string }[] }[];
   limits: Record<string, number>;
 }
 

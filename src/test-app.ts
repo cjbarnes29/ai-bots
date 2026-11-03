@@ -24,7 +24,7 @@ export async function createTestApp(options: { connectors?: ConnectorDefinition[
   const sleeps: number[] = [];
   const app = await buildApp({
     dbPath: ":memory:",
-    ...(options.connectors ? { connectors: options.connectors } : {}),
+    connectors: options.connectors ?? [], // tests never get a real connector unless they ask for one
     providerFactory: () => provider,
     clock: () => clock.t,
     sleep: async (ms) => {

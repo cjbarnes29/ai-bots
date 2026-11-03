@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { BotRecord } from "../agent-manager/types.js";
 import type { AuditLog } from "../audit/audit.js";
-import type { ConnectorRegistry } from "../connectors/types.js";
+import type { ConnectorDefinition, ConnectorRegistry } from "../connectors/types.js";
 import { AppError } from "../errors.js";
 import { redactKnownSecrets } from "../llm/plugins/index.js";
 import { argNamesOf, type ActionOffer } from "./protocol.js";
@@ -108,10 +108,15 @@ export class ActionGate {
       connectors: this.deps.registry.list().map((c) => ({
         id: c.id,
         label: c.label,
+        notReady: this.notReadyReason(c),
         actions: Object.entries(c.actions).map(([name, a]) => ({ name, kind: a.kind, description: a.description })),
       })),
       limits: { ...GATE_LIMITS },
     };
+  }
+
+  private notReadyReason(c: ConnectorDefinition): string | null {
+    return c.notReady ? c.notReady({ secret: (n) => this.deps.vault.resolve(n) }) : null;
   }
 
   /** What this bot may ask for right now. A read action is only offered if reading is switched on for the bot. */
@@ -119,6 +124,7 @@ export class ActionGate {
     if (this.isPaused()) return [];
     const offers: ActionOffer[] = [];
     for (const connector of this.deps.registry.list()) {
+      if (this.notReadyReason(connector)) continue;
       for (const [action, spec] of Object.entries(connector.actions)) {
         if (spec.kind === "read" && !this.deps.readEnabled(botId, connector.id)) continue;
         offers.push({ connector: connector.id, connectorLabel: connector.label, action, kind: spec.kind, description: spec.description, argNames: argNamesOf(spec.args) });
@@ -148,6 +154,8 @@ export class ActionGate {
     }
     if (bot.archived) return deny("The bot is archived.");
     if (this.isPaused()) return deny("All outside actions are paused by the owner.");
+    const notReady = this.notReadyReason(connector);
+    if (notReady) return deny(`${connector.label} is not set up yet: ${notReady}`);
 
     const parsed = spec.args.safeParse(req.args);
     if (!parsed.success) {

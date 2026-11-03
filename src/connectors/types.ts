@@ -28,6 +28,8 @@ export interface ConnectorDefinition {
   label: string;
   /** The vault secrets this connector needs (for the Secrets screen). */
   secrets?: { name: string; description: string }[];
+  /** Returns a plain-language reason if the connector cannot be used yet (for example, no token saved), otherwise null. */
+  notReady?(context: ActionContext): string | null;
   actions: Record<string, ActionSpec>;
 }
 

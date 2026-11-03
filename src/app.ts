@@ -13,6 +13,7 @@ import { ApprovalRepository } from "./approvals/repository.js";
 import { registerApprovalRoutes } from "./approvals/routes.js";
 import { ActionGate } from "./approvals/service.js";
 import { AuditLog } from "./audit/audit.js";
+import { createTelegramConnector } from "./connectors/telegram.js";
 import { ConnectorRegistry, type ConnectorDefinition } from "./connectors/types.js";
 import { setSecretLookup } from "./llm/secrets.js";
 import { loadOrCreateKeyFile, newEphemeralKey } from "./vault/crypto.js";
@@ -53,7 +54,7 @@ export interface BuildAppOptions {
   providerFactory?: ProviderFactory;
   clock?: () => number;
   sleep?: (ms: number) => Promise<void>;
-  /** Connectors bots may use through the approval gate. Empty in the real app until Phases 6 to 8. */
+  /** Connectors bots may use through the approval gate. Default: Telegram only (needs a saved token to do anything). */
   connectors?: ConnectorDefinition[];
   /** The vault's encryption key. Default: a key file next to the database (or a throwaway key for ":memory:"). */
   vaultKey?: Buffer;
@@ -133,12 +134,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerChatRoutes(app, chat);
 
   // ---- Collaboration: bots hand text tasks to teammates you allow (nobody, by default) ----
-  // ---- Secrets vault, audit log and the approval gate (Phase 5). The connector list is EMPTY in the real app
-  // until Phases 6 to 8, so no bot can reach anything outside. Tests and test harnesses can supply fake connectors. ----
+  // ---- Secrets vault, audit log and the approval gate (Phase 5). The real app has ONE connector, Telegram (Phase 6),
+  // which does nothing until the owner saves a bot token. Gmail and the browser come in Phases 7 and 8.
+  // Tests and test harnesses supply their own (fake) connectors instead. ----
   const audit = new AuditLog(db, now);
   const vaultKey =
     options.vaultKey ?? (options.dbPath === ":memory:" ? newEphemeralKey() : loadOrCreateKeyFile(join(dirname(resolve(options.dbPath)), "vault.key")));
-  const registry = new ConnectorRegistry(options.connectors ?? []);
+  const registry = new ConnectorRegistry(options.connectors ?? [createTelegramConnector()]);
   const vault = new VaultService(db, vaultKey, audit, () => registry.list().flatMap((c) => c.secrets ?? []), now);
   setSecretLookup((name) => vault.getStored(name));
   app.addHook("onClose", async () => setSecretLookup(null));

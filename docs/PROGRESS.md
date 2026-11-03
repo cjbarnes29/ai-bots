@@ -28,6 +28,20 @@ Update it at the end of every phase.
 | 3 Collaboration | `38fc8fd` | Allow-list (empty by default), task engine, Tasks page, Team tab, teamwork limits. 224 backend + 76 dashboard tests, 8 real-browser checks |
 | 4 Automation | `e882c17` | Schedules (every N min / daily / once) and text triggers (event, task result), kill switch, run log. 299 backend + 103 dashboard tests, 13 real-browser checks |
 | 5 Approvals + vault + audit | `2d2625a` | Approval gate, connector registry (empty), encrypted vault, audit log, Approvals page. 361 backend + 115 dashboard tests, 9 real-browser checks |
+| 6 Telegram | (see git log) | Telegram connector (send = approval, read = per-bot permission, token in vault). 374 backend + 116 dashboard tests; fake Telegram only |
+
+### Phase 6 facts (so they need not be re-read)
+- `src/connectors/telegram.ts`: actions `send_message` (WRITE, needs approval; chat = number or @name, text 1-4000) and `read_messages`
+  (READ, needs per-bot read permission; up to 20 recent text messages via getUpdates WITHOUT offset, so nothing is consumed).
+  Base URL fixed to https://api.telegram.org (only tests inject another). Token = vault secret `TELEGRAM_BOT_TOKEN`; it is part of the
+  request URL, so connection errors are replaced by a generic message (never the real error). The connector has `notReady()`: until a
+  well-shaped token is saved it is not offered to bots and requests are refused. Gate + dashboard show this.
+- `buildApp` default connectors = [Telegram]; `createTestApp` default = [] (tests never get a real connector).
+- Tested against a FAKE local Telegram server only. NOT verified against real Telegram (needs the owner token from @BotFather).
+- NOT built: automatic inbound Telegram polling into triggers (would be a background outside read). Bots read on request only.
+  Possible later with the owner approval.
+- Owner steps to try it: create a bot with @BotFather, paste token in Settings > Keys, message the bot once from Telegram, switch on
+  Telegram read on the bot Permissions tab if the bot should read replies, give a task like "tell me what the bot received / send X".
 
 ### Phase 5 facts (so they need not be re-read)
 - Code: `src/approvals/` (`service.ts` = `ActionGate`, `protocol.ts` parses ```` ```action ```` blocks, `repository.ts`, `routes.ts`),
@@ -82,7 +96,7 @@ Update it at the end of every phase.
 - Owner should copy `data/app.db*` somewhere safe before first starting a new version.
 
 ## Roadmap
-~~3 Collaboration~~, ~~4 Automation~~ and ~~5 Approvals~~ done -> **6 Telegram is next** -> 7 Gmail ->
+~~3 Collaboration~~, ~~4 Automation~~ and ~~5 Approvals~~ done -> ~~6 Telegram~~ done (see Phase 6 facts) -> **7 Gmail is next** ->
 8 Browser -> 9 Android/remote access -> 10 OpenClaw (optional).
 Phase 5 is the gate for every external connector (now built and tested). Original design notes:
 external READ off by default per bot (already in `bot_permissions`), external WRITE always needs the owner's approval each
