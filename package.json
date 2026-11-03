@@ -1,0 +1,21 @@
+{
+  "name": "ai-workforce-platform",
+  "version": "0.0.1",
+  "private": true,
+  "description": "AI Workforce Management Platform - Phase 0 foundation",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fastify": "^5.12.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

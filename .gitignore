@@ -1,0 +1,25 @@
+# Installed packages (re-creatable with `npm install`)
+node_modules/
+
+# Build output
+dist/
+
+# SECRETS - never commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Local data (database files, logs)
+data/
+*.sqlite
+*.sqlite3
+*.db
+*.log
+
+# Editor / OS noise
+.vscode/
+.DS_Store
+Thumbs.db
