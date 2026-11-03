@@ -64,6 +64,7 @@ Totals after Phase 9: 441 backend + 124 dashboard tests, both builds, 9 + 9 real
 - Alerts (`src/push/`, migration 010, Settings > Alerts on this device, `web/public/sw.js` push handler): content-free Web Push, no account needed. VAPID key pair made on the PC (private half in the vault as
   PUSH_VAPID_PRIVATE_KEY). Subscriptions only for real push-service hosts (fcm.googleapis.com, Mozilla, Apple, Windows). One wake-up per newly waiting approval, max 1/min, no redirects; the phone's service worker
   asks the app how many are waiting. Revoked phones get nothing. 17 backend + 3 service-worker + 3 dashboard tests. NOT verified with a real phone / real push service.
+- Real-browser regression rerun after these changes: phone flow 12/12 (now also checks /monitor and /automation at 393px) and OmniRoute 9/9 passed.
 - OpenClaw: researched, NOT installed. See the final report: it is a shell-capable agent with a cited CVE and no approval step by default, which conflicts with this platform's gate. Waiting for the owner to confirm after reading the risks.
 
 ### Monitoring and backup facts (added after Phase 11)
