@@ -144,10 +144,10 @@ function ProviderCard({ provider: p }: { provider: ProviderView }) {
         <p className="text-sm">
           API key:{" "}
           {p.keyConfigured ? (
-            <span className="text-emerald-700 dark:text-emerald-400">found in your .env file ({p.keyEnv})</span>
+            <span className="text-emerald-700 dark:text-emerald-400">found in the vault or your .env file ({p.keyEnv})</span>
           ) : (
             <span>
-              not found. Add a line <code>{p.keyEnv}=your-key</code> to your <code>.env</code> file, then restart the app.
+              not found. Paste it in the vault above ({p.keyEnv}), or add a line <code>{p.keyEnv}=your-key</code> to your <code>.env</code> file and restart the app.
             </span>
           )}
         </p>

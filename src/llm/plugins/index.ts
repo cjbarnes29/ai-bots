@@ -1,15 +1,16 @@
 import { geminiPlugin } from "./gemini.js";
 import { groqPlugin } from "./groq.js";
 import { ollamaPlugin } from "./ollama.js";
+import { omniRoutePlugin } from "./omniroute.js";
 import { openRouterPlugin } from "./openrouter.js";
 import { redactSecrets } from "../secrets.js";
 import type { ProviderPlugin } from "../types.js";
 
 /**
  * The providers this platform knows about. Gemini first, then Groq and OpenRouter, then the
- * optional local Ollama. Together AI is excluded, and OmniRoute is intentionally not listed.
+ * optional local Ollama, and the OmniRoute gateway (explicit, verified-free models only). Together AI is excluded.
  */
-export const PLUGINS: readonly ProviderPlugin[] = [geminiPlugin, groqPlugin, openRouterPlugin, ollamaPlugin];
+export const PLUGINS: readonly ProviderPlugin[] = [geminiPlugin, groqPlugin, openRouterPlugin, ollamaPlugin, omniRoutePlugin];
 
 export function getPlugin(id: string): ProviderPlugin | undefined {
   return PLUGINS.find((p) => p.id === id);

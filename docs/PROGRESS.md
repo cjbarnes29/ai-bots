@@ -9,7 +9,7 @@ Update it at the end of every phase.
   `ActionGate`. Bots still never get real tools: they ask in text. External *reads* are denied by default, enabled per bot.
   External *writes* always need the owner's approval.
 - Internal bot-to-bot delegation is allowed (Phase 3), text only, platform-controlled.
-- OmniRoute stays untouched and disconnected. Together AI is excluded. OpenClaw and Ollama are optional and
+- OmniRoute: the owner now REQUIRES it as a first-class gateway (see "OmniRoute facts"). The platform never installs, configures or modifies the owner's OmniRoute install, and tests use a pretend server only. Together AI is excluded. OpenClaw and Ollama are optional and
   need the owner's separate approval to install or download.
 - **Never ask for, read or display API keys.** The owner pastes keys into the dashboard vault (Settings) or `.env`.
 - **`data/` is the owner's REAL database** (it holds their bot "carlo"). Never modify or delete it. All tests and
@@ -35,6 +35,19 @@ Update it at the end of every phase.
 | 9 Installable app (PWA) | `485a325` | Manifest, icons, safe service worker. Phone/remote access NOT built (owner decision) |
 
 Totals at this point: 441 backend + 124 dashboard tests, both builds, 9 + 9 real-browser checks (Phase 5 flow rerun; Phase 7-9 new) and a PWA check.
+
+### OmniRoute facts (added after Phase 9, owner requirement)
+- `src/llm/plugins/omniroute.ts`: provider id `omniroute`, default address http://127.0.0.1:20128/v1 (editable, must stay on this PC), key `OMNIROUTE_API_KEY`
+  (vault first, then .env), kind "cloud" so it needs a key, keeps a daily cap (default 40, cannot be removed) and counts toward the overall cloud limits.
+- Free rule (policy `gateway_verified_zero_price`): usable ONLY if OmniRoute lists price exactly 0 for input AND output, the id is not routing-style
+  (auto, combo, fallback, router, best, any, comma/pipe lists, omniroute/...) and `owned_by` is not "combo". Unknown price = blocked. A ":free" name proves nothing.
+  `checkCallable` re-checks this at call time, so a stored row cannot bypass it. Blocked models are stored (greyed out with the reason) so the owner can see why.
+- Same adapter as the other providers: sends only model, messages, temperature, max_tokens, stream=false. Connection test and model discovery = existing
+  Test connection / Refresh models (GET /v1/models). Refresh keeps bots and enabled choices; vanished models become unavailable and return later; a model that gains a price is blocked and switched off.
+- Tests: `src/llm/omniroute.test.ts` (44 tests, pretend OmniRoute server, real app + real adapter). Mutation checks on the price rules caught.
+- NOT verified against a real OmniRoute: its real /v1/models may not list prices. If it does not, every model shows as blocked (by design) until the owner
+  decides how to authorise models (not built: "separate authorisation"). Not built: a check that the answering model equals the requested one.
+- Owner steps: see docs/PROVIDERS.md.
 
 ### Phase 7-9 facts (so they need not be re-read)
 - Gmail (`src/connectors/gmail.ts`): actions search_messages (READ), read_message (READ), send_message (WRITE: 1-5 addresses, one-line subject, body <= 10000,

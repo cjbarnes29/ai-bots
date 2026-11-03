@@ -7,7 +7,7 @@ Provider-independent layer. **Free-only mode is permanently on**: only free mode
 | `types.ts` | Shared shapes. A request has **no field for tools**. |
 | `errors.ts` | Every failure as a clear category (rate limited, timeout, blocked...) |
 | `secrets.ts` | Reads API keys from environment variables and removes them from any text |
-| `plugins/` | One small file per provider: Gemini, Groq, OpenRouter, Ollama (OmniRoute is defined but not connected) |
+| `plugins/` | One small file per provider: Gemini, Groq, OpenRouter, Ollama, and the OmniRoute gateway (see `docs/PROVIDERS.md`) |
 | `providers/openai-compatible.ts` | The one adapter that talks to all of them (built-in `fetch`, no SDK) |
 | `policy.ts` | The free-only gate that every call must pass |
 | `catalog.ts` | Providers and models: connection tests, model discovery, free badges |
@@ -23,5 +23,6 @@ Add one file in `plugins/` (address, key name, how its models are judged free) a
 - No tools are ever sent to a model, and a model's tool request is ignored.
 - A model flagged "blocked" cannot be enabled (the database refuses it).
 - A provider that reports a cost on a free model gets that model blocked automatically.
-- Cloud provider addresses and key names are fixed in code. The local provider's address must be on this PC.
+- Cloud provider addresses and key names are fixed in code. The addresses of Ollama and OmniRoute are editable but must be on this PC.
+- A gateway (OmniRoute) is never assumed free: a model is usable only if the gateway lists a price of exactly 0, it is an explicit model (no auto, combos or fallbacks), and the owner enabled it.
 - Keys are never returned by the API, never stored in the database, and scrubbed from error messages.

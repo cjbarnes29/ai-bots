@@ -17,17 +17,17 @@ const provider = async (id: string) =>
   ((await t.call("GET", "/api/llm/providers")).body.providers as any[]).find((p) => p.id === id);
 
 describe("providers", () => {
-  it("lists the four providers, all switched off, unconfirmed, with the approved caps", async () => {
+  it("lists the five providers, all switched off, unconfirmed, with the approved caps", async () => {
     vi.stubEnv("GEMINI_API_KEY", "");
     const res = await t.call("GET", "/api/llm/providers");
     expect(res.status).toBe(200);
-    expect(res.body.providers.map((p: any) => p.id)).toEqual(["gemini", "groq", "openrouter", "ollama"]);
+    expect(res.body.providers.map((p: any) => p.id)).toEqual(["gemini", "groq", "openrouter", "ollama", "omniroute"]);
     for (const p of res.body.providers) {
       expect(p.enabled).toBe(false);
       expect(p.freeConfirmed).toBe(false);
       expect(p.modelCount).toBe(0);
     }
-    expect(res.body.providers.map((p: any) => p.dailyRequestCap)).toEqual([50, 50, 40, null]);
+    expect(res.body.providers.map((p: any) => p.dailyRequestCap)).toEqual([50, 50, 40, null, 40]);
     expect(res.body.providers[0]).toMatchObject({ kind: "cloud", keyEnv: "GEMINI_API_KEY", keyConfigured: false, requiresFreeConfirmation: true });
     expect(res.body.providers[3]).toMatchObject({ kind: "local", keyEnv: null, keyConfigured: true, baseUrlEditable: true });
   });
@@ -106,7 +106,6 @@ describe("providers", () => {
     expect((await t.call("PATCH", "/api/llm/providers/gemini", { apiKeyEnv: "HOME" })).status).toBe(400);
     expect((await t.call("PATCH", "/api/llm/providers/gemini", { freeOnly: false })).status).toBe(400);
     expect((await t.call("PATCH", "/api/llm/providers/together", { enabled: true })).status).toBe(404);
-    expect((await t.call("PATCH", "/api/llm/providers/omniroute", { enabled: true })).status).toBe(404);
     expect((await t.call("POST", "/api/llm/providers/together/test")).status).toBe(404);
   });
 

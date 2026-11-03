@@ -1,6 +1,7 @@
 import type { LlmErrorCode } from "./errors.js";
 import type { ModelRow, ProviderRow } from "./repository.js";
 import { hasApiKey } from "./secrets.js";
+import { isRoutingModelId } from "./plugins/omniroute.js";
 import type { ProviderPlugin } from "./types.js";
 
 /**
@@ -35,6 +36,13 @@ export function checkCallable(provider: ProviderRow, plugin: ProviderPlugin, mod
     return {
       code: "blocked_by_policy",
       message: `Confirm in Settings that your ${plugin.displayName} account has no billing before using it.`,
+    };
+  }
+  // A gateway must be called with one explicit model. Auto-routing, combos and fallbacks are refused even if a stored row says otherwise.
+  if (plugin.freePolicy === "gateway_verified_zero_price" && (model.freeStatus !== "verified_free" || isRoutingModelId(model.modelId))) {
+    return {
+      code: "blocked_by_policy",
+      message: "This gateway model is blocked: it is not verified free, or it is an auto-routing, combo or fallback name. Free-only mode is locked on.",
     };
   }
   if (FREE_ONLY_MODE && model.freeStatus === "blocked") {

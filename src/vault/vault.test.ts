@@ -82,9 +82,9 @@ describe("the encryption", () => {
 });
 
 describe("storing secrets", () => {
-  it("lists the secrets the platform uses (the three provider keys) and what is set", async () => {
+  it("lists the secrets the platform uses (the four provider keys) and what is set", async () => {
     const res = await t.call("GET", "/api/vault");
-    expect(res.body.secrets.map((s: any) => s.name)).toEqual(["GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY"]);
+    expect(res.body.secrets.map((s: any) => s.name)).toEqual(["GEMINI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "OMNIROUTE_API_KEY"]);
     for (const s of res.body.secrets) expect(s).toMatchObject({ inVault: false, inEnv: false, updatedAt: null });
     expect(res.body.secrets[0].description).toMatch(/Gemini/);
   });

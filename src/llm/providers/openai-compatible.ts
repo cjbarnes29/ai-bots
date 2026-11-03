@@ -109,8 +109,9 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         id,
         displayName: typeof rec["name"] === "string" && rec["name"] ? rec["name"] : id,
         contextWindow: numberOrNull(rec["context_length"]) ?? numberOrNull(rec["context_window"]),
-        priceInput: price(pricing?.["prompt"]),
-        priceOutput: price(pricing?.["completion"]),
+        priceInput: price(pricing?.["prompt"] ?? pricing?.["input"]),
+        priceOutput: price(pricing?.["completion"] ?? pricing?.["output"]),
+        ...(typeof rec["owned_by"] === "string" ? { ownedBy: rec["owned_by"] } : {}),
       });
     }
     return models;

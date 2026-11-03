@@ -79,7 +79,7 @@ describe("Settings: providers", () => {
     expect(gemini.getByText("Key missing")).toBeInTheDocument();
     expect(gemini.getByText(/GEMINI_API_KEY=your-key/)).toBeInTheDocument();
     const groq = within(card("Groq"));
-    expect(groq.getByText(/found in your .env file \(GROQ_API_KEY\)/)).toBeInTheDocument();
+    expect(groq.getByText(/found in the vault or your .env file \(GROQ_API_KEY\)/)).toBeInTheDocument();
     const ollama = within(card("Ollama (local)"));
     expect(ollama.getByText("Local")).toBeInTheDocument();
     expect(ollama.getByText(/No key needed/)).toBeInTheDocument();
@@ -629,5 +629,21 @@ describe("Usage page", () => {
     renderApp(api, "/usage");
     await user.selectOptions(await screen.findByLabelText("Show the last"), "30");
     await waitFor(() => expect(api.requests.some((r) => r.path === "/api/llm/usage?days=30")).toBe(true));
+  });
+});
+
+describe("Settings: OmniRoute gateway", () => {
+  it("shows OmniRoute with its default address, a vault key, the free-only rule and a daily cap", async () => {
+    const api = createFakeApi([], {
+      providers: [
+        makeProvider({ id: "omniroute", displayName: "OmniRoute (gateway)", keyEnv: "OMNIROUTE_API_KEY", keyConfigured: false, requiresFreeConfirmation: false, baseUrlEditable: true, baseUrl: "http://127.0.0.1:20128/v1", dailyRequestCap: 40, freePolicyLabel: "Only explicit models that OmniRoute itself lists at a price of exactly 0 (never auto, combos or fallbacks)" }),
+      ],
+    });
+    renderApp(api, "/settings");
+    const card = within(await screen.findByRole("listitem", { name: "OmniRoute (gateway)" }));
+    expect(card.getByText(/never auto, combos or fallbacks/)).toBeInTheDocument();
+    expect(card.getByLabelText(/Address/)).toHaveValue("http://127.0.0.1:20128/v1");
+    expect(card.getByText(/OMNIROUTE_API_KEY=your-key/)).toBeInTheDocument();
+    expect(card.getByText(/Paste it in the vault above/)).toBeInTheDocument();
   });
 });

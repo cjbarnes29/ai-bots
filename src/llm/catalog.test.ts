@@ -16,11 +16,11 @@ import { UsageRepository } from "./usage.js";
 afterEach(() => vi.unstubAllEnvs());
 
 describe("which providers exist", () => {
-  it("has exactly Gemini, Groq, OpenRouter and Ollama: no Together AI, and OmniRoute is not connected", () => {
-    expect(PLUGINS.map((p) => p.id)).toEqual(["gemini", "groq", "openrouter", "ollama"]);
+  it("has Gemini, Groq, OpenRouter, Ollama and the OmniRoute gateway: no Together AI", () => {
+    expect(PLUGINS.map((p) => p.id)).toEqual(["gemini", "groq", "openrouter", "ollama", "omniroute"]);
     expect(PLUGINS.some((p) => /together/i.test(p.id) || /together/i.test(p.displayName))).toBe(false);
-    expect(PLUGINS).not.toContain(omniRoutePlugin);
-    expect(omniRoutePlugin.connectable).toBe(false);
+    expect(PLUGINS).toContain(omniRoutePlugin);
+    expect(omniRoutePlugin.connectable).toBe(true);
   });
 
   it("fixes every cloud provider's address (https) and key name", () => {
@@ -107,7 +107,8 @@ describe("the policy gate (checkCallable)", () => {
     expect(checkCallable(provider(), geminiPlugin, model({ enabled: false }))?.message).toMatch(/switched off/);
     expect(checkCallable(provider(), geminiPlugin, model({ availability: "removed" }))?.code).toBe("model_unavailable");
     expect(checkCallable(provider({ id: "ollama" }), ollamaPlugin, model({ availability: "not_installed" }))?.message).toMatch(/not installed/);
-    expect(checkCallable(provider(), omniRoutePlugin, model())?.message).toMatch(/not connected/);
+    vi.stubEnv("OMNIROUTE_API_KEY", "test-key-000000");
+    expect(checkCallable(provider({ id: "omniroute" }), omniRoutePlugin, model({ providerId: "omniroute", modelId: "auto" , freeStatus: "verified_free" }))?.message).toMatch(/auto-routing/);
   });
 
   it("blocks a cloud provider with no key, and never needs a key for the local one", () => {
@@ -134,15 +135,15 @@ describe("the model catalog", () => {
     return { db, repo, provider, catalog };
   }
 
-  it("starts with all four providers switched off and unconfirmed, with the approved caps", () => {
+  it("starts with all five providers switched off and unconfirmed, with the approved caps", () => {
     const { catalog } = setup();
     const views = catalog.listProviders();
-    expect(views.map((v) => v.id)).toEqual(["gemini", "groq", "openrouter", "ollama"]);
+    expect(views.map((v) => v.id)).toEqual(["gemini", "groq", "openrouter", "ollama", "omniroute"]);
     for (const v of views) {
       expect(v.enabled).toBe(false);
       expect(v.freeConfirmed).toBe(false);
     }
-    expect(views.map((v) => v.dailyRequestCap)).toEqual([50, 50, 40, null]);
+    expect(views.map((v) => v.dailyRequestCap)).toEqual([50, 50, 40, null, 40]);
   });
 
   it("OpenRouter refresh stores only verified-free models and ignores paid ones", async () => {

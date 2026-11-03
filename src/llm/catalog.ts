@@ -254,7 +254,7 @@ export class ModelCatalogService {
       for (const info of listed) {
         const verdict = plugin.classifyModel(info);
         const known = this.repo.getModelByRef(id, info.id);
-        if (verdict.status === "blocked" && !known) continue;
+        if (verdict.status === "blocked" && !known && !plugin.storeBlocked) continue;
         this.repo.upsertModel(id, info, verdict.status, verdict.source, "available", now);
         present.push(info.id);
       }

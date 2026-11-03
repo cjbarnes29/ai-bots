@@ -36,6 +36,8 @@ export interface ModelInfo {
   /** Dollars per token, when the provider publishes it. Null = unknown. */
   priceInput: number | null;
   priceOutput: number | null;
+  /** Who the provider says owns the model (gateways such as OmniRoute: the upstream provider, or "combo"). Optional. */
+  ownedBy?: string | null;
 }
 
 export interface LlmProvider {
@@ -51,9 +53,11 @@ export type ProviderKind = "cloud" | "local";
  * How we decide a provider's models are free:
  *  - price_zero_suffix: the live model list must show a price of exactly 0 (OpenRouter ":free").
  *  - account_billing_confirmation: free only while the account has no billing; the user confirms.
+ *  - gateway_verified_zero_price: an AI gateway (OmniRoute). Never assumed free: the gateway must itself list a price of exactly 0 for
+ *    input AND output, and the model must be one explicit model (no auto-routing, combos or fallbacks).
  *  - local: runs on this PC.
  */
-export type FreePolicy = "price_zero_suffix" | "account_billing_confirmation" | "local";
+export type FreePolicy = "price_zero_suffix" | "account_billing_confirmation" | "gateway_verified_zero_price" | "local";
 
 /** Everything that is special about one provider. Adding a provider = adding one of these. */
 export interface ProviderPlugin {
@@ -73,6 +77,8 @@ export interface ProviderPlugin {
   /** Filters out models that are not for text chat (embeddings, speech, images...). */
   isTextModel(id: string): boolean;
   classifyModel(model: ModelInfo): { status: FreeStatus; source: string };
+  /** Keep blocked models in the catalog (greyed out, with the reason) instead of hiding them. For gateways, so the owner can see why. */
+  storeBlocked?: boolean;
   /** Models we suggest even before they are installed (local provider). */
   suggestedModels?: { id: string; displayName: string }[];
 }
