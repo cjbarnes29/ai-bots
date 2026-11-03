@@ -1,4 +1,4 @@
-# Progress record
+﻿# Progress record
 
 Read this first. It is the verified checkpoint. Do not re-audit finished work; continue from "Next".
 Update it at the end of every phase.
@@ -25,7 +25,7 @@ Update it at the end of every phase.
 | 0 Foundation | `67a4223` | TypeScript, Fastify, Git |
 | 1 Agent Manager | `cae1fd5` backend, `60f7a7d` dashboard | SQLite, versions, permissions, React dashboard |
 | 2 (2a-2d) AI models | `60b8000` | 4 provider plugins, free-only gate, limits, usage, chat. 180 backend + 60 dashboard tests, 12 real-browser checks |
-| 3 Collaboration | (see `git log`) | Allow-list (empty by default), task engine, Tasks page, Team tab, teamwork limits. 224 backend + 76 dashboard tests, 8 real-browser checks |
+| 3 Collaboration | `38fc8fd` | Allow-list (empty by default), task engine, Tasks page, Team tab, teamwork limits. 224 backend + 76 dashboard tests, 8 real-browser checks |
 
 ### Phase 3 facts (so they need not be re-read)
 - Delegation = a fenced ```` ```delegate ```` JSON block in a bot's TEXT reply, read by the platform. No tools are ever
