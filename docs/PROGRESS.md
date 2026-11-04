@@ -142,6 +142,15 @@ every new power is a connector behind it. Image/video/audio generation and Googl
 - Owner must: create tokens (GitHub fine-grained PAT, Notion internal integration), paste them in the vault; for Google enable Drive/Calendar/Tasks APIs in the same Google Cloud project and press Connect Google Workspace; turn on each bot's switch.
 - Tests: 12 backend (`src/connectors/integrations.test.ts`) + 4 dashboard (`web/src/integrations.test.tsx`).
 
+### Stage 8 facts: memory and knowledge (DONE)
+- Code: `src/memory/{service,connector,routes}.ts`, migration 016 (memory_notes, memory_fts (SQLite FTS5), memory_bots). Dashboard: Knowledge page (nav link), `BotMemory` on the bot Permissions tab.
+- Private notes (one bot) vs shared notes (project knowledge). Only the owner creates, edits, archives or promotes shared notes ("Copy to shared knowledge" copies; the private original stays). Limits: 300 shared, 200 per bot, 4000 chars per note.
+- Per bot: use own notes (default ON), use shared knowledge (default OFF). Pinned notes (capped 1500 chars) are added to the bot's prompt, labelled as reference data, not instructions.
+- Bots use the "memory" connector through the gate: `recall` (read; scope notes or its OWN finished task history) and `remember` (write: needs approval, private only). Anything that looks like a key/token/password is refused on every path (create, edit, share, bot request).
+- Search: FTS5 with the query reduced to plain words (no search syntax can get through). All memory routes are owner-only (a phone is refused).
+- Not built: automatic summarising of tasks/workflows into notes, document chunking/embeddings (search is keyword-based). Task history search covers a bot's own completed tasks only.
+- Tests: 8 backend (`src/memory/memory.test.ts`; mutation checks on the privacy filter and the secret check were caught) + 4 dashboard (`web/src/knowledge.test.tsx`).
+
 ### Inbound messages and phone alerts (approved after Phase 11)
 - Inbound (`src/inbound/`, migration 009, Automation page section "Inbound messages"): a source watches Telegram (read_messages) or Gmail (unread, last day) and turns each NEW message into a text event
   (default names `telegram_message` / `gmail_message`) that the owner's triggers can use. Created OFF, PC-only to change; can be switched on only if the chosen bot has that connector's READ permission;

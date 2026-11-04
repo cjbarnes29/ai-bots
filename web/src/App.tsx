@@ -1,6 +1,7 @@
 ﻿import { useExternalStatus } from "./api/hooks";
 import { Link, NavLink, Outlet, type RouteObject } from "react-router-dom";
 import { Approvals } from "./pages/Approvals";
+import { Knowledge } from "./pages/Knowledge";
 import { Automation } from "./pages/Automation";
 import { BotEditor } from "./pages/BotEditor";
 import { BotList } from "./pages/BotList";
@@ -38,6 +39,9 @@ function Layout() {
             </NavLink>
             <NavLink to="/automation" className={navClass}>
               Automation
+            </NavLink>
+            <NavLink to="/knowledge" className={navClass}>
+              Knowledge
             </NavLink>
             <NavLink to="/approvals" className={navClass}>
               Approvals{waiting > 0 ? ` (${waiting})` : ""}
@@ -85,6 +89,7 @@ export const routes: RouteObject[] = [
       { path: "/monitor", element: <Monitor /> },
       { path: "/tasks", element: <TaskList /> },
       { path: "/tasks/:id", element: <TaskDetail /> },
+      { path: "/knowledge", element: <Knowledge /> },
       { path: "/approvals", element: <Approvals /> },
       { path: "/usage", element: <Usage /> },
       { path: "/settings", element: <Settings /> },

@@ -16,6 +16,9 @@ import { AuditLog } from "./audit/audit.js";
 import { createBrowserConnector } from "./connectors/browser/browser.js";
 import { createGmailConnector, registerGmailOAuthRoutes, registerGoogleOAuthRoutes, type GoogleUrls } from "./connectors/gmail.js";
 import { createGithubConnector, createGoogleWorkspaceConnector, createMcpConnector, createN8nConnector, createNotionConnector, GWS_REFRESH_TOKEN, GWS_SCOPES } from "./connectors/integrations.js";
+import { createMemoryConnector } from "./memory/connector.js";
+import { registerMemoryRoutes } from "./memory/routes.js";
+import { MemoryService } from "./memory/service.js";
 import { IntegrationAccess, isIntegration, registerIntegrationRoutes } from "./connectors/integrations-access.js";
 import { createTelegramConnector } from "./connectors/telegram.js";
 import { ConnectorRegistry, type ConnectorDefinition } from "./connectors/types.js";
@@ -109,6 +112,8 @@ export interface BuildAppOptions {
   managerPollMs?: number;
   /** Tests: stands in for running 'git --version' and similar fixed checks on this PC. */
   toolRunner?: CommandRunner;
+  /** Tests: add the memory connector to the connectors given above (the real app always has it). */
+  includeMemory?: boolean;
   /** Tests: add the five integration connectors (GitHub, Notion, n8n, MCP, Google Workspace) to the connectors given above (the real app always has them). */
   includeIntegrations?: boolean;
   /** Tests: add the PC agent connector to the connectors given above (the real app always has it). */
@@ -260,9 +265,11 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
   app.decorate("pc", pcService);
   app.addHook("onClose", async () => pcService.shutdown());
+  const memory = new MemoryService(db, audit, now);
   const registry = new ConnectorRegistry([
     ...(options.connectors ?? [createTelegramConnector(), createBrowserConnector(), createGmailConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })]),
     ...(options.connectors === undefined || options.includePc ? [createPcConnector(pcService), createDocumentsConnector(pcService)] : []),
+    ...(options.connectors === undefined || options.includeMemory ? [createMemoryConnector(memory)] : []),
     ...(options.connectors === undefined || options.includeIntegrations ? [createGithubConnector(), createNotionConnector(), createN8nConnector(), createMcpConnector(), createGoogleWorkspaceConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })] : []),
   ]);
   const vault = new VaultService(db, vaultKey, audit, () => [...registry.list().flatMap((c) => c.secrets ?? []), { name: PUSH_SECRET_NAME, description: "Phone alerts signing key (made automatically, do not paste)" }], now);
@@ -279,10 +286,18 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     vault,
     getBot: (id) => agentService.getBot(id),
     // The PC agent has its own five permissions (checked by the connector); the generic read switch does not apply to it.
-    readEnabled: (botId, connector) => connector === "pc" || connector === "documents" || (isIntegration(connector) ? integrationAccess.has(botId, connector) : false) || agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
+    readEnabled: (botId, connector) => connector === "pc" || connector === "documents" || connector === "memory" || (isIntegration(connector) ? integrationAccess.has(botId, connector) : false) || agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
     now,
   });
   await registerApprovalRoutes(app, gate, audit);
+  await registerMemoryRoutes(app, memory, (id) => {
+    try {
+      agentService.getBot(id);
+      return true;
+    } catch {
+      return false;
+    }
+  });
   await registerIntegrationRoutes(app, integrationAccess, registry, (id) => { try { agentService.getBot(id); return true; } catch { return false; } });
 
   // ---- Tool registry and skill library (Stage 3) ----
@@ -328,7 +343,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     llm,
     now,
     actions: gate,
-    promptExtras: (botId) => skillService!.promptFor(botId),
+    promptExtras: async (botId) => [await skillService!.promptFor(botId), memory.promptFor(botId)].filter(Boolean).join("\n\n"),
     onRootFinished: (task) => automation?.onRootFinished(task),
   });
   engine.recoverInterrupted();

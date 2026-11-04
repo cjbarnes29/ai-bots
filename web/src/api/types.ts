@@ -651,3 +651,22 @@ export interface WfOverview {
   runs: WfRun[];
   waiting: { runId: string; workflowName: string; nodeId: string; message: string }[];
 }
+
+// ---- memory and knowledge (Stage 8)
+export interface MemoryNote {
+  id: string;
+  scope: "bot" | "shared";
+  botId: string | null;
+  title: string;
+  content: string;
+  tags: string[];
+  source: "owner" | "bot" | "import";
+  pinned: boolean;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface BotMemorySettings {
+  usePrivate: boolean;
+  useShared: boolean;
+}

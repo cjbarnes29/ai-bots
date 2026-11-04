@@ -655,6 +655,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     skills: [] as any[],
     workflows: [] as any[],
     gws: { connected: false },
+    memory: { notes: [] as any[], settings: new Map<string, { usePrivate: boolean; useShared: boolean }>() },
     integrations: { available: [] as any[], enabled: new Map<string, string[]>() },
     wfRuns: [] as any[],
     botCaps: new Map<string, { skills: string[]; tools: string[] }>(),
@@ -870,6 +871,31 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
         return json({ url: ext.gmail.startedUrl });
       }
     }
+    if (parts[1] === 'memory') {
+      const mem = ext.memory;
+      if (!parts[2] && method === 'GET') {
+        const sc = url.searchParams.get('scope'), bid = url.searchParams.get('botId'), arch = url.searchParams.get('archived') === '1', q = (url.searchParams.get('q') ?? '').toLowerCase();
+        return json({ notes: mem.notes.filter((n: any) => n.scope === sc && (sc === 'shared' || n.botId === bid) && n.archived === arch && (!q || (n.title + n.content).toLowerCase().includes(q))) });
+      }
+      if (!parts[2] && method === 'POST') {
+        if (/ghp_/.test(JSON.stringify(body))) return err(400, 'memory_secret', 'That looks like a key, token or password. Memory never stores secrets. Remove it and try again.');
+        const n = { id: 'n' + (mem.notes.length + 1), scope: body.scope, botId: body.scope === 'bot' ? body.botId : null, title: body.title, content: body.content, tags: body.tags ?? [], source: 'owner', pinned: !!body.pinned, archived: false, createdAt: '', updatedAt: '' };
+        mem.notes.push(n);
+        return json({ note: n }, 201);
+      }
+      const n = mem.notes.find((x: any) => x.id === parts[2]);
+      if (!n) return err(404, 'not_found', 'No such note.');
+      if (!parts[3] && method === 'PATCH') return json({ note: Object.assign(n, body) });
+      if (parts[3] === 'archive') n.archived = true;
+      if (parts[3] === 'unarchive') n.archived = false;
+      if (parts[3] === 'share') { const c = { ...n, id: 'n' + (mem.notes.length + 1), scope: 'shared', botId: null }; mem.notes.push(c); return json({ note: c }, 201); }
+      return json({ note: n });
+    }
+    if (parts[1] === 'bots' && parts[3] === 'memory') {
+      const cur = ext.memory.settings.get(parts[2]!) ?? { usePrivate: true, useShared: false };
+      if (method === 'PUT') ext.memory.settings.set(parts[2]!, { ...cur, ...body });
+      return json({ settings: ext.memory.settings.get(parts[2]!) ?? cur });
+    }
     if (parts[1] === 'gworkspace') {
       const hasClient = !!ext.secrets.find((x) => x.name === 'GOOGLE_CLIENT_ID')?.inVault && !!ext.secrets.find((x) => x.name === 'GOOGLE_CLIENT_SECRET')?.inVault;
       if (parts[2] === 'status' && method === 'GET') return json({ hasClient, connected: ext.gws.connected, redirectUri: 'http://127.0.0.1:3000/api/gworkspace/oauth/callback', scopes: [] });
@@ -943,10 +969,10 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc", "workflows", "gworkspace"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc", "workflows", "gworkspace", "memory"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
-    if (parts[0] === "api" && parts[1] === "bots" && ["capabilities", "skills", "tools", "pc", "integrations"].includes(parts[3] ?? "")) {
+    if (parts[0] === "api" && parts[1] === "bots" && ["capabilities", "skills", "tools", "pc", "integrations", "memory"].includes(parts[3] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);

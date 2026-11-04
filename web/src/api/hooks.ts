@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { WfGraph, WfOverview, WfProblem, PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
+import type { MemoryNote, BotMemorySettings, WfGraph, WfOverview, WfProblem, PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -821,5 +821,31 @@ export function useSetBotIntegrations(botId: string) {
   return useMutation({
     mutationFn: (connectors: string[]) => api<BotIntegrations>("PUT", `/api/bots/${botId}/integrations`, { connectors }),
     onSuccess: (data) => qc.setQueryData(["integrations", botId], data),
+  });
+}
+
+// ---- memory and knowledge (Stage 8)
+export function useMemoryNotes(scope: "shared" | "bot", botId: string, archived: boolean, q: string) {
+  return useQuery({
+    queryKey: ["memory", scope, botId, archived, q],
+    enabled: scope === "shared" || botId !== "",
+    queryFn: async () => (await api<{ notes: MemoryNote[] }>("GET", `/api/memory?scope=${scope}${scope === "bot" ? `&botId=${botId}` : ""}&archived=${archived ? 1 : 0}${q.trim() ? `&q=${encodeURIComponent(q.trim())}` : ""}`)).notes,
+  });
+}
+const useMemoryMutation = <V, R = unknown>(fn: (v: V) => Promise<R>) => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["memory"] }) });
+};
+export const useCreateNote = () => useMemoryMutation((v: { scope: "shared" | "bot"; botId?: string; title: string; content: string; tags: string[]; pinned: boolean }) => api("POST", "/api/memory", v));
+export const useUpdateNote = () => useMemoryMutation((v: { id: string; patch: Partial<Pick<MemoryNote, "title" | "content" | "tags" | "pinned">> }) => api("PATCH", `/api/memory/${v.id}`, v.patch));
+export const useNoteAction = () => useMemoryMutation((v: { id: string; action: "archive" | "unarchive" | "share" }) => api("POST", `/api/memory/${v.id}/${v.action}`, {}));
+export function useBotMemory(botId: string) {
+  return useQuery({ queryKey: ["memory-settings", botId], queryFn: async () => (await api<{ settings: BotMemorySettings }>("GET", `/api/bots/${botId}/memory`)).settings });
+}
+export function useSetBotMemory(botId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patch: Partial<BotMemorySettings>) => (await api<{ settings: BotMemorySettings }>("PUT", `/api/bots/${botId}/memory`, patch)).settings,
+    onSuccess: (s) => qc.setQueryData(["memory-settings", botId], s),
   });
 }
