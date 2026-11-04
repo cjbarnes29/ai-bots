@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
+import { ManagerPanel } from "../components/ManagerPanel";
 import { useBots, useCancelTask, useSubmitTask, useTaskTree, useTasks } from "../api/hooks";
 import { FINAL_TASK_STATUSES, type TaskNode, type TaskStatus } from "../api/types";
 
@@ -85,6 +86,7 @@ export function TaskList() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Tasks</h1>
+      <ManagerPanel />
       <NewTaskForm />
       <section aria-label="Recent tasks" className="space-y-3">
         <h2 className="text-lg font-semibold">Recent tasks</h2>

@@ -75,6 +75,16 @@ every new power is a connector behind it. Image/video/audio generation and Googl
   createTestApp starts with autoAssignNewBots=false (older tests expect model-less new bots).
 - NOT verified against real providers (names of real free models drive the ranking heuristics).
 
+### Stage 2 facts: the Manager AI (DONE)
+- `src/manager/` (service, routes), migration 011 (manager_runs, manager_steps, manager_settings). API: GET /api/manager, PUT /api/manager/settings (PC only), POST /api/manager/runs (phone allowed),
+  GET /api/manager/runs/:id, POST /api/manager/runs/:id/cancel. Dashboard: "Ask the Manager" on the Tasks page, "Manager" section in Settings.
+- Flow: ONE planning call (JSON): answer directly (1 call total) or a plan of <= budget steps. Steps: Manager itself (one call) or an ALLOWED specialist bot (a normal task via TaskEngine, labelled "Manager: ...",
+  so the approval gate still applies). Independent steps are started together (the engine still runs chains one at a time). ONE review call checks and combines; may redo flagged steps once (never a step that already
+  asked for an outside action: no duplicate approvals). No review call if every step failed. Unreadable JSON gets one retry with the escalation model (default auto/research), never more.
+- Budgets per request: model calls (default 12, ceiling 40), tokens (40k, ceiling 200k), steps (6, ceiling 10); 20 runs/day (ceiling 100), 2 at once. Exhausted -> status budget_exhausted with partial results. Specialists default to NONE.
+- Restart: running runs become "interrupted" (no silent resume; Stage 6 adds queues and checkpoints). Cancel works mid-run and cancels the specialist task.
+- Tests: manager.test.ts (25) with a content-aware fake model; mutation checks (specialist allow-list, no-duplicate-request rule, budget, dependency filter, duplicate ids) caught; dashboard manager.test.tsx (6).
+
 ### Inbound messages and phone alerts (approved after Phase 11)
 - Inbound (`src/inbound/`, migration 009, Automation page section "Inbound messages"): a source watches Telegram (read_messages) or Gmail (unread, last day) and turns each NEW message into a text event
   (default names `telegram_message` / `gmail_message`) that the owner's triggers can use. Created OFF, PC-only to change; can be switched on only if the chosen bot has that connector's READ permission;

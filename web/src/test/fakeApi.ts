@@ -645,6 +645,11 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     session: { mode: 'local' as 'local' | 'remote', remoteEnabled: true, remoteHosts: ['pc.tail1.ts.net'], paired: null as boolean | null, device: null as { id: string; name: string } | null },
     devices: [] as { id: string; name: string; userAgent: string | null; createdAt: string; lastSeenAt: string; revokedAt: string | null }[],
     pairingCode: 'ABCDE23456',
+    manager: {
+      settings: { enabled: true, allowedBots: [] as string[], model: 'auto/general', escalationModel: 'auto/research', maxRunsPerDay: 20, defaultBudget: { maxModelCalls: 12, maxTokens: 40000, maxSteps: 6 } },
+      ceilings: { maxModelCalls: 40, maxTokens: 200000, maxSteps: 10, maxRunsPerDay: 100 },
+      runs: [] as any[],
+    },
     inbound: [] as any[],
     inboundReadAllowed: true,
     monitor: {
@@ -676,6 +681,25 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       }
     }
     if (parts[1] === 'monitor' && method === 'GET') return json(ext.monitor);
+    if (parts[1] === 'manager') {
+      const specialists = [...bots.values()].filter((b) => ext.manager.settings.allowedBots.includes(b.id)).map((b) => ({ id: b.id, name: b.name, role: b.role }));
+      if (!parts[2] && method === 'GET') return json({ ...ext.manager, specialists });
+      if (parts[2] === 'settings' && method === 'PUT') {
+        ext.manager.settings = { ...ext.manager.settings, ...body };
+        return json({ settings: ext.manager.settings });
+      }
+      if (parts[2] === 'runs' && !parts[3] && method === 'POST') {
+        const run = { id: 'run' + (ext.manager.runs.length + 1), goal: body.goal, status: 'running', mode: 'plan', result: null, error: null, modelCalls: 1, inputTokens: 100, outputTokens: 50, budget: { maxModelCalls: body.budget?.maxModelCalls ?? 12, maxTokens: 40000, maxSteps: 6 }, revisions: 0, createdAt: new Date().toISOString(), finishedAt: null, steps: [{ id: 's1', title: 'Research', specialistId: null, specialistName: null, dependsOn: [], status: 'working', taskId: null, output: null, error: null, attempts: 1 }] };
+        ext.manager.runs.unshift(run);
+        return json({ run }, 202);
+      }
+      if (parts[2] === 'runs' && parts[4] === 'cancel' && method === 'POST') {
+        const run = ext.manager.runs.find((r) => r.id === parts[3]);
+        if (!run) return err(404, 'run_not_found', 'That Manager run does not exist.');
+        run.status = 'cancelled';
+        return json({ run });
+      }
+    }
     if (parts[1] === 'inbound') {
       if (!parts[2] && method === 'GET') return json({ sources: ext.inbound, limits: { minIntervalMinutes: 30 } });
       if (!parts[2] && method === 'POST') {
@@ -790,7 +814,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);

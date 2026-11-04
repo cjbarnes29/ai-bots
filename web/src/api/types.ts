@@ -489,3 +489,49 @@ export interface RoutingView {
   providers: { id: string; displayName: string; kind: "cloud" | "local"; enabled: boolean; keyConfigured: boolean; status: string | null; statusMessage: string | null; lastCheckedAt: string | null; requestsToday: number; dailyRequestCap: number | null; pausedForSeconds: number; modelCount: number; usableModels: number }[];
   lastRefreshAt: string | null;
 }
+
+export interface ManagerStep {
+  id: string;
+  title: string;
+  specialistId: string | null;
+  specialistName: string | null;
+  dependsOn: string[];
+  status: string;
+  taskId: string | null;
+  output: string | null;
+  error: string | null;
+  attempts: number;
+}
+
+export interface ManagerRun {
+  id: string;
+  goal: string;
+  status: string;
+  mode: string | null;
+  result: string | null;
+  error: string | null;
+  modelCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  budget: { maxModelCalls: number; maxTokens: number; maxSteps: number };
+  revisions: number;
+  createdAt: string;
+  finishedAt: string | null;
+  steps: ManagerStep[];
+}
+
+export interface ManagerSettingsInfo {
+  enabled: boolean;
+  allowedBots: string[];
+  model: string;
+  escalationModel: string;
+  maxRunsPerDay: number;
+  defaultBudget: { maxModelCalls: number; maxTokens: number; maxSteps: number };
+}
+
+export interface ManagerOverview {
+  settings: ManagerSettingsInfo;
+  ceilings: { maxModelCalls: number; maxTokens: number; maxSteps: number; maxRunsPerDay: number };
+  specialists: { id: string; name: string; role: string }[];
+  runs: ManagerRun[];
+}

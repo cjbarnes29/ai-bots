@@ -44,6 +44,8 @@ import { registerDashboard } from "./remote/dashboard.js";
 import { registerRemoteRoutes } from "./remote/routes.js";
 import { registerMonitorRoutes } from "./monitor/monitor.js";
 import { registerInboundRoutes } from "./inbound/routes.js";
+import { ManagerService } from "./manager/service.js";
+import { registerManagerRoutes } from "./manager/routes.js";
 import { ModelRouter } from "./routing/router.js";
 import { RoutingMaintenance, registerRoutingRoutes } from "./routing/routes.js";
 import { autoRef, loadRouting, saveRouting } from "./routing/config.js";
@@ -57,6 +59,8 @@ declare module "fastify" {
     automation: AutomationScheduler;
     /** Phone alerts. The real server sends them with the clock; tests call `push.tick()` by hand. */
     push: PushService;
+    /** The Manager AI. */
+    manager: ManagerService;
     /** Inbound message sources. The real server checks them with the clock; tests call `inbound.tick()` by hand. */
     inbound: InboundService;
   }
@@ -83,6 +87,8 @@ export interface BuildAppOptions {
   /** Tests only: accept a pretend push service on this PC, and use a fake network call for alerts. */
   pushAllowHost?: (host: string) => boolean;
   pushFetch?: typeof fetch;
+  /** Tests: how often the Manager looks at a specialist's task. */
+  managerPollMs?: number;
   /** Tailscale names (*.ts.net) the phone may use. Empty = remote access is off and only this PC can connect. */
   remoteHosts?: string[];
   /** Folder with the built dashboard (web/dist). When given, the app serves the dashboard itself. */
@@ -230,6 +236,22 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     onRootFinished: (task) => automation?.onRootFinished(task),
   });
   engine.recoverInterrupted();
+
+  // ---- The Manager AI (Stage 2): plans, uses specialist bots only when needed, checks and combines the result ----
+  const manager = new ManagerService({
+    db,
+    now,
+    engine,
+    getTask: (id) => taskRepo.getTask(id),
+    complete: (input) => llm.complete(input),
+    listBots: () => agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, role: b.role, responsibilities: b.responsibilities, archived: b.archived, model: b.model, runtime: b.runtime })),
+    audit,
+    validateModel: (ref) => catalog.validateModelRef(ref),
+    ...(options.managerPollMs ? { pollMs: options.managerPollMs } : {}),
+  });
+  manager.recoverInterrupted();
+  app.decorate("manager", manager);
+  await registerManagerRoutes(app, manager);
   await registerDelegationRoutes(app, new DelegationService(taskRepo, engine, (id) => agentService.getBot(id), now), engine);
 
   // ---- Automation: schedules and text triggers. They start tasks through the engine above, so every

@@ -63,6 +63,7 @@ function cookieValue(header: string | undefined, name: string): string | undefin
 const OWNER_ONLY_ROUTES: RegExp[] = [
   /^\/api\/vault/,
   /^\/api\/inbound/,
+  /^\/api\/manager\/settings/,
   /^\/api\/devices\/pairing/,
   /^\/api\/gmail\/oauth\/start/,
   /^\/api\/llm\/(providers|models|limits|routing)/,

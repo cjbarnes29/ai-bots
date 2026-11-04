@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
+import type { ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -671,5 +671,33 @@ export function useAssignRouting() {
   return useMutation({
     mutationFn: () => api<RoutingView & { changed: number }>("POST", "/api/llm/routing/assign", {}),
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["llm"] }), qc.invalidateQueries({ queryKey: ["bots"] })]),
+  });
+}
+
+export function useManager() {
+  return useQuery({ queryKey: ["manager"], queryFn: () => api<ManagerOverview>("GET", "/api/manager"), refetchInterval: 3000 });
+}
+
+export function useStartManagerRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { goal: string; budget?: { maxModelCalls?: number } }) => api("POST", "/api/manager/runs", input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["manager"] }),
+  });
+}
+
+export function useCancelManagerRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api("POST", `/api/manager/runs/${id}/cancel`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["manager"] }),
+  });
+}
+
+export function useUpdateManagerSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Partial<ManagerSettingsInfo>) => api("PUT", "/api/manager/settings", patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["manager"] }),
   });
 }
