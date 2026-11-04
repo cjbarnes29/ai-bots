@@ -140,7 +140,7 @@ export function ChatTab({ bot, hasUnsavedEdits }: Props) {
         <p role="alert" className="rounded-md bg-red-100 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
           {error}{" "}
           {error.includes("Settings") && (
-            <Link to="/settings" className="underline">
+            <Link to="/settings/ai-models" className="underline">
               Open Settings
             </Link>
           )}

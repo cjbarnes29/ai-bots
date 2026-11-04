@@ -73,14 +73,14 @@ describe("Tasks: Ask the Manager", () => {
     const api = createFakeApi();
     api.ext.manager.settings.enabled = false;
     renderApp(api, "/tasks");
-    expect(await screen.findByText("The Manager is switched off in Settings.")).toBeInTheDocument();
+    expect(await screen.findByText("The Manager is switched off in Settings → Agents & Permissions.")).toBeInTheDocument();
   });
 });
 
 describe("Settings: Manager", () => {
   it("lets you allow specialist bots and switch the Manager off", async () => {
     const api = createFakeApi([makeBot({ id: "b1", name: "Coder", model: "groq/x" }), makeBot({ id: "b2", name: "NoModel", model: null })]);
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/agents");
     const section = within(await screen.findByRole("region", { name: "Manager settings" }));
     expect(section.queryByLabelText("NoModel")).not.toBeInTheDocument(); // only bots that can run are offered
     await userEvent.click(await section.findByRole("checkbox", { name: "Coder" }));

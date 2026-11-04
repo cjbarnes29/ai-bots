@@ -64,7 +64,7 @@ function RunCard({ run }: { run: ManagerRun }) {
   );
 }
 
-/** Tasks > Ask the Manager. One request in, one checked result out. Specialist bots are used only when you allowed them (Settings > Manager). */
+/** Tasks > Ask the Manager. One request in, one checked result out. Specialist bots are used only when you allowed them (Settings > Agents & Permissions). */
 export function ManagerPanel() {
   const manager = useManager();
   const start = useStartManagerRun();
@@ -76,7 +76,7 @@ export function ManagerPanel() {
     return m && !m.settings.enabled ? (
       <section aria-label="Manager" className="card">
         <h2 className="text-lg font-semibold">Ask the Manager</h2>
-        <p className="hint">The Manager is switched off in Settings.</p>
+        <p className="hint">The Manager is switched off in Settings → Agents &amp; Permissions.</p>
       </section>
     ) : null;
   }
@@ -94,7 +94,7 @@ export function ManagerPanel() {
         <p className="text-sm text-slate-600 dark:text-slate-400">
           Describe what you want. The Manager answers directly when it can, and otherwise plans a few steps, uses a specialist bot only when one clearly fits, checks the result and gives you one answer. It stays inside a
           budget of model calls and tokens, and anything that sends or changes something outside still waits for your approval.
-          {m.specialists.length === 0 ? " No specialist bots are allowed yet, so it works alone (you can allow some in Settings → Manager)." : ` Specialists it may use: ${m.specialists.map((s) => s.name).join(", ")}.`}
+          {m.specialists.length === 0 ? " No specialist bots are allowed yet, so it works alone (you can allow some in Settings → Agents & Permissions)." : ` Specialists it may use: ${m.specialists.map((s) => s.name).join(", ")}.`}
         </p>
         <form onSubmit={submit} className="space-y-2">
           <textarea

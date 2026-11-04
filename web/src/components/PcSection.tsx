@@ -5,7 +5,7 @@ import { useAddWorkspace, usePc, usePcResume, usePcStop, useRemoveWorkspace, use
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 const STATUS: Record<string, string> = { ok: "worked", failed: "failed", timeout: "timed out", stopped: "stopped", refused: "refused" };
 
-/** Settings > PC agent. Where bots may work on this computer, the emergency stop, what is running, and a log of everything that ran. */
+/** PC Control Center > PC agent. Where bots may work on this computer, the emergency stop, what is running, and a log of everything that ran. */
 export function PcSection() {
   const pc = usePc();
   const add = useAddWorkspace();

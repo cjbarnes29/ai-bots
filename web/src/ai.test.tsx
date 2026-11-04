@@ -24,22 +24,22 @@ const field = (id: string) => document.getElementById(id) as HTMLInputElement;
 const card = (name: string) => screen.getByRole("listitem", { name });
 
 describe("navigation", () => {
-  it("has links to Bots, Usage and Settings", async () => {
+  it("has links to Dashboard, Agents & Teams and Settings", async () => {
     const user = userEvent.setup();
     const { router } = renderApp(createFakeApi());
     const nav = within(await screen.findByRole("navigation", { name: "Main" }));
     await user.click(nav.getByRole("link", { name: "Settings" }));
     expect(router.state.location.pathname).toBe("/settings");
-    await user.click(nav.getByRole("link", { name: "Usage" }));
-    expect(router.state.location.pathname).toBe("/usage");
-    await user.click(nav.getByRole("link", { name: "Bots" }));
+    await user.click(nav.getByRole("link", { name: "Agents & Teams" }));
+    expect(router.state.location.pathname).toBe("/agents");
+    await user.click(nav.getByRole("link", { name: "Dashboard" }));
     expect(router.state.location.pathname).toBe("/");
   });
 });
 
 describe("Settings: safety", () => {
   it("shows free-only mode as locked ON, with no control to change it", async () => {
-    renderApp(createFakeApi(), "/settings");
+    renderApp(createFakeApi(), "/settings/ai-models");
     expect(await screen.findByText(/Free-only mode:/)).toHaveTextContent("ON (locked)");
     expect(screen.getByText(/No paid models, no paid fallbacks, no automatic billing/)).toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: /free-only/i })).not.toBeInTheDocument();
@@ -49,7 +49,7 @@ describe("Settings: safety", () => {
   it("the pause switch stops all AI calls", async () => {
     const user = userEvent.setup();
     const api = createFakeApi();
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
     const pause = await screen.findByRole("switch", { name: "Pause all AI calls" });
     expect(pause).toHaveAttribute("aria-checked", "false");
     await user.click(pause);
@@ -63,7 +63,7 @@ describe("Settings: safety", () => {
 
 describe("Settings: providers", () => {
   it("lists the four providers: Gemini, Groq, OpenRouter and Ollama, and nothing else", async () => {
-    renderApp(createFakeApi(), "/settings");
+    renderApp(createFakeApi(), "/settings/ai-models");
     const section = within(await screen.findByRole("region", { name: "Providers" }));
     const names = (await section.findAllByRole("heading", { level: 3 })).map((h) => h.textContent);
     expect(names).toEqual(["Google Gemini", "Groq", "OpenRouter", "Ollama (local)"]);
@@ -73,7 +73,7 @@ describe("Settings: providers", () => {
 
   it("shows cloud or local, and the key status without ever showing a key", async () => {
     const api = createFakeApi([], { providers: [makeProvider({ keyConfigured: false }), makeProvider({ id: "groq", displayName: "Groq", keyEnv: "GROQ_API_KEY", keyConfigured: true }), makeProvider({ id: "ollama", displayName: "Ollama (local)", kind: "local", keyEnv: null, requiresFreeConfirmation: false, baseUrlEditable: true, baseUrl: "http://127.0.0.1:11434/v1", dailyRequestCap: null })] });
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
     const gemini = within(await screen.findByRole("listitem", { name: "Google Gemini" }));
     expect(gemini.getByText("Cloud")).toBeInTheDocument();
     expect(gemini.getByText("Key missing")).toBeInTheDocument();
@@ -88,7 +88,7 @@ describe("Settings: providers", () => {
   it("a cloud provider cannot be switched on until you confirm there is no billing", async () => {
     const user = userEvent.setup();
     const api = createFakeApi();
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
     const gemini = within(await screen.findByRole("listitem", { name: "Google Gemini" }));
     const enable = gemini.getByRole("switch", { name: "Enable Google Gemini" });
     expect(enable).toBeDisabled();
@@ -108,7 +108,7 @@ describe("Settings: providers", () => {
   });
 
   it("OpenRouter and Ollama need no billing confirmation", async () => {
-    renderApp(createFakeApi(), "/settings");
+    renderApp(createFakeApi(), "/settings/ai-models");
     for (const name of ["OpenRouter", "Ollama (local)"]) {
       const c = within(await screen.findByRole("listitem", { name }));
       expect(c.queryByRole("checkbox")).not.toBeInTheDocument();
@@ -121,7 +121,7 @@ describe("Settings: providers", () => {
     const api = createFakeApi();
     api.llm.testResult["groq"] = { status: "auth_failed", message: "The provider rejected the API key. Check the key in your .env file." };
     api.llm.testResult["ollama"] = { status: "unreachable", message: "Could not reach the provider. Check that it is running." };
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
 
     const gemini = within(await screen.findByRole("listitem", { name: "Google Gemini" }));
     expect(gemini.getByText("Not tested yet")).toBeInTheDocument();
@@ -141,7 +141,7 @@ describe("Settings: providers", () => {
   it("edits the daily request cap, and the local provider may have none", async () => {
     const user = userEvent.setup();
     const api = createFakeApi();
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
     const gemini = within(await screen.findByRole("listitem", { name: "Google Gemini" }));
     expect(field("cap-gemini")).toHaveValue(50);
     expect(gemini.queryByRole("button", { name: "Save cap" })).not.toBeInTheDocument();
@@ -163,7 +163,7 @@ describe("Settings: providers", () => {
   it("only the local provider has an editable address, and it must stay on this PC", async () => {
     const user = userEvent.setup();
     const api = createFakeApi();
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
     await screen.findByRole("listitem", { name: "Google Gemini" });
     expect(document.getElementById("url-gemini")).toBeNull();
     expect(document.getElementById("url-groq")).toBeNull();
@@ -185,7 +185,7 @@ describe("Settings: providers", () => {
 
 describe("Settings: models", () => {
   it("explains there are no models yet", async () => {
-    renderApp(createFakeApi(), "/settings");
+    renderApp(createFakeApi(), "/settings/ai-models");
     expect(await screen.findByText(/No models yet\. Click/)).toBeInTheDocument();
   });
 
@@ -197,7 +197,7 @@ describe("Settings: models", () => {
       makeModel({ providerId: "openrouter", modelId: "meta-llama/llama-3.3-70b-instruct:free", displayName: "Llama 3.3 70B (free)", freeStatus: "verified_free", isLlama: true }),
     ];
     api.llm.refreshable["ollama"] = [makeModel({ providerId: "ollama", modelId: "llama3.1:8b", displayName: "Llama 3.1 8B (local)", freeStatus: "verified_free", availability: "not_installed", isLlama: true })];
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
 
     for (const name of ["Groq", "OpenRouter", "Ollama (local)"]) {
       await user.click(within(await screen.findByRole("listitem", { name })).getByRole("button", { name: "Refresh models" }));
@@ -214,7 +214,7 @@ describe("Settings: models", () => {
   it("refreshing a cloud provider with no key shows the reason", async () => {
     const user = userEvent.setup();
     const api = createFakeApi([], { providers: [makeProvider({ keyConfigured: false })] });
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
     const gemini = within(await screen.findByRole("listitem", { name: "Google Gemini" }));
     await user.click(gemini.getByRole("button", { name: "Refresh models" }));
     expect(await gemini.findByRole("alert")).toHaveTextContent(/No API key found/);
@@ -225,7 +225,7 @@ describe("Settings: models", () => {
     const ok = makeModel({ providerId: "groq", modelId: "fast-one", displayName: "Fast one", enabled: false, callable: false, blockedReason: "This model is switched off. Enable it in Settings." });
     const paid = makeModel({ providerId: "openrouter", modelId: "paid-one", displayName: "Paid one", freeStatus: "blocked", enabled: false, callable: false, blockedReason: "This model is blocked: it is paid." });
     const api = createFakeApi([], { models: [ok, paid] });
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
 
     const models = within(await screen.findByRole("region", { name: "Models" }));
     expect(await models.findByText(/Can't be used yet: This model is switched off/)).toBeInTheDocument();
@@ -241,7 +241,7 @@ describe("Settings: models", () => {
 
 describe("Settings: limits", () => {
   it("shows the approved limits", async () => {
-    renderApp(createFakeApi(), "/settings");
+    renderApp(createFakeApi(), "/settings/advanced");
     await screen.findByRole("region", { name: "Limits" });
     await waitFor(() => expect(field("limit-globalDailyRequests")).toHaveValue(100));
     expect(field("limit-globalMonthlyRequests")).toHaveValue(2000);
@@ -259,7 +259,7 @@ describe("Settings: limits", () => {
   it("saves only what changed, and warns about unsaved edits", async () => {
     const user = userEvent.setup();
     const api = createFakeApi();
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/advanced");
     await waitFor(() => expect(field("limit-botDailyRequests")).toHaveValue(30));
     const save = screen.getByRole("button", { name: "Save limits" });
     expect(save).toBeDisabled();
@@ -275,7 +275,7 @@ describe("Settings: limits", () => {
 
   it("shows the server's explanation when a value is not allowed", async () => {
     const user = userEvent.setup();
-    renderApp(createFakeApi(), "/settings");
+    renderApp(createFakeApi(), "/settings/advanced");
     await waitFor(() => expect(field("limit-maxOutputTokensDefault")).toHaveValue(1024));
     await user.clear(field("limit-maxOutputTokensDefault"));
     await user.type(field("limit-maxOutputTokensDefault"), "5000");
@@ -287,7 +287,7 @@ describe("Settings: limits", () => {
     const user = userEvent.setup();
     const api = createFakeApi();
     api.llm.status.limits = { ...DEFAULT_LIMITS, botDailyRequests: 5 };
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/advanced");
     await waitFor(() => expect(field("limit-botDailyRequests")).toHaveValue(5));
     await user.click(screen.getByRole("button", { name: "Reset to the approved defaults" }));
     await waitFor(() => expect(field("limit-botDailyRequests")).toHaveValue(30));
@@ -339,7 +339,7 @@ describe("bot editor: model, temperature and max tokens", () => {
   it("points to Settings when no models exist yet", async () => {
     const bot = makeBot();
     renderApp(createFakeApi([bot]), `/bots/${bot.id}`);
-    expect(await screen.findByRole("link", { name: "Connect a provider in Settings" })).toHaveAttribute("href", "/settings");
+    expect(await screen.findByRole("link", { name: "Connect a provider in Settings" })).toHaveAttribute("href", "/settings/ai-models");
   });
 
   it("shows a saved model that has left the catalog instead of hiding it", async () => {
@@ -513,7 +513,7 @@ describe("test chat", () => {
     await user.type(await screen.findByLabelText("Your message"), "Hi");
     await user.click(screen.getByRole("button", { name: "Send" }));
     const alert = await screen.findByRole("alert");
-    expect(within(alert).getByRole("link", { name: "Open Settings" })).toHaveAttribute("href", "/settings");
+    expect(within(alert).getByRole("link", { name: "Open Settings" })).toHaveAttribute("href", "/settings/ai-models");
   });
 
   it("shows a warning when a provider reports a cost", async () => {
@@ -584,7 +584,7 @@ describe("test chat", () => {
 
 describe("Usage page", () => {
   it("shows empty states before any call, and a $0 cost", async () => {
-    renderApp(createFakeApi(), "/usage");
+    renderApp(createFakeApi(), "/settings/ai-models");
     expect(await screen.findByRole("heading", { name: "Usage" })).toBeInTheDocument();
     expect(await screen.findByText(/Cost reported by providers this month: \$0\.0000/)).toBeInTheDocument();
     expect(screen.getByText(/should always stay at \$0/)).toBeInTheDocument();
@@ -604,7 +604,7 @@ describe("Usage page", () => {
       byModel: [{ providerId: "groq", modelId: "llama-3.1-8b-instant", requests: 7, tokens: 1500, errors: 1 }],
       recentProblems: [{ createdAt: new Date().toISOString(), status: "error", errorCode: "rate_limited", providerId: "groq", modelId: "llama-3.1-8b-instant", botName: "Scout", note: null }],
     };
-    renderApp(createFakeApi([], { usage }), "/usage");
+    renderApp(createFakeApi([], { usage }), "/settings/ai-models");
     expect(await screen.findByText("Today, all providers")).toBeInTheDocument();
     const meter = await screen.findByRole("progressbar", { name: "Requests today (all bots)" });
     expect(meter).toHaveAttribute("aria-valuenow", "5");
@@ -618,7 +618,7 @@ describe("Usage page", () => {
   });
 
   it("raises an alert if a provider ever reported a cost", async () => {
-    renderApp(createFakeApi([], { usage: { ...EMPTY_USAGE, reportedCostMicroThisMonth: 1500 } }), "/usage");
+    renderApp(createFakeApi([], { usage: { ...EMPTY_USAGE, reportedCostMicroThisMonth: 1500 } }), "/settings/ai-models");
     expect(await screen.findByText(/Cost reported by providers this month: \$0\.0015/)).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/blocked automatically/);
   });
@@ -626,7 +626,7 @@ describe("Usage page", () => {
   it("can change how many days are shown", async () => {
     const user = userEvent.setup();
     const api = createFakeApi();
-    renderApp(api, "/usage");
+    renderApp(api, "/settings/ai-models");
     await user.selectOptions(await screen.findByLabelText("Show the last"), "30");
     await waitFor(() => expect(api.requests.some((r) => r.path === "/api/llm/usage?days=30")).toBe(true));
   });
@@ -639,12 +639,12 @@ describe("Settings: OmniRoute gateway", () => {
         makeProvider({ id: "omniroute", displayName: "OmniRoute (gateway)", keyEnv: "OMNIROUTE_API_KEY", keyConfigured: false, requiresFreeConfirmation: false, baseUrlEditable: true, baseUrl: "http://127.0.0.1:20128/v1", dailyRequestCap: 40, freePolicyLabel: "Only explicit models that OmniRoute itself lists at a price of exactly 0 (never auto, combos or fallbacks)" }),
       ],
     });
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
     const card = within(await screen.findByRole("listitem", { name: "OmniRoute (gateway)" }));
     expect(card.getByText(/never auto, combos or fallbacks/)).toBeInTheDocument();
     expect(card.getByLabelText(/Address/)).toHaveValue("http://127.0.0.1:20128/v1");
     expect(card.getByText(/OMNIROUTE_API_KEY=your-key/)).toBeInTheDocument();
-    expect(card.getByText(/Paste it in the vault above/)).toBeInTheDocument();
+    expect(card.getByText(/Paste it under Keys and tokens/)).toBeInTheDocument();
   });
 });
 
@@ -653,7 +653,7 @@ describe("Settings: confirming an unpriced gateway model", () => {
 
   it("asks you to confirm in plain words first, and nothing changes until you do", async () => {
     const api = createFakeApi([], { models: [unpriced(), makeModel({ providerId: "omniroute", modelId: "paid/x", displayName: "paid/x", freeStatus: "blocked", enabled: false, callable: false, ownerOverridable: false })] });
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
     const row = within(await screen.findByText("mystery/unknown-price").then((e) => e.closest("li") as HTMLElement));
     expect(screen.getAllByRole("button", { name: /I confirm this model is free/ })).toHaveLength(1); // only the unpriced one
     await userEvent.click(row.getByRole("button", { name: /I confirm this model is free/ }));
@@ -665,7 +665,7 @@ describe("Settings: confirming an unpriced gateway model", () => {
 
   it("confirming marks it as yours, and it can be withdrawn", async () => {
     const api = createFakeApi([], { models: [unpriced()] });
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/ai-models");
     await userEvent.click(await screen.findByRole("button", { name: /I confirm this model is free/ }));
     await userEvent.click(screen.getByRole("button", { name: "Yes, I checked: it is free" }));
     expect(await screen.findByText(/You confirmed this model is free\./)).toBeInTheDocument();

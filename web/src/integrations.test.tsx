@@ -19,7 +19,7 @@ function renderApp(api: { fetch: typeof fetch }, path: string) {
 describe("Settings: Google Workspace", () => {
   it("is hidden unless the connector is installed, and the button needs the saved Google client", async () => {
     const hidden = createFakeApi();
-    renderApp(hidden, "/settings");
+    renderApp(hidden, "/integrations");
     await screen.findByRole("heading", { name: "Gmail" });
     expect(screen.queryByRole("heading", { name: "Google Workspace" })).not.toBeInTheDocument();
   });
@@ -27,7 +27,7 @@ describe("Settings: Google Workspace", () => {
   it("the button needs the saved Google client; with one it opens Google's page", async () => {
     const noClient = createFakeApi();
     noClient.ext.connectors.push({ id: "gworkspace", label: "Google Workspace", actions: [] });
-    renderApp(noClient, "/settings");
+    renderApp(noClient, "/integrations");
     const sec = within(await screen.findByRole("region", { name: "Google Workspace" }));
     expect(await sec.findByText("Not set up")).toBeInTheDocument();
     expect(sec.getByRole("button", { name: "Connect Google Workspace" })).toBeDisabled();
@@ -39,7 +39,7 @@ describe("Settings: Google Workspace", () => {
     for (const n of ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]) api.ext.secrets.find((x: any) => x.name === n)!.inVault = true;
     const open = vi.fn();
     vi.stubGlobal("open", open);
-    renderApp(api, "/settings");
+    renderApp(api, "/integrations");
     const sec = within(await screen.findByRole("region", { name: "Google Workspace" }));
     await waitFor(() => expect(sec.getByRole("button", { name: "Connect Google Workspace" })).toBeEnabled());
     await userEvent.click(sec.getByRole("button", { name: "Connect Google Workspace" }));

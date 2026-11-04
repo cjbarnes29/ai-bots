@@ -121,7 +121,7 @@ describe("the Approvals page", () => {
     const api = createFakeApi();
     api.ext.approvals.push(request(), request());
     renderApp(api, "/");
-    expect(await screen.findByRole("link", { name: "Approvals (2)" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /^Approvals, 2 waiting$/ })).toBeInTheDocument();
   });
 
   it("shows the security log", async () => {
@@ -137,7 +137,7 @@ describe("the secrets vault panel (Settings)", () => {
 
   it("saves a key, empties the box, and never shows the value again", async () => {
     const api = createFakeApi();
-    renderApp(api, "/settings");
+    renderApp(api, "/integrations");
     const box = await screen.findByLabelText("New value for GEMINI_API_KEY");
     expect(box).toHaveAttribute("type", "password");
     await userEvent.type(box, KEY);
@@ -151,7 +151,7 @@ describe("the secrets vault panel (Settings)", () => {
 
   it("will not save an empty key", async () => {
     const api = createFakeApi();
-    renderApp(api, "/settings");
+    renderApp(api, "/integrations");
     const box = await screen.findByLabelText("New value for GEMINI_API_KEY");
     expect(within(box.closest("form") as HTMLElement).getByRole("button", { name: "Save" })).toBeDisabled();
   });
@@ -160,7 +160,7 @@ describe("the secrets vault panel (Settings)", () => {
     const api = createFakeApi();
     api.ext.secrets[0]!.inVault = true;
     api.ext.stored.set("GEMINI_API_KEY", KEY);
-    renderApp(api, "/settings");
+    renderApp(api, "/integrations");
     await userEvent.click(await screen.findByRole("button", { name: "Remove" }));
     expect(api.writes()).toHaveLength(0);
     const dialogButtons = screen.getAllByRole("button", { name: "Remove" });
@@ -172,7 +172,7 @@ describe("the secrets vault panel (Settings)", () => {
 describe("the Gmail panel (Settings)", () => {
   it("cannot start signing in until the client ID and secret are saved", async () => {
     const api = createFakeApi();
-    renderApp(api, "/settings");
+    renderApp(api, "/integrations");
     expect(await screen.findByText("Not set up")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect Gmail" })).toBeDisabled();
     expect(screen.getByText(/127\.0\.0\.1:3000\/api\/gmail\/oauth\/callback/)).toBeInTheDocument();
@@ -184,7 +184,7 @@ describe("the Gmail panel (Settings)", () => {
     api.ext.secrets.find((s) => s.name === "GOOGLE_CLIENT_SECRET")!.inVault = true;
     const open = vi.fn();
     vi.stubGlobal("open", open);
-    renderApp(api, "/settings");
+    renderApp(api, "/integrations");
     expect(await screen.findByText("Ready to sign in")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Connect Gmail" }));
     await waitFor(() => expect(open).toHaveBeenCalledWith("https://accounts.example.test/auth?state=abc", "_blank", "noopener"));
@@ -200,7 +200,7 @@ describe("Send test email to myself (Settings > Gmail)", () => {
     const api = createFakeApi([makeBot({ id: "b1", name: "Mailer" })]);
     api.ext.secrets.find((s) => s.name === "GOOGLE_CLIENT_ID")!.inVault = true;
     api.ext.secrets.find((s) => s.name === "GOOGLE_CLIENT_SECRET")!.inVault = true;
-    renderApp(api, "/settings");
+    renderApp(api, "/integrations");
     expect(await screen.findByText("Ready to sign in")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send test email to myself" })).not.toBeInTheDocument();
     api.ext.gmail.connected = true;

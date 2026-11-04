@@ -14,7 +14,7 @@ export function PermissionsTab({ bot }: { bot: Bot }) {
     <div role="tabpanel" aria-label="Permissions" className="space-y-5">
       <p className="text-sm text-slate-600 dark:text-slate-400">
         Everything starts <strong>off</strong>. Reading from Gmail, Telegram or the browser works for this bot only if you switch it on here, and
-        the connection must also be set up in Settings. Anything a bot sends or submits always waits for your approval.
+        the connection must also be set up in the Integrations Center. Anything a bot sends or submits always waits for your approval.
       </p>
 
       {bot.archived && (

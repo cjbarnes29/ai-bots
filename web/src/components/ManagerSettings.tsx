@@ -3,7 +3,7 @@ import { useBots, useManager, useUpdateManagerSettings } from "../api/hooks";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 
-/** Settings > Manager: which specialist bots it may use, its budget, and its model. Owner-only on the PC. */
+/** Settings > Agents & Permissions > Manager: which specialist bots it may use, its budget, and its model. Owner-only on the PC. */
 export function ManagerSettings() {
   const manager = useManager();
   const bots = useBots(false);

@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Dark mode is a class on <html> (set by lib/theme.ts: follows the device unless the owner picked light or dark). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Light and dark themes follow the Windows / phone setting automatically. */
 @layer base {
   body {

@@ -7,7 +7,7 @@ import { routes } from "./App";
 import { CLIENT_HEADER, CLIENT_HEADER_VALUE } from "./api/client";
 import { createFakeApi, makeBot } from "./test/fakeApi";
 
-function renderApp(api: ReturnType<typeof createFakeApi> | { fetch: typeof fetch }, path = "/") {
+function renderApp(api: ReturnType<typeof createFakeApi> | { fetch: typeof fetch }, path = "/agents") {
   vi.stubGlobal("fetch", api.fetch);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(routes, { initialEntries: [path] });
@@ -160,7 +160,7 @@ describe("details tab", () => {
 
     await user.click(screen.getByRole("link", { name: "← All bots" }));
     await user.click(await screen.findByRole("button", { name: "Leave and discard changes" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/agents"));
     expect(api.writes()).toHaveLength(0); // nothing was saved
   });
 
@@ -170,7 +170,7 @@ describe("details tab", () => {
     const { router } = renderApp(createFakeApi([bot]), `/bots/${bot.id}`);
     await screen.findByLabelText("Name");
     await user.click(screen.getByRole("link", { name: "← All bots" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/agents"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 

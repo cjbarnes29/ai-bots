@@ -23,7 +23,7 @@ export function BotCapabilities({ bot }: { bot: Bot }) {
     <section aria-label="Skills and tools" className="space-y-4">
       <div>
         <h3 className="font-semibold">Skills</h3>
-        <p className="text-sm text-slate-600 dark:text-slate-400">Reusable instructions added to this bot's prompt. Manage the library in Settings.</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Reusable instructions added to this bot's prompt. Manage the library in Settings → Agents &amp; Permissions.</p>
         {(skills.data ?? []).length === 0 && <p className="hint">No skills yet.</p>}
         <div className="mt-1 flex flex-wrap gap-4">
           {(skills.data ?? []).map((s) => (
@@ -63,7 +63,7 @@ export function BotCapabilities({ bot }: { bot: Bot }) {
       <div>
         <h3 className="font-semibold">PC access (PowerShell tools)</h3>
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Five separate permissions. Anything that changes something on the PC still waits for your approval each time, and works only inside the workspace folders set in Settings.
+          Five separate permissions. Anything that changes something on the PC still waits for your approval each time, and works only inside the workspace folders set in the PC Control Center.
         </p>
         <div className="mt-1 flex flex-wrap gap-4">
           {(

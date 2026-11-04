@@ -267,17 +267,19 @@ describe("Task detail", () => {
 });
 
 describe("navigation and teamwork limits", () => {
-  it("has a Tasks link", async () => {
+  it("reaches Tasks through Activity & Logs", async () => {
     const user = userEvent.setup();
     const { router } = renderApp(createFakeApi(), "/");
-    await user.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("link", { name: "Tasks" }));
+    await user.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("link", { name: "Activity & Logs" }));
+    expect(router.state.location.pathname).toBe("/monitor");
+    await user.click(within(await screen.findByRole("navigation", { name: "Activity sections" })).getByRole("link", { name: "Tasks" }));
     expect(router.state.location.pathname).toBe("/tasks");
   });
 
   it("shows the teamwork limits, saves only what changed, and rejects values past the ceiling", async () => {
     const user = userEvent.setup();
     const api = createFakeApi();
-    renderApp(api, "/settings");
+    renderApp(api, "/settings/workflows");
     const field = (key: string) => document.getElementById(`delegation-${key}`) as HTMLInputElement;
     await waitFor(() => expect(field("maxDepth")).toHaveValue(2));
     expect(field("maxSubtasksPerTask")).toHaveValue(3);

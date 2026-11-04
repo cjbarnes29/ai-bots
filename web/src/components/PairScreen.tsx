@@ -26,7 +26,7 @@ export function PairScreen() {
     <main className="mx-auto max-w-md space-y-5 p-6">
       <h1 className="text-2xl font-bold">Pair this device</h1>
       <p className="text-sm">
-        This phone is not connected to your AI Workforce yet. On your Windows PC open <strong>Settings → Devices</strong> and press <strong>Pair a phone</strong>.
+        This phone is not connected to your AI Workforce yet. On your Windows PC open the <strong>PC Control Center</strong> and press <strong>Pair a phone</strong>.
         Type the code it shows here. The code works once and expires after 5 minutes.
       </p>
       <form onSubmit={submit} className="card space-y-4">

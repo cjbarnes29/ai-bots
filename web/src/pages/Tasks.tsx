@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ActivityTabs } from "../components/SectionTabs";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { ManagerPanel } from "../components/ManagerPanel";
@@ -43,7 +44,7 @@ function NewTaskForm() {
       <h2 className="text-lg font-semibold">Give a bot a task</h2>
       {bots.data && usable.length === 0 ? (
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          No bot can take a task yet. A bot needs a model: choose one on its Details tab (and connect a provider in Settings first).
+          No bot can take a task yet. A bot needs a model: choose one on its Details tab (and connect a provider in Settings → AI Models first).
         </p>
       ) : (
         <>
@@ -85,6 +86,7 @@ export function TaskList() {
   const tasks = useTasks();
   return (
     <div className="space-y-6">
+      <ActivityTabs />
       <h1 className="text-2xl font-bold">Tasks</h1>
       <ManagerPanel />
       <NewTaskForm />

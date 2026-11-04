@@ -23,7 +23,7 @@ function Toggle({ checked, label, onChange, disabled }: { checked: boolean; labe
   );
 }
 
-/** Settings > Model routing. One configuration for every bot set to "Automatic". Free models only; nothing here can allow a paid model. */
+/** Settings > AI Models > Model routing. One configuration for every bot set to "Automatic". Free models only; nothing here can allow a paid model. */
 export function RoutingSection() {
   const routing = useRouting();
   const update = useUpdateRouting();

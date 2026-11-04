@@ -7,7 +7,7 @@ export function shortReason(model: ModelView): string {
   if (model.freeStatus === "blocked") return "blocked, not free";
   if (model.availability === "not_installed") return "not installed";
   if (model.availability === "removed") return "no longer listed";
-  if (!model.enabled) return "switched off in Settings";
+  if (!model.enabled) return "switched off in Settings → AI Models";
   return "provider not ready";
 }
 
@@ -68,7 +68,7 @@ export function ModelSelect({ id, value, models, disabled, onChange }: Props) {
       {models.length === 0 && (
         <p className="hint">
           No models yet.{" "}
-          <Link to="/settings" className="text-indigo-700 underline dark:text-indigo-400">
+          <Link to="/settings/ai-models" className="text-indigo-700 underline dark:text-indigo-400">
             Connect a provider in Settings
           </Link>
           .

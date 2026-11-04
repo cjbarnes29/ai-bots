@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent } from "react";
+import { AgentsTabs } from "../components/SectionTabs";
 import { ApiError } from "../api/client";
 import { useBots, useCreateNote, useMemoryNotes, useNoteAction, useUpdateNote } from "../api/hooks";
 import type { MemoryNote } from "../api/types";
@@ -37,6 +38,7 @@ export function Knowledge() {
 
   return (
     <div className="space-y-4">
+      <AgentsTabs />
       <h1 className="text-2xl font-bold">Knowledge</h1>
       <p className="hint">
         Notes your bots can use. Shared notes are for every bot you allow; private notes belong to one bot. Passwords, keys and tokens are never stored. Turn memory on or off per bot on its Permissions tab.

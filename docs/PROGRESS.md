@@ -151,6 +151,20 @@ every new power is a connector behind it. Image/video/audio generation and Googl
 - Not built: automatic summarising of tasks/workflows into notes, document chunking/embeddings (search is keyword-based). Task history search covers a bot's own completed tasks only.
 - Tests: 8 backend (`src/memory/memory.test.ts`; mutation checks on the privacy filter and the secret check were caught) + 4 dashboard (`web/src/knowledge.test.tsx`).
 
+### Stage 9 facts: application shell, Dashboard, Settings split (Phases 1-3 of docs/UI-AUDIT.md; DONE)
+- Front end only: no backend, API, schema, dependency or approval-rule change. Plan, findings and deferred decisions: `docs/UI-AUDIT.md` (sections 16-17). Phases 4-9 are NOT started and wait for the owner.
+- Shell: `web/src/components/shell/{AppShell,nav}.tsx` (one nav: phone bottom bar + More sheet / tablet rail / desktop sidebar), `components/{Icon,SectionTabs}.tsx`, `lib/theme.ts` (light/dark/system in localStorage; Tailwind `dark` variant is the `.dark` class on <html>).
+- Routes: `/` Dashboard, `/agents` (+ `/bots/:id`, `/knowledge`), `/workflows`, `/integrations` (keys, Gmail, Google Workspace), `/automation` (Schedules), `/approvals`, `/pc` (PC agent + phones), `/monitor` + `/tasks` (Activity & Logs), `/settings/:category` (nine categories; `/usage` redirects to `/settings/ai-models`).
+- Tests: `shell.test.tsx`, `dashboard.test.tsx`, `settings.test.tsx`; older tests were re-pointed to the new addresses. Real-browser layout check (Edge via playwright-core, throwaway DB, script kept in the session scratchpad): 16 pages x 7 sizes (1920x1080, 1366x768, 768x1024, 1024x768, 390x844, 360x800, 844x390) = no horizontal scroll, bottom bar/rail/sidebar sizes right, nav targets >= 44 px on touch sizes, More sheet inside the screen, dark/light/follow-device.
+- Not built yet: AI Assistant page, Learning Center, integration catalog with test buttons, wizard, Workflow Studio v2.
+- Phase 3.5 (housekeeping): stale location names fixed in user-facing text, comments and docs (Settings > Devices/PC agent/Manager are now PC Control Center / Settings > Agents & Permissions; provider links go to /settings/ai-models). The phone's More sheet traps focus and gives it back to the More button (tests + mutation checks for both). Phone-refusal test added for `POST /api/gmail/test-email` (mutation check: removing the guard fails it).
+- Still says "bot" in page text: the bot -> agent wording change is part of Phase 5 (wizard), not done piecemeal.
+
+### Decisions for the remaining roadmap (owner, 2026-11-04)
+- Business Workforce before YouTube Studio. Start with four agents: Researcher, Lead Scout, Site Auditor, Proposal Writer. First market: UAE, with the design open to other countries.
+- Leads are stored as CSV/Excel files (no database migration). YouTube: Windows speech first (Piper investigated later), manual publishing packages first, automatic upload deferred.
+- Free-only until the owner approves paid services; paid-provider opt-in design stays in Phase 9; keep the model/provider layer independent. Do NOT raise provider request limits without checking real quotas and usage. Do NOT install FFmpeg, Piper or other dependencies without approval.
+
 ### Gmail "Send test email to myself"
 - `POST /api/gmail/test-email {botId}` (`registerGmailTestRoute` in `gmail.ts`; owner-only, a phone is refused). Reads the signed-in address from Gmail itself (`users/me/profile`, covered by gmail.readonly), then queues an ordinary `gmail.send_message` approval to that address ONLY. Nothing is sent until the owner approves on the Approvals page. The caller cannot choose the address (strict body).
 - Dashboard: Settings > Gmail panel, shown once connected (bot picker + button). Tests: 4 backend (`gmail.test.ts`), 1 dashboard (`approvals.test.tsx`). Still NOT verified against real Google.

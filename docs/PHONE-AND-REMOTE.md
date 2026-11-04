@@ -37,7 +37,7 @@ To use the app from the PC you can keep using http://127.0.0.1:5173 (development
 Your PC must be on, signed in to Tailscale and running the app for the phone to connect.
 
 ## Alerts when an approval is waiting
-In the installed app on the phone open **Settings → Alerts on this device → Turn on alerts** and allow notifications. The alert only says how many actions are waiting (never what they are).
+In the installed app on the phone open **Settings → Notifications → Alerts on this device → Turn on alerts** and allow notifications. The alert only says how many actions are waiting (never what they are).
 It uses the phone browser's own push service (no account of yours is needed). It needs the HTTPS address from Tailscale Serve, so it cannot be tried on the PC's plain http page.
 
 ## Not built (and why)

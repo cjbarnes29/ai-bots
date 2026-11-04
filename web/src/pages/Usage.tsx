@@ -57,7 +57,7 @@ export function Usage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Usage</h1>
+        <h2 className="text-lg font-semibold">Usage</h2>
         <div className="flex items-center gap-2">
           <label htmlFor="usage-days" className="text-sm">
             Show the last

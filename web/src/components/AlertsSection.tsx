@@ -14,7 +14,7 @@ async function currentSubscription(): Promise<PushSubscription | null> {
   return reg ? reg.pushManager.getSubscription() : null;
 }
 
-/** Settings > Alerts on this device. Needs the installed app over HTTPS (the phone) and the browser's permission. */
+/** Settings > Notifications. Needs the installed app over HTTPS (the phone) and the browser's permission. */
 export function AlertsSection() {
   const [state, setState] = useState<State>("checking");
   const [error, setError] = useState<string | null>(null);

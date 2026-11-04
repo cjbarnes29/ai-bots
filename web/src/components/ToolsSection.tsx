@@ -7,7 +7,7 @@ const CHIP: Record<ToolInfo["status"], { text: string; style: string }> = {
   unavailable: { text: "Not available", style: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200" },
 };
 
-/** Settings > Tools. An honest list of what this platform can really do right now, and why anything is missing. */
+/** Settings > Agents & Permissions > Tools. An honest list of what this platform can really do right now, and why anything is missing. */
 export function ToolsSection() {
   const tools = useTools();
   const refresh = useRefreshTools();

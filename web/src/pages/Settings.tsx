@@ -1,14 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertsSection } from "../components/AlertsSection";
-import { DevicesSection } from "../components/DevicesSection";
-import { GmailSection } from "../components/GmailSection";
-import { GoogleWorkspaceSection } from "../components/GoogleWorkspaceSection";
-import { ManagerSettings } from "../components/ManagerSettings";
-import { PcSection } from "../components/PcSection";
-import { RoutingSection } from "../components/RoutingSection";
-import { SkillsSection } from "../components/SkillsSection";
-import { ToolsSection } from "../components/ToolsSection";
-import { SecretsSection } from "../components/SecretsSection";
+import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import {
   useDelegationLimits,
@@ -63,7 +54,7 @@ function Switch({ checked, label, disabled, onClick }: { checked: boolean; label
 
 // ---------------- safety ----------------
 
-function SafetySection() {
+export function SafetySection() {
   const status = useLlmStatus();
   const setPaused = useSetPaused();
   return (
@@ -157,7 +148,7 @@ function ProviderCard({ provider: p }: { provider: ProviderView }) {
             <span className="text-emerald-700 dark:text-emerald-400">found in the vault or your .env file ({p.keyEnv})</span>
           ) : (
             <span>
-              not found. Paste it in the vault above ({p.keyEnv}), or add a line <code>{p.keyEnv}=your-key</code> to your <code>.env</code> file and restart the app.
+              not found. Paste it under Keys and tokens in the <Link to="/integrations" className="underline">Integrations Center</Link> ({p.keyEnv}), or add a line <code>{p.keyEnv}=your-key</code> to your <code>.env</code> file and restart the app.
             </span>
           )}
         </p>
@@ -247,7 +238,7 @@ function ProviderCard({ provider: p }: { provider: ProviderView }) {
   );
 }
 
-function ProvidersSection() {
+export function ProvidersSection() {
   const providers = useProviders();
   return (
     <section aria-label="Providers" className="space-y-3">
@@ -331,7 +322,7 @@ function ModelRow({ model: m }: { model: ModelView }) {
   );
 }
 
-function ModelsSection() {
+export function ModelsSection() {
   const models = useModels();
   const groups = [...new Map((models.data ?? []).map((m) => [m.providerId, m.providerName])).entries()];
   return (
@@ -408,7 +399,7 @@ const LIMIT_GROUPS: { title: string; note?: string; fields: { key: string; label
   },
 ];
 
-function LimitsSection() {
+export function LimitsSection() {
   const status = useLlmStatus();
   const update = useUpdateLimits();
   const reset = useResetLimits();
@@ -477,7 +468,7 @@ const DELEGATION_FIELDS: { key: string; label: string; hint: string }[] = [
   { key: "maxInstructionChars", label: "Longest instruction (characters)", hint: "The most allowed is 20,000." },
 ];
 
-function DelegationLimitsSection() {
+export function DelegationLimitsSection() {
   const data = useDelegationLimits();
   const update = useUpdateDelegationLimits();
   const reset = useResetDelegationLimits();
@@ -502,7 +493,7 @@ function DelegationLimitsSection() {
     <section aria-label="Delegation limits" className="space-y-3">
       <h2 className="text-lg font-semibold">Teamwork limits</h2>
       <p className="text-sm text-slate-600 dark:text-slate-400">
-        When one bot hands work to another, these keep the chain small. Every model call in a chain also counts against the limits above.
+        When one bot hands work to another, these keep the chain small. Every model call in a chain also counts against the AI limits (Settings → Advanced).
       </p>
       <div className="card grid gap-4 sm:grid-cols-2">
         {DELEGATION_FIELDS.map((f) => (
@@ -540,25 +531,3 @@ function DelegationLimitsSection() {
   );
 }
 
-export function Settings() {
-  return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Settings</h1>
-      <SafetySection />
-      <SecretsSection />
-      <GmailSection />
-      <GoogleWorkspaceSection />
-      <DevicesSection />
-      <AlertsSection />
-      <RoutingSection />
-      <ManagerSettings />
-      <ToolsSection />
-      <PcSection />
-      <SkillsSection />
-      <ProvidersSection />
-      <ModelsSection />
-      <LimitsSection />
-      <DelegationLimitsSection />
-    </div>
-  );
-}

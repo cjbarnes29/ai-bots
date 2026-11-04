@@ -7,7 +7,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 const when = (iso: string) => new Date(iso).toLocaleString();
 
-/** Settings > Devices. On the PC: pair and revoke phones. On a phone: say which device this is, and sign out. */
+/** PC Control Center > Phones. On the PC: pair and revoke phones. On a phone: say which device this is, and sign out. */
 export function DevicesSection() {
   const session = useSession();
   const s = session.data;

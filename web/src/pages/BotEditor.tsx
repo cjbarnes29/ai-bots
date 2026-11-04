@@ -41,7 +41,7 @@ export function BotEditor() {
     return (
       <div role="alert" className="card space-y-3">
         <p>{notFound ? "This bot does not exist." : bot.error instanceof ApiError ? bot.error.friendly : "Could not load this bot."}</p>
-        <Link to="/" className="btn-secondary">
+        <Link to="/agents" className="btn-secondary">
           Back to all bots
         </Link>
       </div>
@@ -56,7 +56,7 @@ export function BotEditor() {
 
   return (
     <div className="space-y-5">
-      <Link to="/" className="text-sm text-indigo-700 hover:underline dark:text-indigo-400">
+      <Link to="/agents" className="text-sm text-indigo-700 hover:underline dark:text-indigo-400">
         ← All bots
       </Link>
 

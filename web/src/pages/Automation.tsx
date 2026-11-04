@@ -22,7 +22,6 @@ import {
 import type { Bot, Schedule, ScheduleInput, ScheduleKind, Trigger, TriggerInput, TriggerSource } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { InboundSection } from "../components/InboundSection";
-import { WorkflowsSection } from "../components/WorkflowsSection";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 
@@ -604,7 +603,7 @@ function LimitsSection() {
   return (
     <section aria-label="Automation limits" className="space-y-3">
       <h2 className="text-lg font-semibold">Automation limits</h2>
-      <p className="text-sm text-slate-600 dark:text-slate-400">Every automatic run also counts against your AI limits and teamwork limits in Settings.</p>
+      <p className="text-sm text-slate-600 dark:text-slate-400">Every automatic run also counts against your AI limits and teamwork limits (Settings → Advanced and Workflow Settings).</p>
       <div className="card grid gap-4 sm:grid-cols-2">
         {LIMIT_FIELDS.map((f) => (
           <div key={f.key}>
@@ -633,12 +632,11 @@ export function Automation() {
   const usable = bots.data ?? [];
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">Automation</h1>
+      <h1 className="text-2xl font-bold">Schedules and triggers</h1>
       <SafetySection />
       <SchedulesSection bots={usable} />
       <TriggersSection bots={usable} />
       <InboundSection bots={usable} />
-      <WorkflowsSection bots={usable} />
       <TestEventSection />
       <RunsSection />
       <LimitsSection />

@@ -11,7 +11,7 @@ function renderApp(api: { fetch: typeof fetch }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={createMemoryRouter(routes, { initialEntries: ["/settings"] })} />
+      <RouterProvider router={createMemoryRouter(routes, { initialEntries: ["/settings/notifications"] })} />
     </QueryClientProvider>,
   );
 }

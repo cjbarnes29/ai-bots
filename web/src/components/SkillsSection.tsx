@@ -154,7 +154,7 @@ function ExportButton({ id, onText }: { id: string; onText: (t: string) => void 
   );
 }
 
-/** Settings > Skills. Reusable instructions for bots: create, edit with full history, duplicate, import, export, try, archive. */
+/** Settings > Agents & Permissions > Skills. Reusable instructions for bots: create, edit with full history, duplicate, import, export, try, archive. */
 export function SkillsSection() {
   const skills = useSkills(false);
   const archived = useSkills(true);

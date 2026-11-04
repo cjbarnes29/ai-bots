@@ -7,7 +7,7 @@ import { routes } from "./App";
 import { SessionGate } from "./components/SessionGate";
 import { createFakeApi } from "./test/fakeApi";
 
-function renderApp(api: { fetch: typeof fetch }, path = "/settings") {
+function renderApp(api: { fetch: typeof fetch }, path = "/pc") {
   vi.stubGlobal("fetch", api.fetch);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(routes, { initialEntries: [path] });

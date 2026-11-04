@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { routes } from "./App";
 import { createFakeApi, makeBot } from "./test/fakeApi";
 
-function renderApp(api: { fetch: typeof fetch }, path = "/settings") {
+function renderApp(api: { fetch: typeof fetch }, path = "/pc") {
   vi.stubGlobal("fetch", api.fetch);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
