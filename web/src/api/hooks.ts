@@ -801,3 +801,25 @@ export const useWorkflowAction = () => useWfMutation((v: { id: string; action: "
 export const useRunWorkflow = () => useWfMutation((v: { id: string; input: string }) => api("POST", `/api/workflows/${v.id}/run`, { input: v.input }));
 export const useCancelWorkflowRun = () => useWfMutation((runId: string) => api("POST", `/api/workflows/runs/${runId}/cancel`, {}));
 export const useWorkflowStep = () => useWfMutation((v: { runId: string; nodeId: string; action: "approve" | "reject" | "retry" }) => api("POST", `/api/workflows/runs/${v.runId}/steps/${v.nodeId}/${v.action}`, {}));
+
+// ---- integrations (Stage 7)
+export function useGworkspaceStatus() {
+  return useQuery({ queryKey: ["gworkspace", "status"], queryFn: () => api<GmailStatus>("GET", "/api/gworkspace/status"), refetchInterval: WATCH });
+}
+export function useStartGworkspaceSignIn() {
+  return useMutation({ mutationFn: async () => (await api<{ url: string }>("POST", "/api/gworkspace/oauth/start", {})).url });
+}
+export interface BotIntegrations {
+  enabled: string[];
+  available: { id: string; label: string; actions: { name: string; kind: "read" | "write" }[] }[];
+}
+export function useBotIntegrations(botId: string) {
+  return useQuery({ queryKey: ["integrations", botId], queryFn: () => api<BotIntegrations>("GET", `/api/bots/${botId}/integrations`) });
+}
+export function useSetBotIntegrations(botId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (connectors: string[]) => api<BotIntegrations>("PUT", `/api/bots/${botId}/integrations`, { connectors }),
+    onSuccess: (data) => qc.setQueryData(["integrations", botId], data),
+  });
+}

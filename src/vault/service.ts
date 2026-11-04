@@ -39,7 +39,9 @@ export class VaultService {
   ) {}
 
   known(): KnownSecret[] {
-    return [...providerSecrets(), ...this.extraSecrets()];
+    // Two connectors may share a secret (Gmail and Google Workspace use the same Google client): list each name once.
+    const seen = new Set<string>();
+    return [...providerSecrets(), ...this.extraSecrets()].filter((x) => !seen.has(x.name) && !!seen.add(x.name));
   }
 
   private mustBeKnown(name: string): KnownSecret {

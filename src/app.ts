@@ -14,7 +14,9 @@ import { registerApprovalRoutes } from "./approvals/routes.js";
 import { ActionGate } from "./approvals/service.js";
 import { AuditLog } from "./audit/audit.js";
 import { createBrowserConnector } from "./connectors/browser/browser.js";
-import { createGmailConnector, registerGmailOAuthRoutes, type GoogleUrls } from "./connectors/gmail.js";
+import { createGmailConnector, registerGmailOAuthRoutes, registerGoogleOAuthRoutes, type GoogleUrls } from "./connectors/gmail.js";
+import { createGithubConnector, createGoogleWorkspaceConnector, createMcpConnector, createN8nConnector, createNotionConnector, GWS_REFRESH_TOKEN, GWS_SCOPES } from "./connectors/integrations.js";
+import { IntegrationAccess, isIntegration, registerIntegrationRoutes } from "./connectors/integrations-access.js";
 import { createTelegramConnector } from "./connectors/telegram.js";
 import { ConnectorRegistry, type ConnectorDefinition } from "./connectors/types.js";
 import { setSecretLookup } from "./llm/secrets.js";
@@ -107,6 +109,8 @@ export interface BuildAppOptions {
   managerPollMs?: number;
   /** Tests: stands in for running 'git --version' and similar fixed checks on this PC. */
   toolRunner?: CommandRunner;
+  /** Tests: add the five integration connectors (GitHub, Notion, n8n, MCP, Google Workspace) to the connectors given above (the real app always has them). */
+  includeIntegrations?: boolean;
   /** Tests: add the PC agent connector to the connectors given above (the real app always has it). */
   includePc?: boolean;
   /** Tests: start programs with a fake instead of the real thing. */
@@ -259,12 +263,15 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const registry = new ConnectorRegistry([
     ...(options.connectors ?? [createTelegramConnector(), createBrowserConnector(), createGmailConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })]),
     ...(options.connectors === undefined || options.includePc ? [createPcConnector(pcService), createDocumentsConnector(pcService)] : []),
+    ...(options.connectors === undefined || options.includeIntegrations ? [createGithubConnector(), createNotionConnector(), createN8nConnector(), createMcpConnector(), createGoogleWorkspaceConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })] : []),
   ]);
   const vault = new VaultService(db, vaultKey, audit, () => [...registry.list().flatMap((c) => c.secrets ?? []), { name: PUSH_SECRET_NAME, description: "Phone alerts signing key (made automatically, do not paste)" }], now);
   setSecretLookup((name) => vault.getStored(name));
   app.addHook("onClose", async () => setSecretLookup(null));
   await registerVaultRoutes(app, vault);
   if (registry.get("gmail")) await registerGmailOAuthRoutes({ app, vault, audit, now, ...(options.googleUrls ? { urls: options.googleUrls } : {}) });
+  const integrationAccess = new IntegrationAccess(db, audit, now);
+  if (registry.get("gworkspace")) await registerGoogleOAuthRoutes({ app, vault, audit, now, ...(options.googleUrls ? { urls: options.googleUrls } : {}) }, { slug: "gworkspace", label: "Google Workspace", scopes: GWS_SCOPES, refreshToken: GWS_REFRESH_TOKEN });
   const gate = new ActionGate({
     repo: new ApprovalRepository(db),
     registry,
@@ -272,10 +279,11 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     vault,
     getBot: (id) => agentService.getBot(id),
     // The PC agent has its own five permissions (checked by the connector); the generic read switch does not apply to it.
-    readEnabled: (botId, connector) => connector === "pc" || connector === "documents" || agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
+    readEnabled: (botId, connector) => connector === "pc" || connector === "documents" || (isIntegration(connector) ? integrationAccess.has(botId, connector) : false) || agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
     now,
   });
   await registerApprovalRoutes(app, gate, audit);
+  await registerIntegrationRoutes(app, integrationAccess, registry, (id) => { try { agentService.getBot(id); return true; } catch { return false; } });
 
   // ---- Tool registry and skill library (Stage 3) ----
   const tools = new ToolRegistry(

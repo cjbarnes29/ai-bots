@@ -133,6 +133,15 @@ every new power is a connector behind it. Image/video/audio generation and Googl
 - Phone: can look, Run, cancel, approve/reject checkpoints; cannot create/edit/enable/archive/duplicate/retry (OWNER_ONLY_ROUTES).
 - Tests: 43 backend (`src/workflows/workflows.test.ts`, with mutation checks) + 5 dashboard (`web/src/workflows.test.tsx`). Not verified in a real browser by drag yet.
 
+### Stage 7 facts: integrations (DONE; none verified against the real services, all tested against fake servers on this PC)
+- Code: `src/connectors/integrations.ts` (GitHub, Notion, n8n, MCP, Google Workspace), `integrations-access.ts` (per-bot READ switches, table `integration_access`, migration 015, routes `/api/bots/:id/integrations`, owner-only), `gmail.ts` OAuth made generic (`registerGoogleOAuthRoutes`, Gmail unchanged), vault `known()` de-duplicates shared secret names. Dashboard: `GoogleWorkspaceSection` (Settings), `BotIntegrations` (bot Permissions tab).
+- Same gate as every connector: reads need the owner's per-bot switch (off by default), EVERY write waits for approval and runs once; tokens only in the vault, never in errors/results; no delete/share/invite/permission actions exist.
+- GitHub (token `GITHUB_TOKEN`): search_issues, get_issue, read_file | create_issue, comment_issue. Notion (`NOTION_TOKEN`): search, read_page | create_page, append_text. n8n (`N8N_WEBHOOK_URL`): start_workflow (write). MCP (`MCP_SERVER_URL`, optional `MCP_SERVER_TOKEN`): list_tools (read) | call_tool (write, always approved). HTTP/streamable MCP only; local-program (stdio) servers are NOT supported on purpose. n8n/MCP addresses must be https or http on this PC, no name/password inside.
+- Google Workspace: same Google client as Gmail, own refresh token `GOOGLE_WORKSPACE_REFRESH_TOKEN` via "Connect Google Workspace" (PKCE). Scopes: drive.readonly, drive.file, calendar.events, tasks. Reads: drive_search, drive_read (Docs/Slides as text, Sheets as CSV, text files), calendar_events, tasks_list | writes: drive_create_doc, calendar_create_event (no guests), tasks_create. NOT supported: editing existing files, Sheets cell writes, Slides editing, Forms, Gmail changes.
+- Old "Not built yet (Stage 7)" tool placeholders removed; the tool list now shows the five as category integration (installed / needs setup).
+- Owner must: create tokens (GitHub fine-grained PAT, Notion internal integration), paste them in the vault; for Google enable Drive/Calendar/Tasks APIs in the same Google Cloud project and press Connect Google Workspace; turn on each bot's switch.
+- Tests: 12 backend (`src/connectors/integrations.test.ts`) + 4 dashboard (`web/src/integrations.test.tsx`).
+
 ### Inbound messages and phone alerts (approved after Phase 11)
 - Inbound (`src/inbound/`, migration 009, Automation page section "Inbound messages"): a source watches Telegram (read_messages) or Gmail (unread, last day) and turns each NEW message into a text event
   (default names `telegram_message` / `gmail_message`) that the owner's triggers can use. Created OFF, PC-only to change; can be switched on only if the chosen bot has that connector's READ permission;

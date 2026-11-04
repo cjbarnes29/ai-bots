@@ -23,7 +23,14 @@ export const GOOGLE_URLS = {
   token: "https://oauth2.googleapis.com/token",
   api: "https://gmail.googleapis.com",
 };
-export type GoogleUrls = typeof GOOGLE_URLS;
+export interface GoogleUrls {
+  auth: string;
+  token: string;
+  api: string;
+  /** Drive and Calendar (Google Workspace connector). Tests may leave these out. */
+  workspace?: string;
+  tasks?: string;
+}
 
 export const GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.send"] as const;
 export const GMAIL_CLIENT_ID = "GOOGLE_CLIENT_ID";
@@ -39,7 +46,7 @@ const EMAIL = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}...` : text);
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
 
-async function googleFetch(url: string, init: RequestInit): Promise<{ status: number; data: any }> {
+export async function googleFetch(url: string, init: RequestInit): Promise<{ status: number; data: any }> {
   let res: Response;
   try {
     res = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
@@ -55,16 +62,16 @@ async function googleFetch(url: string, init: RequestInit): Promise<{ status: nu
   return { status: res.status, data };
 }
 
-const NEEDS_RECONNECT = "Gmail did not accept the saved sign-in. Press Connect Gmail in Settings to sign in again.";
+export const NEEDS_RECONNECT = "Gmail did not accept the saved sign-in. Press Connect Gmail in Settings to sign in again.";
 
 /** Gets (and caches, in memory only) a short-lived access token. The cache is tied to the refresh token it came from. */
-function makeTokenSource(urls: GoogleUrls, secret: (name: string) => string | null, now: () => number) {
+export function makeTokenSource(urls: GoogleUrls, secret: (name: string) => string | null, now: () => number, refreshName: string = GMAIL_REFRESH_TOKEN, label = "Gmail") {
   let cache: { refresh: string; access: string; expiresAt: number } | null = null;
   return async (): Promise<string> => {
     const clientId = secret(GMAIL_CLIENT_ID);
     const clientSecret = secret(GMAIL_CLIENT_SECRET);
-    const refresh = secret(GMAIL_REFRESH_TOKEN);
-    if (!clientId || !clientSecret || !refresh) throw new Error("Gmail is not connected yet.");
+    const refresh = secret(refreshName);
+    if (!clientId || !clientSecret || !refresh) throw new Error(`${label} is not connected yet.`);
     if (cache && cache.refresh === refresh && cache.expiresAt - 60_000 > now()) return cache.access;
     const { status, data } = await googleFetch(urls.token, {
       method: "POST",
@@ -73,7 +80,7 @@ function makeTokenSource(urls: GoogleUrls, secret: (name: string) => string | nu
     });
     if (status !== 200 || typeof data?.access_token !== "string") {
       cache = null;
-      if (status === 400 || status === 401) throw new Error(NEEDS_RECONNECT);
+      if (status === 400 || status === 401) throw new Error(NEEDS_RECONNECT.replaceAll("Gmail", label));
       throw new Error(`Google refused the sign-in request (status ${status}).`);
     }
     cache = { refresh, access: data.access_token, expiresAt: now() + (Number(data.expires_in) || 300) * 1000 };
@@ -237,22 +244,35 @@ export interface GmailOAuthOptions {
   now?: () => number;
 }
 
+export interface GoogleSignIn {
+  /** Used in the web address and in audit entries, e.g. "gmail" or "gworkspace". */
+  slug: string;
+  label: string;
+  scopes: readonly string[];
+  refreshToken: string;
+}
+
 export async function registerGmailOAuthRoutes(o: GmailOAuthOptions): Promise<void> {
+  return registerGoogleOAuthRoutes(o, { slug: "gmail", label: "Gmail", scopes: GMAIL_SCOPES, refreshToken: GMAIL_REFRESH_TOKEN });
+}
+
+export async function registerGoogleOAuthRoutes(o: GmailOAuthOptions, cfg: GoogleSignIn): Promise<void> {
   const urls = o.urls ?? GOOGLE_URLS;
+  const { slug, label } = cfg;
   const now = o.now ?? Date.now;
-  const redirectUri = `${o.redirectBase ?? `http://127.0.0.1:${process.env["PORT"] ?? 3000}`}/api/gmail/oauth/callback`;
+  const redirectUri = `${o.redirectBase ?? `http://127.0.0.1:${process.env["PORT"] ?? 3000}`}/api/${slug}/oauth/callback`;
   const pending = new Map<string, { verifier: string; expiresAt: number }>(); // in memory only; each entry works once
 
   const sweep = () => {
     for (const [k, v] of pending) if (v.expiresAt <= now()) pending.delete(k);
   };
 
-  o.app.get("/api/gmail/status", async () => {
+  o.app.get(`/api/${slug}/status`, async () => {
     const has = (n: string) => Boolean(o.vault.resolve(n));
-    return { hasClient: has(GMAIL_CLIENT_ID) && has(GMAIL_CLIENT_SECRET), connected: has(GMAIL_REFRESH_TOKEN), redirectUri, scopes: [...GMAIL_SCOPES] };
+    return { hasClient: has(GMAIL_CLIENT_ID) && has(GMAIL_CLIENT_SECRET), connected: has(cfg.refreshToken), redirectUri, scopes: [...cfg.scopes] };
   });
 
-  o.app.post("/api/gmail/oauth/start", async () => {
+  o.app.post(`/api/${slug}/oauth/start`, async () => {
     const clientId = o.vault.resolve(GMAIL_CLIENT_ID);
     if (!clientId || !o.vault.resolve(GMAIL_CLIENT_SECRET)) throw new AppError(409, "gmail_no_client", "Save the Google client ID and client secret first.");
     sweep();
@@ -264,35 +284,35 @@ export async function registerGmailOAuthRoutes(o: GmailOAuthOptions): Promise<vo
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "code",
-      scope: GMAIL_SCOPES.join(" "),
+      scope: cfg.scopes.join(" "),
       access_type: "offline",
       prompt: "consent",
       state,
       code_challenge: createHash("sha256").update(verifier).digest("base64url"),
       code_challenge_method: "S256",
     })}`;
-    o.audit.record("gmail.signin_started", {}, { actor: "owner" });
+    o.audit.record(`${slug}.signin_started`, {}, { actor: "owner" });
     return { url };
   });
 
   // Google sends the browser back here. The one-time "state" proves this sign-in was started by this app moments ago.
-  o.app.get<{ Querystring: { code?: string; state?: string; error?: string } }>("/api/gmail/oauth/callback", async (req, reply) => {
+  o.app.get<{ Querystring: { code?: string; state?: string; error?: string } }>(`/api/${slug}/oauth/callback`, async (req, reply) => {
     reply.type("text/html; charset=utf-8");
     const { code, state, error } = req.query;
     sweep();
     const entry = typeof state === "string" ? pending.get(state) : undefined;
     if (typeof state === "string") pending.delete(state); // single use, whatever happens next
     if (!entry) {
-      o.audit.record("gmail.signin_rejected", { reason: "unknown or expired state" });
-      return reply.code(400).send(page("Sign-in not accepted", "This sign-in link was not started from this app, or it has expired. Go back to Settings and press Connect Gmail again."));
+      o.audit.record(`${slug}.signin_rejected`, { reason: "unknown or expired state" });
+      return reply.code(400).send(page("Sign-in not accepted", `This sign-in link was not started from this app, or it has expired. Go back to Settings and press Connect ${label} again.`));
     }
     if (error || typeof code !== "string" || code.length === 0 || code.length > 2048) {
-      o.audit.record("gmail.signin_failed", { reason: error ? "denied at Google" : "no code" });
-      return reply.code(400).send(page("Gmail was not connected", "Google did not give permission. Nothing was saved. You can try again from Settings."));
+      o.audit.record(`${slug}.signin_failed`, { reason: error ? "denied at Google" : "no code" });
+      return reply.code(400).send(page(`${label} was not connected`, "Google did not give permission. Nothing was saved. You can try again from Settings."));
     }
     const clientId = o.vault.resolve(GMAIL_CLIENT_ID);
     const clientSecret = o.vault.resolve(GMAIL_CLIENT_SECRET);
-    if (!clientId || !clientSecret) return reply.code(400).send(page("Gmail was not connected", "The Google client ID or secret is missing."));
+    if (!clientId || !clientSecret) return reply.code(400).send(page(`${label} was not connected`, "The Google client ID or secret is missing."));
     let res: { status: number; data: any };
     try {
       res = await googleFetch(urls.token, {
@@ -301,16 +321,16 @@ export async function registerGmailOAuthRoutes(o: GmailOAuthOptions): Promise<vo
         body: new URLSearchParams({ grant_type: "authorization_code", code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, code_verifier: entry.verifier }),
       });
     } catch {
-      return reply.code(502).send(page("Gmail was not connected", "Could not reach Google. Try again from Settings."));
+      return reply.code(502).send(page(`${label} was not connected`, "Could not reach Google. Try again from Settings."));
     }
     const granted = typeof res.data?.scope === "string" ? res.data.scope.split(" ") : [];
     const refresh = res.data?.refresh_token;
-    if (res.status !== 200 || typeof refresh !== "string" || !GMAIL_SCOPES.every((s) => granted.includes(s))) {
-      o.audit.record("gmail.signin_failed", { reason: res.status !== 200 ? `token exchange status ${res.status}` : typeof refresh !== "string" ? "no refresh token" : "permissions not all accepted" });
-      return reply.code(400).send(page("Gmail was not connected", "Google did not return the sign-in, or not every permission was accepted. Nothing was saved. Try again and accept both permissions."));
+    if (res.status !== 200 || typeof refresh !== "string" || !cfg.scopes.every((s) => granted.includes(s))) {
+      o.audit.record(`${slug}.signin_failed`, { reason: res.status !== 200 ? `token exchange status ${res.status}` : typeof refresh !== "string" ? "no refresh token" : "permissions not all accepted" });
+      return reply.code(400).send(page(`${label} was not connected`, "Google did not return the sign-in, or not every permission was accepted. Nothing was saved. Try again and accept both permissions."));
     }
-    o.vault.set(GMAIL_REFRESH_TOKEN, refresh);
-    o.audit.record("gmail.connected", { scopes: granted }, { actor: "owner" });
-    return reply.send(page("Gmail is connected", "You can close this tab and go back to the dashboard. Bots still need your permission to read, and your approval to send."));
+    o.vault.set(cfg.refreshToken, refresh);
+    o.audit.record(`${slug}.connected`, { scopes: granted }, { actor: "owner" });
+    return reply.send(page(`${label} is connected`, "You can close this tab and go back to the dashboard. Bots still need your permission to read, and your approval to send."));
   });
 }

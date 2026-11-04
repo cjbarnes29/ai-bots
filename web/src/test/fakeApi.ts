@@ -654,6 +654,8 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     ] as any[],
     skills: [] as any[],
     workflows: [] as any[],
+    gws: { connected: false },
+    integrations: { available: [] as any[], enabled: new Map<string, string[]>() },
     wfRuns: [] as any[],
     botCaps: new Map<string, { skills: string[]; tools: string[] }>(),
     manager: {
@@ -868,6 +870,18 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
         return json({ url: ext.gmail.startedUrl });
       }
     }
+    if (parts[1] === 'gworkspace') {
+      const hasClient = !!ext.secrets.find((x) => x.name === 'GOOGLE_CLIENT_ID')?.inVault && !!ext.secrets.find((x) => x.name === 'GOOGLE_CLIENT_SECRET')?.inVault;
+      if (parts[2] === 'status' && method === 'GET') return json({ hasClient, connected: ext.gws.connected, redirectUri: 'http://127.0.0.1:3000/api/gworkspace/oauth/callback', scopes: [] });
+      if (parts[2] === 'oauth' && parts[3] === 'start' && method === 'POST') {
+        if (!hasClient) return err(409, 'gmail_no_client', 'Save the Google client ID and client secret first.');
+        return json({ url: 'https://accounts.example.test/auth?state=gws' });
+      }
+    }
+    if (parts[1] === 'bots' && parts[3] === 'integrations') {
+      if (method === 'PUT') ext.integrations.enabled.set(parts[2]!, body.connectors);
+      return json({ enabled: ext.integrations.enabled.get(parts[2]!) ?? [], available: ext.integrations.available });
+    }
     if (parts[1] === 'audit' && method === 'GET') return json({ events: ext.audit });
     if (parts[1] === 'vault') {
       const name = parts[2];
@@ -929,10 +943,10 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc", "workflows"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc", "workflows", "gworkspace"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
-    if (parts[0] === "api" && parts[1] === "bots" && ["capabilities", "skills", "tools", "pc"].includes(parts[3] ?? "")) {
+    if (parts[0] === "api" && parts[1] === "bots" && ["capabilities", "skills", "tools", "pc", "integrations"].includes(parts[3] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);

@@ -28,7 +28,7 @@ export interface ActionSpec {
 }
 
 export interface ConnectorDefinition {
-  id: Connector | "pc" | "documents";
+  id: Connector | "pc" | "documents" | "github" | "notion" | "n8n" | "mcp" | "gworkspace";
   label: string;
   /** The vault secrets this connector needs (for the Secrets screen). */
   secrets?: { name: string; description: string }[];
