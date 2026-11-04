@@ -212,6 +212,8 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
   const llm = {
     providers: new Map<string, ProviderView>((options.providers ?? defaultProviders()).map((p) => [p.id, p])),
     models: [...(options.models ?? [])],
+    routing: { enabled: true, autoAssignNewBots: true, autoEnableEligible: true, providerOrder: ['gemini', 'groq'], allowedProviders: [] as string[], excludedModels: [] as string[], preferLocal: false, maxAttempts: 3, autoRefreshHours: 24 },
+    routingPreview: [] as { ref: string; providerId: string; displayName: string; score: number; local: boolean }[],
     status: { paused: false, freeOnly: true, limits: { ...DEFAULT_LIMITS }, defaults: { ...DEFAULT_LIMITS }, maxOutputTokensCeiling: 4096 } as LlmStatus,
     usage: options.usage ?? EMPTY_USAGE,
     /** What "Refresh models" adds, per provider id. */
@@ -259,6 +261,32 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
 
   const handleLlm = (method: string, parts: string[], url: URL, body: any): Response => {
     const [, , area, id, action] = parts; // ["api","llm", area, id, action]
+    if (area === "routing") {
+      const view = () => ({
+        config: llm.routing,
+        classes: [
+          { id: "general", label: "General tasks" },
+          { id: "coding", label: "Coding" },
+          { id: "research", label: "Research and reasoning" },
+          { id: "light", label: "Quick, lightweight tasks" },
+        ],
+        preview: { general: llm.routingPreview, coding: [], research: [], light: [] },
+        providers: [...llm.providers.values()].map((p) => ({ id: p.id, displayName: p.displayName, kind: p.kind, enabled: p.enabled, keyConfigured: p.keyConfigured, status: p.status, statusMessage: null, lastCheckedAt: null, requestsToday: 0, dailyRequestCap: p.dailyRequestCap, pausedForSeconds: 0, modelCount: p.modelCount, usableModels: p.enabledModelCount })),
+        lastRefreshAt: null,
+      });
+      if (!id && method === "GET") return json(view());
+      if (!id && method === "PUT") {
+        if (body?.maxAttempts !== undefined && (body.maxAttempts < 1 || body.maxAttempts > 5)) return validation("maxAttempts", "Too big");
+        llm.routing = { ...llm.routing, ...body };
+        return json(view());
+      }
+      if (id === "refresh-all" && method === "POST") return json({ results: [...llm.providers.values()].filter((p) => p.enabled).map((p) => ({ id: p.id, ok: true, message: "ok", models: 3 })), ...view() });
+      if (id === "assign" && method === "POST") {
+        let changed = 0;
+        for (const b of bots.values()) if (b.model === null) { b.model = "auto/general"; changed++; }
+        return json({ changed, ...view() });
+      }
+    }
     if (area === "status" && method === "GET") return json(llm.status);
     if (area === "pause" && method === "PUT") {
       if (typeof body?.paused !== "boolean") return validation("paused", "Expected boolean");

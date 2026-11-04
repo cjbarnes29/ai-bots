@@ -25,6 +25,8 @@ export async function createTestApp(options: { connectors?: ConnectorDefinition[
   const sleeps: number[] = [];
   const app = await buildApp({
     dbPath: ":memory:",
+    // Older tests expect a new bot to have NO model until one is chosen; routing tests switch automatic assignment back on.
+    routingDefaults: { autoAssignNewBots: false },
     connectors: options.connectors ?? [], // tests never get a real connector unless they ask for one
     ...(options.googleUrls ? { googleUrls: options.googleUrls } : {}),
     ...(options.remoteHosts ? { remoteHosts: options.remoteHosts } : {}),

@@ -469,3 +469,23 @@ export interface MonitorOverview {
   attention: { level: ActivityLevel; text: string; link: string | null }[];
   activity: { at: string; kind: "task" | "approval" | "automation" | "security"; level: ActivityLevel; summary: string; link: string | null }[];
 }
+
+export interface RoutingConfig {
+  enabled: boolean;
+  autoAssignNewBots: boolean;
+  autoEnableEligible: boolean;
+  providerOrder: string[];
+  allowedProviders: string[];
+  excludedModels: string[];
+  preferLocal: boolean;
+  maxAttempts: number;
+  autoRefreshHours: number;
+}
+
+export interface RoutingView {
+  config: RoutingConfig;
+  classes: { id: "general" | "coding" | "research" | "light"; label: string }[];
+  preview: Record<"general" | "coding" | "research" | "light", { ref: string; providerId: string; displayName: string; score: number; local: boolean }[]>;
+  providers: { id: string; displayName: string; kind: "cloud" | "local"; enabled: boolean; keyConfigured: boolean; status: string | null; statusMessage: string | null; lastCheckedAt: string | null; requestsToday: number; dailyRequestCap: number | null; pausedForSeconds: number; modelCount: number; usableModels: number }[];
+  lastRefreshAt: string | null;
+}

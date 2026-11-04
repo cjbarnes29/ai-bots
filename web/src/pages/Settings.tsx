@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertsSection } from "../components/AlertsSection";
 import { DevicesSection } from "../components/DevicesSection";
 import { GmailSection } from "../components/GmailSection";
+import { RoutingSection } from "../components/RoutingSection";
 import { SecretsSection } from "../components/SecretsSection";
 import { ApiError } from "../api/client";
 import {
@@ -543,6 +544,7 @@ export function Settings() {
       <GmailSection />
       <DevicesSection />
       <AlertsSection />
+      <RoutingSection />
       <ProvidersSection />
       <ModelsSection />
       <LimitsSection />

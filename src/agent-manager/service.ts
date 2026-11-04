@@ -43,6 +43,8 @@ export class AgentManagerService {
   constructor(
     private readonly repo: AgentManagerRepository,
     private readonly validateModel: ModelValidator = () => {},
+    /** The model a new bot gets when none is chosen (automatic routing), or null. */
+    private readonly defaultModel: () => string | null = () => null,
   ) {}
 
   private now(): string {
@@ -83,7 +85,7 @@ export class AgentManagerService {
       instructions: input.instructions ?? "",
       responsibilities: input.responsibilities ?? [],
       runtime: input.runtime ?? "builtin",
-      model: input.model ?? null,
+      model: input.model ?? this.defaultModel(),
       temperature: input.temperature ?? null,
       maxOutputTokens: input.maxOutputTokens ?? null,
     };

@@ -48,3 +48,9 @@ What is always true, for every provider:
 4. Only models marked free (price 0) can be switched on. If every model is blocked with "did not list a price", your OmniRoute does not publish prices;
    tell me and we will decide how you want to authorise models (this needs your explicit decision).
 5. On a bot's page choose one of the enabled OmniRoute models.
+
+## Automatic model routing
+Choose **Automatic** instead of a model on a bot (Details tab) and the platform picks a free model for each task: general, coding, research or quick/light work. If a provider is down,
+rate-limited or out of quota it tries the next eligible one (up to the number you set), with local Ollama models as the backup. It only chooses models that already passed the free-only
+checks, and every attempt counts against the normal limits. It never uses a paid model, never goes around a limit and never rotates accounts. A bot with its own specific model always keeps it.
+Settings → Model routing lets you turn it off, limit it to chosen providers, prefer local models, refresh the model lists, and see provider health and what would be chosen right now.

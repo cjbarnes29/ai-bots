@@ -1,3 +1,4 @@
+import { loadRouting, parseAutoRef } from "../routing/config.js";
 import { AppError } from "../errors.js";
 import { LlmError } from "./errors.js";
 import { effectiveBaseUrl, type ProviderFactory } from "./factory.js";
@@ -271,6 +272,13 @@ export class ModelCatalogService {
         }
         if (verdict.status === "blocked" && !known && !plugin.storeBlocked) continue;
         this.repo.upsertModel(id, info, verdict.status, verdict.source, "available", now, verdict.overridable === true);
+        // Newly discovered verified-free models become usable by themselves (routing setting). Models you confirmed by hand are never switched on for you,
+        // and a model you switched off yourself is left alone because only brand-new models are touched.
+        if (!known && provider.enabled && loadRouting(this.repo).autoEnableEligible) {
+          const free = verdict.status === "verified_free" || (verdict.status === "free_tier" && !plugin.ownerOverridable);
+          const row = this.repo.getModelByRef(id, info.id);
+          if (free && row) this.repo.setModelEnabled(row.id, true, now);
+        }
         present.push(info.id);
       }
       for (const suggestion of plugin.suggestedModels ?? []) {
@@ -373,6 +381,7 @@ export class ModelCatalogService {
 
   /** Used by the Agent Manager: a bot may only be given a known, non-blocked model. */
   validateModelRef(ref: string): void {
+    if (parseAutoRef(ref)) return; // "auto/<kind of task>": a routing choice, resolved to an explicit free model at call time
     const parsed = parseModelRef(ref);
     const model = parsed ? this.repo.getModelByRef(parsed.providerId, parsed.modelId) : undefined;
     if (!model) {

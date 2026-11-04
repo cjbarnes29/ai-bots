@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
+import type { RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -643,5 +643,33 @@ export function useDeleteInbound() {
   return useMutation({
     mutationFn: (id: string) => api("DELETE", `/api/inbound/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["inbound"] }),
+  });
+}
+
+export function useRouting() {
+  return useQuery({ queryKey: ["llm", "routing"], queryFn: () => api<RoutingView>("GET", "/api/llm/routing"), refetchInterval: WATCH });
+}
+
+export function useUpdateRouting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Partial<RoutingConfig>) => api<RoutingView>("PUT", "/api/llm/routing", patch),
+    onSuccess: (view) => qc.setQueryData(["llm", "routing"], view),
+  });
+}
+
+export function useRefreshAllProviders() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<RoutingView & { results: { id: string; ok: boolean; message: string; models: number }[] }>("POST", "/api/llm/routing/refresh-all", {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["llm"] }),
+  });
+}
+
+export function useAssignRouting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<RoutingView & { changed: number }>("POST", "/api/llm/routing/assign", {}),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["llm"] }), qc.invalidateQueries({ queryKey: ["bots"] })]),
   });
 }

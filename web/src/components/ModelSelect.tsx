@@ -31,7 +31,7 @@ interface Props {
  */
 export function ModelSelect({ id, value, models, disabled, onChange }: Props) {
   const providers = [...new Map(models.map((m) => [m.providerId, m.providerName])).entries()];
-  const known = value === null || models.some((m) => m.ref === value);
+  const known = value === null || value.startsWith("auto/") || models.some((m) => m.ref === value);
 
   return (
     <div>
@@ -47,6 +47,12 @@ export function ModelSelect({ id, value, models, disabled, onChange }: Props) {
             {value} (not in the catalog)
           </option>
         )}
+        <optgroup label="Automatic (the platform picks a free model)">
+          <option value="auto/general">Automatic: general tasks (recommended)</option>
+          <option value="auto/coding">Automatic: coding</option>
+          <option value="auto/research">Automatic: research and reasoning</option>
+          <option value="auto/light">Automatic: quick, lightweight tasks</option>
+        </optgroup>
         {providers.map(([providerId, providerName]) => (
           <optgroup key={providerId} label={providerName}>
             {models

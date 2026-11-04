@@ -56,6 +56,25 @@ Totals after Phase 9: 441 backend + 124 dashboard tests, both builds, 9 + 9 real
   worker could not register there; desktop built-app SW test passed earlier). NOT built: push notifications (needs external push services).
 - Owner steps: docs/PHONE-AND-REMOTE.md.
 
+### MASTER PLAN (owner approved Stages 1-9 on request "approve"; build in order, commit each)
+Stage 1 Universal model routing (DONE, see below) -> 2 Manager AI -> 3 Tool and Skill Manager -> 4 PC agent (PowerShell, tiered permissions) -> 5 Deliverables (documents, sheets, slides, charts)
+-> 6 Workflows + persistent queue -> 7 Integrations (Google Workspace, GitHub, Notion, n8n, MCP) -> 8 Memory/knowledge -> 9 Efficiency + monitoring. Principle: nothing new weakens the approval gate;
+every new power is a connector behind it. Image/video/audio generation and Google API availability are "requires external verification" and must not be faked.
+
+### Stage 1 facts: universal model routing
+- Bots can have model `auto/general|coding|research|light` (validated; other `auto/...` rejected). `LlmService.complete` sends those to `ModelRouter` (`src/routing/`), everything else is a direct call as before.
+  Explicit-model bots are never re-routed.
+- Candidates = models that already pass the free-only policy (callable), provider allowed, not excluded, provider under its daily cap and not cooling down (breaker). Ranked by name-based rules of thumb
+  (coding/large/reasoning/small) per task class; Ollama only as backup unless "prefer local". Each attempt is a normal `completeDirect` call (all limits, pause, usage records apply).
+- Failover: provider-level errors (auth, quota, rate limit, network, timeout, down, circuit open) skip the whole provider; model-level (not found, unavailable, identity mismatch) skip that model;
+  bot/global limits, pause, too-large, policy, bad request, content filter STOP (no hopping around limits). Max attempts 1-5 (default 3). No paid model, no account rotation.
+- Settings (PC only; `/api/llm/routing`, section "Model routing" in Settings): on/off, new bots default to auto/general, auto-enable newly discovered verified-free models (never owner-confirmed gateway ones,
+  never one you switched off), prefer local, allowed providers, excluded models (API), attempts, auto-refresh hours (0/6/24/168), "look for new models now", "use automatic routing for bots that have no model",
+  provider health, live preview of choices. Audited (`routing.changed`, `routing.assigned`). Phones get 403 owner_only.
+- Tests: `src/routing/routing.test.ts` (31) with multi-provider fakes; mutation checks (callable filter, stop-on-global-limit, provider skip, daily-cap skip, breaker skip) caught; dashboard `routing.test.tsx` (6).
+  createTestApp starts with autoAssignNewBots=false (older tests expect model-less new bots).
+- NOT verified against real providers (names of real free models drive the ranking heuristics).
+
 ### Inbound messages and phone alerts (approved after Phase 11)
 - Inbound (`src/inbound/`, migration 009, Automation page section "Inbound messages"): a source watches Telegram (read_messages) or Gmail (unread, last day) and turns each NEW message into a text event
   (default names `telegram_message` / `gmail_message`) that the owner's triggers can use. Created OFF, PC-only to change; can be switched on only if the chosen bot has that connector's READ permission;

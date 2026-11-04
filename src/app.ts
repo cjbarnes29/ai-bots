@@ -44,6 +44,9 @@ import { registerDashboard } from "./remote/dashboard.js";
 import { registerRemoteRoutes } from "./remote/routes.js";
 import { registerMonitorRoutes } from "./monitor/monitor.js";
 import { registerInboundRoutes } from "./inbound/routes.js";
+import { ModelRouter } from "./routing/router.js";
+import { RoutingMaintenance, registerRoutingRoutes } from "./routing/routes.js";
+import { autoRef, loadRouting, saveRouting } from "./routing/config.js";
 import { PushService, PUSH_SECRET_NAME } from "./push/push.js";
 import { registerPushRoutes } from "./push/routes.js";
 import { InboundService } from "./inbound/service.js";
@@ -75,6 +78,8 @@ export interface BuildAppOptions {
   googleUrls?: GoogleUrls;
   /** The vault's encryption key. Default: a key file next to the database (or a throwaway key for ":memory:"). */
   vaultKey?: Buffer;
+  /** Tests: start with these routing settings instead of the defaults. */
+  routingDefaults?: Partial<import("./routing/config.js").RoutingConfig>;
   /** Tests only: accept a pretend push service on this PC, and use a fake network call for alerts. */
   pushAllowHost?: (host: string) => boolean;
   pushFetch?: typeof fetch;
@@ -153,9 +158,39 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
 
   // ---- Agent Manager (a bot's model is checked against the catalog) ----
-  const agentService = new AgentManagerService(new AgentManagerRepository(db), (ref) => catalog.validateModelRef(ref));
+  // Stage 1: universal model routing. "auto/<kind of task>" bots get an explicit free model chosen per call, with failover.
+  if (options.routingDefaults) saveRouting(llmRepo, options.routingDefaults, new Date(now()).toISOString());
+  const router = new ModelRouter(catalog, llmRepo, llm);
+  llm.setRouter(router);
+  const agentService = new AgentManagerService(
+    new AgentManagerRepository(db),
+    (ref) => catalog.validateModelRef(ref),
+    () => {
+      const cfg = loadRouting(llmRepo);
+      return cfg.enabled && cfg.autoAssignNewBots && router.candidates("general", cfg).length > 0 ? autoRef("general") : null;
+    },
+  );
   await registerAgentManagerRoutes(app, agentService);
   await registerLlmRoutes(app, { catalog, llm, usage: usageRepo, now });
+  await registerRoutingRoutes(app, {
+    router,
+    catalog,
+    repo: llmRepo,
+    now,
+    breakerWaitMs: (id) => llm.breakerWaitMs(id),
+    audit,
+    assignUnassigned: () => {
+      let changed = 0;
+      for (const bot of agentService.listBots(false)) {
+        if (bot.model === null && bot.runtime === "builtin") {
+          agentService.updateBot(bot.id, { model: autoRef("general"), changeNote: "Automatic model routing" });
+          changed++;
+        }
+      }
+      return changed;
+    },
+  });
+  const routingMaintenance = new RoutingMaintenance(llmRepo, catalog, now);
 
   // ---- Test chat: bots reply only when you send a message. No tools. ----
   const chat = new ChatService(new ChatRepository(db), (id) => agentService.getBot(id), createRuntimeRegistry(llm), llm, now);
@@ -230,7 +265,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
   app.decorate("push", push);
   await registerPushRoutes(app, push);
-  const scheduler = new AutomationScheduler(automation, () => Promise.all([inbound.tick(), push.tick()]));
+  const scheduler = new AutomationScheduler(automation, () => Promise.all([inbound.tick(), push.tick(), routingMaintenance.tick()]));
   app.decorate("automation", scheduler);
   app.addHook("onClose", async () => scheduler.stop());
   await registerAutomationRoutes(app, automation);

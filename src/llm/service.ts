@@ -12,6 +12,8 @@ import {
   type LimitsUpdate,
 } from "./limits.js";
 import { FREE_ONLY_MODE, checkCallable } from "./policy.js";
+import { parseAutoRef } from "../routing/config.js";
+import type { ModelRouter } from "../routing/router.js";
 import type { LlmRepository, ProviderRow } from "./repository.js";
 import { CircuitBreaker, Semaphore } from "./resilience.js";
 import { estimateMessagesTokens, estimateTokens, type ChatMessage, type CompletionResult, type ProviderPlugin } from "./types.js";
@@ -39,6 +41,8 @@ export interface CompleteOutput {
   latencyMs: number;
   toolCallsIgnored: boolean;
   warning: string | null;
+  /** Set when an automatic (auto/...) model choice was used: which kind of task and which models were tried. */
+  route?: { class: string; attempts: { ref: string; outcome: string }[] };
 }
 
 export interface LlmServiceOptions {
@@ -131,7 +135,29 @@ export class LlmService {
     return b;
   }
 
+  private router: ModelRouter | null = null;
+
+  /** Connects the automatic model router (Stage 1). */
+  setRouter(router: ModelRouter): void {
+    this.router = router;
+  }
+
+  /** Seconds-level health: how long a provider is paused after repeated failures (0 = healthy). */
+  breakerWaitMs(providerId: string): number {
+    return this.breakers.get(providerId)?.blockedForMs() ?? 0;
+  }
+
+  /** The one entry point. "auto/..." choices are routed to an explicit model; everything else is a direct, fully checked call. */
   async complete(input: CompleteInput): Promise<CompleteOutput> {
+    if (parseAutoRef(input.modelRef)) {
+      if (!this.router) throw new LlmError("model_unavailable", "Automatic model routing is not available.");
+      return this.router.complete(input);
+    }
+    return this.completeDirect(input);
+  }
+
+  /** One call to ONE explicit model: pause switch, free-only policy, size, breaker, limits, concurrency, record. */
+  async completeDirect(input: CompleteInput): Promise<CompleteOutput> {
     const limits = this.limits();
     const { provider, plugin, model } = this.catalog.resolve(input.modelRef);
     const cloud = plugin.kind === "cloud";
