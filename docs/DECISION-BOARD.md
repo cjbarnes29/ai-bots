@@ -52,9 +52,6 @@ The one central record of what the owner decided, what is waiting, what is NOT v
 ## 2. Pending approvals
 | ID | Item | Waiting for |
 |---|---|---|
-| P-2 | Docs commit (this board + `CLAUDE.md`) | Owner approval |
-| P-3 | Phase 4 commit (Integrations Center, verification, provider setup guide, wording fixes) | Owner approval |
-| P-4 | Business Workforce commit | Owner approval |
 | P-5 | First real external tests: 1 map request, 1 request to `https://example.com/`, up to 9 requests to businesses' own home pages (details in `docs/BUSINESS-WORKFORCE.md`) | Owner approval of exactly these requests; check the map service's current usage policy first |
 | P-6 | Gemini API key, Google Cloud client, Tailscale steps | Owner action |
 | P-7 | Phases 5-6, 8-9 and the YouTube Studio phases | Owner review after each stage |
@@ -89,7 +86,7 @@ Gemini (NV-3), Gmail and Google Workspace (NV-4), Telegram, GitHub, Notion, n8n,
 | S-8 | No remote repository is configured, so nothing can be pushed by mistake. | Active. |
 
 ## 7. Completed milestones
-Stages 1-8 (routing, Manager, tools and skills, PC agent, documents, workflows, integrations, memory), Gmail test email, Stage 9 shell/Dashboard/Settings (Phases 1-3 and 3.5): committed. Phase 4 (Integrations Center) and the Business Workforce (7a-7f): BUILT AND TESTED ON FAKE DATA, NOT YET COMMITTED. Details: `docs/PROGRESS.md`, `docs/UI-AUDIT.md`, `docs/BUSINESS-WORKFORCE.md`.
+Stages 1-8 (routing, Manager, tools and skills, PC agent, documents, workflows, integrations, memory), Gmail test email, Stage 9 shell/Dashboard/Settings (Phases 1-3 and 3.5): committed. Phase 4 (Integrations Center, c98f295) and the Business Workforce (7a-7f, next commit): BUILT AND TESTED ON FAKE DATA ONLY; no real external call made. Details: `docs/PROGRESS.md`, `docs/UI-AUDIT.md`, `docs/BUSINESS-WORKFORCE.md`.
 
 ## 8. Git commits and rollback points
 All tags are LOCAL. Nothing is ever pushed (there is no remote).
@@ -99,14 +96,15 @@ All tags are LOCAL. Nothing is ever pushed (there is no remote).
 | `c62cf1c` | Gmail test email | committed | |
 | `71ea6ab` | Stage 9 | committed | |
 | `rollback/before-docs` (tag) | `98964e3` | Commit 3: `.gitignore` fix (`tools/` to `/tools/`) + original `src/tools/registry.ts`. Approved by the owner 2026-11-04. Verified in a scratch export: 1013 backend + 208 web tests, builds clean. | `git reset --hard rollback/before-docs` (destructive: only with approval) |
-| Docs commit | pending (P-2) | this board + `CLAUDE.md` | |
-| Phase 4 commit | pending (P-3) | | |
-| Business Workforce commit | pending (P-4) | | |
+| `rollback/before-phase4` (tag) | `6df65bf` | Docs commit: this board + `CLAUDE.md`. Approved 2026-11-04. Documentation only. | `git reset --hard rollback/before-phase4` (destructive: approval needed) |
+| `rollback/before-business` (tag) | `c98f295` | Phase 4: Integrations Center, `verify()`, catalog routes, provider setup guide, wording fixes. Approved 2026-11-04. Scratch export: 1025 backend + 219 web tests, builds clean. Fake services only. | `git reset --hard rollback/before-business` (destructive: approval needed) |
+| Business Workforce commit | the commit right after `c98f295` (its own hash is not written here; see `git log`) | `src/business/`, the /business page, the Business team, `docs/BUSINESS-WORKFORCE.md`, `workspace/` ignore rule. Fake services only; no real external call. | `git reset --hard rollback/before-business` (destructive: approval needed) |
 
-Hashes and tags for the pending commits are added here as each one is approved and made (in the next commit, so no commit ever has to describe itself).
+Hashes and tags are added here after each commit is made (in the next commit, so no commit ever has to describe itself).
 
 ---
 
 ## Board change log (append only)
 - 2026-11-04: Board created from the decisions recorded in the project conversation up to this date.
+- 2026-11-04: Docs commit (6df65bf) and Phase 4 commit (c98f295) approved and made; P-2 and P-3 closed; Business commit prepared (P-4 closed with it).
 - 2026-11-04: Commit 3 approved and made (98964e3); P-1 closed; local tag rollback/before-docs created.

@@ -34,6 +34,14 @@ export class AuditLog {
     );
   }
 
+  /** How many events of one kind happened since a moment in time, optionally only those whose detail contains a fragment (no agent needed). */
+  countKindSince(kind: string, sinceMs: number, detailContains?: string): number {
+    const like = detailContains === undefined ? "" : " AND detail LIKE ? ESCAPE '!'";
+    const params: (string | number)[] = [kind, sinceMs];
+    if (detailContains !== undefined) params.push(`%${detailContains.replace(/[!%_]/g, (c) => `!${c}`)}%`);
+    return Number(this.db.prepare(`SELECT COUNT(*) AS n FROM audit_events WHERE kind = ? AND created_ms >= ?${like}`).get(...params)?.["n"] ?? 0);
+  }
+
   /** The newest event of any of these kinds, optionally only if its detail text contains every given fragment. Read-only; used for "last verified / last used". */
   latest(kinds: string[], detailContains: string[] = []): AuditEvent | null {
     if (kinds.length === 0) return null;

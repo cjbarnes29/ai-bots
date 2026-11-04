@@ -14,6 +14,9 @@ import { registerApprovalRoutes } from "./approvals/routes.js";
 import { ActionGate } from "./approvals/service.js";
 import { AuditLog } from "./audit/audit.js";
 import { createBrowserConnector } from "./connectors/browser/browser.js";
+import { createBusinessConnector } from "./business/connector.js";
+import { registerBusinessRoutes, registerBusinessTeamRoutes } from "./business/routes.js";
+import { BUSINESS_FLAG, BusinessService } from "./business/service.js";
 import { registerIntegrationCatalog } from "./connectors/catalog.js";
 import { createGmailConnector, registerGmailOAuthRoutes, registerGmailTestRoute, registerGoogleOAuthRoutes, type GoogleUrls } from "./connectors/gmail.js";
 import { createGithubConnector, createGoogleWorkspaceConnector, createMcpConnector, createN8nConnector, createNotionConnector, GWS_REFRESH_TOKEN, GWS_SCOPES } from "./connectors/integrations.js";
@@ -119,6 +122,12 @@ export interface BuildAppOptions {
   includeIntegrations?: boolean;
   /** Tests: add the PC agent connector to the connectors given above (the real app always has it). */
   includePc?: boolean;
+  /** Tests: add the Business Workforce connector to the connectors given above (the real app always has it). */
+  includeBusiness?: boolean;
+  /** Where the leads file lives. Default: workspace/business-workforce/leads/ inside the project folder. */
+  businessDir?: string;
+  /** Tests only: pretend network pieces for discovery and website checks (the real ones only run while the owner has switched outside requests on). */
+  businessNet?: Pick<import("./business/service.js").BusinessDeps, "transport" | "lookup" | "post" | "sleep">;
   /** Tests: start programs with a fake instead of the real thing. */
   pcStart?: (spec: import("./connectors/pc/runner.js").RunSpec) => import("./connectors/pc/runner.js").PcProcess;
   /** Tailscale names (*.ts.net) the phone may use. Empty = remote access is off and only this PC can connect. */
@@ -267,10 +276,21 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   app.decorate("pc", pcService);
   app.addHook("onClose", async () => pcService.shutdown());
   const memory = new MemoryService(db, audit, now);
+  // The Business Workforce: discovery, website checks and the leads file. Its outside-requests lock lives in the approval settings and is OFF by default.
+  const approvalRepo = new ApprovalRepository(db);
+  const business = new BusinessService({
+    dir: options.businessDir ?? join(process.cwd(), "workspace", "business-workforce", "leads"),
+    now,
+    audit,
+    getFlag: () => approvalRepo.getSetting(BUSINESS_FLAG) === "true",
+    setFlag: (on) => approvalRepo.setSetting(BUSINESS_FLAG, on ? "true" : "false", new Date(now()).toISOString()),
+    ...(options.businessNet ?? {}),
+  });
   const registry = new ConnectorRegistry([
     ...(options.connectors ?? [createTelegramConnector(), createBrowserConnector(), createGmailConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })]),
     ...(options.connectors === undefined || options.includePc ? [createPcConnector(pcService), createDocumentsConnector(pcService)] : []),
     ...(options.connectors === undefined || options.includeMemory ? [createMemoryConnector(memory)] : []),
+    ...(options.connectors === undefined || options.includeBusiness ? [createBusinessConnector(business)] : []),
     ...(options.connectors === undefined || options.includeIntegrations ? [createGithubConnector(), createNotionConnector(), createN8nConnector(), createMcpConnector(), createGoogleWorkspaceConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })] : []),
   ]);
   const vault = new VaultService(db, vaultKey, audit, () => [...registry.list().flatMap((c) => c.secrets ?? []), { name: PUSH_SECRET_NAME, description: "Phone alerts signing key (made automatically, do not paste)" }], now);
@@ -280,12 +300,14 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   if (registry.get("gmail")) await registerGmailOAuthRoutes({ app, vault, audit, now, ...(options.googleUrls ? { urls: options.googleUrls } : {}) });
   const integrationAccess = new IntegrationAccess(db, audit, now);
   if (registry.get("gworkspace")) await registerGoogleOAuthRoutes({ app, vault, audit, now, ...(options.googleUrls ? { urls: options.googleUrls } : {}) }, { slug: "gworkspace", label: "Google Workspace", scopes: GWS_SCOPES, refreshToken: GWS_REFRESH_TOKEN });
+  // Who may READ through which connector. Business discovery and website checks are public-web reads, so they follow the
   // agent's existing "browser" switch (no new permission table is needed).
   const readEnabled = (botId: string, connector: string): boolean => {
-    return connector === "pc" || connector === "documents" || connector === "memory" || (isIntegration(connector) ? integrationAccess.has(botId, connector) : false) || agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled);
+    const asConnector = connector === "business" ? "browser" : connector;
+    return asConnector === "pc" || asConnector === "documents" || asConnector === "memory" || (isIntegration(asConnector) ? integrationAccess.has(botId, asConnector) : false) || agentService.getBot(botId).permissions.some((p) => p.connector === asConnector && p.readEnabled);
   };
   const gate = new ActionGate({
-    repo: new ApprovalRepository(db),
+    repo: approvalRepo,
     registry,
     audit,
     vault,
@@ -295,6 +317,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     now,
   });
   await registerApprovalRoutes(app, gate, audit);
+  await registerBusinessRoutes(app, business);
   await registerIntegrationCatalog({
     app,
     registry,
@@ -442,6 +465,21 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   automation.addEventListener((name, text) => workflows.onEvent(name, text));
   app.decorate("workflows", workflows);
   await registerWorkflowRoutes(app, workflows);
+  await registerBusinessTeamRoutes(app, {
+    bots: {
+      list: () => agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, archived: b.archived, status: b.status, model: b.model })),
+      create: (input) => agentService.createBot(input),
+      setWebRead: (id) => void agentService.setReadPermission(id, "browser", true),
+    },
+    skills: {
+      list: () => skillService!.list(),
+      create: (content) => skillService!.create(content),
+      assignedTo: (id) => skillService!.assignedTo(id),
+      assign: (id, skillIds) => void skillService!.setBotSkills(id, skillIds),
+    },
+    manager: { allowed: () => manager.settings().allowedBots, setAllowed: (ids) => void manager.updateSettings({ allowedBots: ids }) },
+    workflows: { list: () => workflows.list(true), create: (name, graph) => workflows.create({ name, graph }) },
+  });
   const scheduler = new AutomationScheduler(automation, async () => {
     workflows.tickSchedules();
     workflows.tick();

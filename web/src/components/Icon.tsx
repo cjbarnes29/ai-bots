@@ -9,6 +9,7 @@ const PATHS = {
   pc: "M3 4h18v12H3z M8 20h8 M12 16v4",
   activity: "M3 12h4l3-8 4 16 3-8h4",
   settings: "M4 6h10 M18 6h2 M4 12h4 M12 12h8 M4 18h12 M20 18h0 M16 4v4 M10 10v4 M18 16v4",
+  briefcase: "M3 8h18v12H3z M8 8V5a2 2 0 012-2h4a2 2 0 012 2v3 M3 13h18",
   more: "M5 12h0 M12 12h0 M19 12h0",
   close: "M6 6l12 12 M18 6L6 18",
   back: "M15 18l-6-6 6-6",

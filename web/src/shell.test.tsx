@@ -29,7 +29,7 @@ describe("the application shell", () => {
   it("has one Main navigation with every place, and marks the current one", async () => {
     renderApp(createFakeApi(), "/workflows");
     const nav = within(await screen.findByRole("navigation", { name: "Main" }));
-    for (const name of ["Dashboard", "Agents & Teams", "Workflow Studio", "Approvals", "Integrations Center", "Schedules", "PC Control Center", "Activity & Logs", "Settings"]) {
+    for (const name of ["Dashboard", "Agents & Teams", "Workflow Studio", "Approvals", "Business Workforce", "Integrations Center", "Schedules", "PC Control Center", "Activity & Logs", "Settings"]) {
       expect(nav.getByRole("link", { name })).toBeInTheDocument();
     }
     expect(nav.getByRole("link", { name: "Workflow Studio" })).toHaveAttribute("aria-current", "page");
@@ -54,7 +54,7 @@ describe("the application shell", () => {
     const router = renderApp(createFakeApi());
     await user.click(await screen.findByRole("button", { name: "More" }));
     const sheet = within(await screen.findByRole("dialog", { name: "More" }));
-    for (const name of ["Integrations Center", "Schedules", "PC Control Center", "Activity & Logs", "Settings"]) {
+    for (const name of ["Business Workforce", "Integrations Center", "Schedules", "PC Control Center", "Activity & Logs", "Settings"]) {
       expect(sheet.getByRole("link", { name })).toBeInTheDocument();
     }
     expect(sheet.queryByRole("link", { name: "Approvals" })).not.toBeInTheDocument(); // already in the bottom bar

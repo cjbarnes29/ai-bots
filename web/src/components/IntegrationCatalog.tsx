@@ -67,7 +67,7 @@ function Card({ e, paused }: { e: IntegrationEntry; paused: boolean }) {
         <button
           type="button"
           className="btn-primary min-h-11"
-          disabled={verify.isPending || (paused && e.group !== "On this PC and the web")}
+          disabled={verify.isPending || (paused && e.group !== "On this PC and the web" && e.group !== "Business Workforce")}
           onClick={() => verify.mutate(e.id)}
           aria-label={`Test connection for ${e.label}`}
         >

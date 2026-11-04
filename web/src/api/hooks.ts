@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { IntegrationEntry, VerifyResponse, MemoryNote, BotMemorySettings, WfGraph, WfOverview, WfProblem, PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
+import type { BusinessInstallResult, BusinessLead, BusinessStatus, BusinessTeamStatus, IntegrationEntry, LeadStatus, StagedBatch, VerifyResponse, MemoryNote, BotMemorySettings, WfGraph, WfOverview, WfProblem, PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -561,6 +561,64 @@ export function useVerifyIntegration() {
   return useMutation({
     mutationFn: (id: string) => api<VerifyResponse>("POST", `/api/integrations/${id}/verify`, {}),
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["integrations"] }), qc.invalidateQueries({ queryKey: ["audit"] })]),
+  });
+}
+
+// ---- Business Workforce
+export function useBusinessStatus() {
+  return useQuery({ queryKey: ["business", "status"], queryFn: () => api<BusinessStatus>("GET", "/api/business/status"), refetchInterval: WATCH });
+}
+
+export function useSetBusinessExternal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => api<BusinessStatus>("PUT", "/api/business/external", { enabled }),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["business"] }), qc.invalidateQueries({ queryKey: ["audit"] })]),
+  });
+}
+
+export function useBusinessLeads(filters: { status?: string; priority?: string; q?: string }) {
+  const params = new URLSearchParams();
+  if (filters.status) params.set("status", filters.status);
+  if (filters.priority) params.set("priority", filters.priority);
+  if (filters.q?.trim()) params.set("q", filters.q.trim());
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ["business", "leads", qs],
+    queryFn: () => api<{ total: number; leads: BusinessLead[] }>("GET", `/api/business/leads${qs ? `?${qs}` : ""}`),
+    refetchInterval: WATCH,
+  });
+}
+
+export function useUpdateLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; patch: { status?: LeadStatus; notes?: string; confirmNoWebsite?: boolean } }) => api<{ lead: BusinessLead }>("PUT", `/api/business/leads/${input.id}`, input.patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["business"] }),
+  });
+}
+
+export function useStagedBatches() {
+  return useQuery({ queryKey: ["business", "batches"], queryFn: async () => (await api<{ batches: StagedBatch[] }>("GET", "/api/business/batches")).batches, refetchInterval: WATCH });
+}
+
+export function useStagedBatch(id: string | null) {
+  return useQuery({
+    queryKey: ["business", "batch", id],
+    enabled: id !== null,
+    queryFn: () => api<{ id: string; label: string; rowsHash: string; leads: BusinessLead[] }>("GET", `/api/business/batches/${id}`),
+  });
+}
+
+export function useBusinessTeam() {
+  return useQuery({ queryKey: ["business", "team"], queryFn: () => api<BusinessTeamStatus>("GET", "/api/business/team"), refetchInterval: WATCH });
+}
+
+export function useInstallBusinessTeam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<BusinessInstallResult>("POST", "/api/business/team", {}),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["business"] }), qc.invalidateQueries({ queryKey: ["bots"] }), qc.invalidateQueries({ queryKey: ["workflows"] })]),
   });
 }
 

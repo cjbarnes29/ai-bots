@@ -4,6 +4,7 @@ import { Approvals } from "./pages/Approvals";
 import { Automation } from "./pages/Automation";
 import { BotEditor } from "./pages/BotEditor";
 import { BotList } from "./pages/BotList";
+import { Business } from "./pages/Business";
 import { Dashboard } from "./pages/Dashboard";
 import { Integrations } from "./pages/Integrations";
 import { Knowledge } from "./pages/Knowledge";
@@ -33,6 +34,7 @@ export const routes: RouteObject[] = [
       { path: "/bots/:id", element: <BotEditor /> },
       { path: "/knowledge", element: <Knowledge /> },
       { path: "/workflows", element: <Workflows /> },
+      { path: "/business", element: <Business /> },
       { path: "/integrations", element: <Integrations /> },
       { path: "/automation", element: <Automation /> },
       { path: "/approvals", element: <Approvals /> },

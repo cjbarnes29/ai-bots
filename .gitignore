@@ -12,6 +12,9 @@ dist/
 *.key
 secrets/
 
+# Business Workforce leads (business names, phone numbers): never committed
+workspace/
+
 # Local data (database files, logs)
 data/
 *.sqlite

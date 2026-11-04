@@ -432,6 +432,79 @@ export interface VerifyResponse {
   account?: string;
 }
 
+// ---- Business Workforce
+export type WebsiteState = "none_listed" | "confirmed_none" | "not_audited" | "audited" | "audit_failed";
+export type LeadStatus = "new" | "reviewing" | "qualified" | "proposal_drafted" | "contacted" | "won" | "lost" | "discarded";
+
+export interface LeadCriterion {
+  id: string;
+  label: string;
+  points: number;
+  max: number;
+  evidence: string;
+}
+
+export interface BusinessLead {
+  lead_id: string;
+  country: string;
+  region: string;
+  city: string;
+  category: string;
+  business_name: string;
+  business_name_ar: string;
+  address: string;
+  phone: string;
+  website_url: string;
+  website_state: WebsiteState;
+  audit_failure: string;
+  audit_score: number | null;
+  audit_confidence: "normal" | "low" | "";
+  audit_summary: string;
+  lead_score: number | null;
+  priority: "high" | "medium" | "low" | "";
+  score_reasons: string;
+  source_url: string;
+  status: LeadStatus;
+  notes: string;
+  confidence: "normal" | "unverified" | "low" | "needs_check";
+  criteria: LeadCriterion[];
+}
+
+export interface BusinessStatus {
+  externalEnabled: boolean;
+  usage: { mapSearchesToday: number; mapSearchesPerDay: number; siteRequestsToday: number; siteRequestsPerDay: number };
+  storage: { dir: string; file: string; count: number; max: number };
+  limits: Record<string, number>;
+  markets: { code: string; name: string; regions: string[]; note: string; proposalLanguage: string }[];
+  categories: { id: string; label: string }[];
+  statuses: LeadStatus[];
+  rubric: { rows: { id: string; label: string; max: number; rule: string }[]; priorityRule: string };
+}
+
+export interface StagedBatch {
+  id: string;
+  label: string;
+  createdAt: string;
+  count: number;
+  rowsHash: string;
+  states: Record<string, number>;
+}
+
+export interface BusinessTeamStatus {
+  agents: { key: string; name: string; role: string; webRead: boolean; skills: string[]; exists: boolean; id: string | null; status: string | null; hasModel: boolean; instructions: string }[];
+  skills: { name: string; exists: boolean }[];
+  workflow: { name: string; exists: boolean };
+  managerAllowsAll: boolean;
+}
+
+export interface BusinessInstallResult {
+  agents: { key: string; name: string; id: string; created: boolean }[];
+  skills: { name: string; created: boolean }[];
+  workflow: { name: string; created: boolean };
+  managerAdded: number;
+  notes: string[];
+}
+
 export interface SecretStatus {
   name: string;
   description: string;

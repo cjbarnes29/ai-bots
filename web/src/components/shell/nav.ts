@@ -16,6 +16,7 @@ export const NAV: NavEntry[] = [
   { to: "/agents", label: "Agents & Teams", icon: "agents", match: ["/agents", "/bots", "/knowledge"], primary: true },
   { to: "/workflows", label: "Workflow Studio", icon: "workflow", match: ["/workflows"], primary: true },
   { to: "/approvals", label: "Approvals", icon: "approvals", match: ["/approvals"], primary: true },
+  { to: "/business", label: "Business Workforce", icon: "briefcase", match: ["/business"], primary: false },
   { to: "/integrations", label: "Integrations Center", icon: "plug", match: ["/integrations"], primary: false },
   { to: "/automation", label: "Schedules", icon: "clock", match: ["/automation"], primary: false },
   { to: "/pc", label: "PC Control Center", icon: "pc", match: ["/pc"], primary: false },

@@ -26,6 +26,7 @@ const GROUP: Record<string, string> = {
   pc: "On this PC and the web",
   documents: "On this PC and the web",
   memory: "On this PC and the web",
+  business: "Business Workforce",
 };
 
 /** Services that run on this PC and need no sign-in: "Test connection" only confirms they are ready, with no network call. */
@@ -33,6 +34,7 @@ const LOCAL: Record<string, string> = {
   pc: "The PC agent runs on this computer. Nothing to sign in to.",
   documents: "Document files are created on this computer. Nothing to sign in to.",
   memory: "Notes are kept on this computer. Nothing to sign in to.",
+  business: "Lead files are kept on this computer. Discovery and website checks are switched off until you switch them on.",
 };
 
 const HELP: Record<string, string[]> = {
@@ -49,6 +51,7 @@ const HELP: Record<string, string[]> = {
   mcp: ["Save the address of one MCP server. Listing its tools is a read; running a tool always waits for your approval."],
   browser: ["Public https pages only, no sign-in and no JavaScript. It is tested when an agent reads a page."],
   pc: ["Add a project folder in the PC Control Center first."],
+  business: ["External discovery and website checks are OFF by default. Nothing is requested from any website until you switch them on."],
 };
 
 const REASONS: [RegExp, string][] = [
