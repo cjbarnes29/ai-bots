@@ -4,6 +4,8 @@ import { DevicesSection } from "../components/DevicesSection";
 import { GmailSection } from "../components/GmailSection";
 import { ManagerSettings } from "../components/ManagerSettings";
 import { RoutingSection } from "../components/RoutingSection";
+import { SkillsSection } from "../components/SkillsSection";
+import { ToolsSection } from "../components/ToolsSection";
 import { SecretsSection } from "../components/SecretsSection";
 import { ApiError } from "../api/client";
 import {
@@ -547,6 +549,8 @@ export function Settings() {
       <AlertsSection />
       <RoutingSection />
       <ManagerSettings />
+      <ToolsSection />
+      <SkillsSection />
       <ProvidersSection />
       <ModelsSection />
       <LimitsSection />

@@ -115,6 +115,8 @@ export interface ManagerDeps {
   listBots: () => { id: string; name: string; role: string; responsibilities: string[]; archived: boolean; model: string | null; runtime: string }[];
   audit: AuditLog;
   validateModel: (ref: string) => void;
+  /** What tools exist and which do not, so the plan never relies on something that is missing. */
+  toolsSummary?: () => Promise<{ available: string[]; notAvailable: string[] }>;
   /** How long to wait between looks at a specialist's task. */
   pollMs?: number;
 }
@@ -344,7 +346,8 @@ export class ManagerService {
     try {
       const run = this.view(id);
       const specialists = this.specialists();
-      const plan = await this.askJson(id, planPrompt(run.budget.maxSteps, specialists), `Request:\n${run.goal}`, planSchema, settings);
+      const tools = (await this.d.toolsSummary?.()) ?? null;
+      const plan = await this.askJson(id, planPrompt(run.budget.maxSteps, specialists, tools), `Request:\n${run.goal}`, planSchema, settings);
 
       if (plan.mode === "direct") {
         this.setRun(id, { mode: "direct", status: "completed", result: clip(plan.answer, MAX_RESULT_CHARS), finished_at: this.iso() });
@@ -531,7 +534,7 @@ export class ManagerService {
   }
 }
 
-function planPrompt(maxSteps: number, specialists: Specialist[]): string {
+function planPrompt(maxSteps: number, specialists: Specialist[], tools: { available: string[]; notAvailable: string[] } | null): string {
   const list =
     specialists.length === 0
       ? "(no specialist bots are available: do everything yourself, with specialist null)"
@@ -543,6 +546,12 @@ function planPrompt(maxSteps: number, specialists: Specialist[]): string {
     "Use a specialist (its id) only if its role clearly fits the step; otherwise null and you do it yourself. Never invent ids. Steps that do not need each other have empty dependsOn; dependsOn may only name EARLIER steps.",
     "Do not add steps for planning, checking or summarising: that is done afterwards.",
     `Available specialists:\n${list}`,
+    ...(tools
+      ? [
+          `Things this platform can really do now: ${clip(tools.available.join(", "), 400) || "text only"}.`,
+          `NOT available (never plan on them; if the request needs one, say so plainly in the answer): ${clip(tools.notAvailable.join(", "), 600) || "none"}.`,
+        ]
+      : []),
   ].join("\n");
 }
 

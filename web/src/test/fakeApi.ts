@@ -645,6 +645,13 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     session: { mode: 'local' as 'local' | 'remote', remoteEnabled: true, remoteHosts: ['pc.tail1.ts.net'], paired: null as boolean | null, device: null as { id: string; name: string } | null },
     devices: [] as { id: string; name: string; userAgent: string | null; createdAt: string; lastSeenAt: string; revokedAt: string | null }[],
     pairingCode: 'ABCDE23456',
+    tools: [
+      { id: 'node', name: 'Node.js', category: 'coding', description: 'd', status: 'available', detail: 'v24.0.0', requiresAssignment: true },
+      { id: 'pc-agent', name: 'PowerShell / PC agent', category: 'pc', description: 'd', status: 'unavailable', detail: 'Not built yet (Stage 4).', requiresAssignment: true },
+      { id: 'gmail', name: 'Gmail', category: 'communication', description: 'd', status: 'needs_setup', detail: 'press Connect Gmail in Settings to sign in.', requiresAssignment: false },
+    ] as any[],
+    skills: [] as any[],
+    botCaps: new Map<string, { skills: string[]; tools: string[] }>(),
     manager: {
       settings: { enabled: true, allowedBots: [] as string[], model: 'auto/general', escalationModel: 'auto/research', maxRunsPerDay: 20, defaultBudget: { maxModelCalls: 12, maxTokens: 40000, maxSteps: 6 } },
       ceilings: { maxModelCalls: 40, maxTokens: 200000, maxSteps: 10, maxRunsPerDay: 100 },
@@ -681,6 +688,52 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       }
     }
     if (parts[1] === 'monitor' && method === 'GET') return json(ext.monitor);
+    if (parts[1] === 'tools') {
+      if (!parts[2] && method === 'GET') return json({ tools: ext.tools });
+      if (parts[2] === 'refresh' && method === 'POST') return json({ tools: ext.tools });
+    }
+    if (parts[1] === 'skills') {
+      const view = (s: any) => ({ ...s, missingTools: [], assignedBots: [...ext.botCaps.entries()].filter(([, c]) => c.skills.includes(s.id)).map(([b]) => b) });
+      if (!parts[2] && method === 'GET') return json({ skills: ext.skills.filter((s) => s.archived === (url.searchParams.get('archived') === '1')).map(view) });
+      if (!parts[2] && method === 'POST') {
+        if (ext.skills.some((s) => s.name === body.name)) return err(409, 'name_taken', 'A skill with that name already exists.');
+        if (/AIzaSy/.test(JSON.stringify(body))) return err(400, 'skill_has_secret', 'A skill must not contain keys, tokens or passwords.');
+        const s = { id: 'sk' + (ext.skills.length + 1), tags: [], enabled: true, archived: false, imported: false, version: 1, updatedAt: new Date().toISOString(), versions: [{ version: 1, name: body.name, changeNote: 'Created', restoredFrom: null, createdAt: new Date().toISOString() }], ...body };
+        ext.skills.push(s);
+        return json({ skill: view(s) }, 201);
+      }
+      if (parts[2] === 'import' && method === 'POST') {
+        if (body?.format !== 'awp-skill@1') return err(400, 'bad_skill_file', 'This is not a valid skill file.');
+        const s = { id: 'sk' + (ext.skills.length + 1), tags: [], enabled: false, archived: false, imported: true, version: 1, updatedAt: new Date().toISOString(), versions: [{ version: 1, name: body.name, changeNote: 'Imported', restoredFrom: null, createdAt: new Date().toISOString() }], requiredTools: [], description: '', ...body };
+        ext.skills.push(s);
+        return json({ skill: view(s) }, 201);
+      }
+      const s = ext.skills.find((x) => x.id === parts[2]);
+      if (!s) return err(404, 'skill_not_found', 'That skill does not exist.');
+      if (!parts[3] && method === 'GET') return json({ skill: { ...view(s) } });
+      if (!parts[3] && method === 'PATCH') {
+        const changed = ['name', 'description', 'instructions'].some((k) => body[k] !== undefined && body[k] !== s[k]);
+        Object.assign(s, body);
+        if (changed) { s.version++; s.versions.unshift({ version: s.version, name: s.name, changeNote: body.changeNote ?? null, restoredFrom: null, createdAt: new Date().toISOString() }); }
+        return json({ skill: view(s) });
+      }
+      if (parts[3] === 'duplicate') { const c = { ...s, id: 'sk' + (ext.skills.length + 1), name: 'Copy of ' + s.name, version: 1, versions: [{ version: 1, name: s.name, changeNote: 'Created', restoredFrom: null, createdAt: new Date().toISOString() }] }; ext.skills.push(c); return json({ skill: view(c) }, 201); }
+      if (parts[3] === 'archive' || parts[3] === 'unarchive') { s.archived = parts[3] === 'archive'; return json({ skill: view(s) }); }
+      if (parts[3] === 'restore') { s.version++; s.versions.unshift({ version: s.version, name: s.name, changeNote: 'Restored version ' + body.version, restoredFrom: body.version, createdAt: new Date().toISOString() }); return json({ skill: view(s) }); }
+      if (parts[3] === 'export') return json({ file: { format: 'awp-skill@1', name: s.name, description: s.description ?? '', instructions: s.instructions, requiredTools: s.requiredTools ?? [], tags: [] } });
+      if (parts[3] === 'test') return json({ result: { output: 'TESTED: ' + body.input, missingTools: [], modelCalls: 1, tokens: 15, note: null } });
+    }
+    if (parts[1] === 'bots' && parts[3] === 'capabilities' && method === 'GET') return json(ext.botCaps.get(parts[2]!) ?? { skills: [], tools: [] });
+    if (parts[1] === 'bots' && (parts[3] === 'skills' || parts[3] === 'tools') && method === 'PUT') {
+      const caps = ext.botCaps.get(parts[2]!) ?? { skills: [], tools: [] };
+      if (parts[3] === 'skills') caps.skills = body.skillIds; else {
+        const bad = body.toolIds.find((id: string) => ext.tools.find((t) => t.id === id)?.status === 'unavailable');
+        if (bad) return err(409, 'tool_unavailable', 'That tool is not available.');
+        caps.tools = body.toolIds;
+      }
+      ext.botCaps.set(parts[2]!, caps);
+      return json(parts[3] === 'skills' ? { skills: caps.skills } : { tools: caps.tools });
+    }
     if (parts[1] === 'manager') {
       const specialists = [...bots.values()].filter((b) => ext.manager.settings.allowedBots.includes(b.id)).map((b) => ({ id: b.id, name: b.name, role: b.role }));
       if (!parts[2] && method === 'GET') return json({ ...ext.manager, specialists });
@@ -814,7 +867,10 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills"].includes(parts[1] ?? "")) {
+      return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
+    }
+    if (parts[0] === "api" && parts[1] === "bots" && ["capabilities", "skills", "tools"].includes(parts[3] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);

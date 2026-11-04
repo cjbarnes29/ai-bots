@@ -16,7 +16,11 @@ export class BuiltInRuntime implements AgentRuntime {
   readonly id = "builtin";
   readonly toolsEnabled = false as const;
 
-  constructor(private readonly llm: LlmService) {}
+  constructor(
+    private readonly llm: LlmService,
+    /** Extra instructions for a bot (its assigned skills). */
+    private readonly promptExtras: (botId: string) => Promise<string> = async () => "",
+  ) {}
 
   async run(input: RuntimeInput): Promise<RuntimeResult> {
     const { bot } = input;
@@ -24,7 +28,8 @@ export class BuiltInRuntime implements AgentRuntime {
       throw new LlmError("no_model_selected", "Choose a model for this bot on the Details tab first.");
     }
     const limits = this.llm.limits();
-    const system: ChatMessage = { role: "system", content: buildSystemPrompt(bot) };
+    const extras = await this.promptExtras(bot.id);
+    const system: ChatMessage = { role: "system", content: buildSystemPrompt(bot) + (extras ? `\n\n${extras}` : "") };
     const user: ChatMessage = { role: "user", content: input.userMessage };
 
     // Keep the most recent messages, dropping the oldest until the prompt fits the size limit.

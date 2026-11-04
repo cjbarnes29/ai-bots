@@ -85,6 +85,18 @@ every new power is a connector behind it. Image/video/audio generation and Googl
 - Restart: running runs become "interrupted" (no silent resume; Stage 6 adds queues and checkpoints). Cancel works mid-run and cancels the specialist task.
 - Tests: manager.test.ts (25) with a content-aware fake model; mutation checks (specialist allow-list, no-duplicate-request rule, budget, dependency filter, duplicate ids) caught; dashboard manager.test.tsx (6).
 
+### Stage 3 facts: Tool and Skill Manager (DONE)
+- Tool registry (`src/tools/registry.ts`, GET /api/tools, POST /api/tools/refresh; Settings > Tools): an honest list with status available / needs_setup / unavailable and a reason. Checks use FIXED
+  commands (node, npm, git, python, code, adb) with a 4 s timeout, plus connector readiness, AI providers and Ollama. Unbuilt things (PC agent, documents, Google Workspace, GitHub, Notion, n8n, MCP) say
+  "Not built yet (Stage N)"; image/video/audio generation say "No free, verified service ... connected". The Manager plan prompt lists what exists and what does NOT, so it never plans on missing tools.
+- Skill library (`src/skills/`, migration 012; Settings > Skill library): create, edit (every change a permanent version; versions/skills cannot be deleted - DB triggers), restore a version (as a NEW version),
+  duplicate, archive/unarchive, export (`awp-skill@1` JSON), import (arrives OFF, unassigned), try on a sample (one limited call), enable/disable, assign to bots (max 10 per bot). Skills are TEXT only.
+  Secrets (API keys, tokens, private keys) are refused in skills. Skill text is added to a bot's prompt in chat AND tasks (cap 4000 chars); a skill needing a missing tool tells the bot not to claim it used it.
+- Tool access per bot (`bot_tools`): only for tools that need explicit access and are not unavailable; connectors stay with each bot's Permissions switches. Bot Permissions tab shows skills + tool access.
+- Phones: read-only for skills/tools; all changes (skills, import, assignments) are owner-only (403).
+- Bug found by tests and fixed: a skill PATCH with fields left out must not apply schema defaults (it would have wiped tags/tools).
+- Tests: skills.test.ts (33; mutation checks on secret refusal, imported-off, enabled filter, assignable rule caught), dashboard skills.test.tsx (7).
+
 ### Inbound messages and phone alerts (approved after Phase 11)
 - Inbound (`src/inbound/`, migration 009, Automation page section "Inbound messages"): a source watches Telegram (read_messages) or Gmail (unread, last day) and turns each NEW message into a text event
   (default names `telegram_message` / `gmail_message`) that the owner's triggers can use. Created OFF, PC-only to change; can be switched on only if the chosen bot has that connector's READ permission;

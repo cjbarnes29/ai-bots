@@ -1,4 +1,5 @@
 import { ApiError } from "../api/client";
+import { BotCapabilities } from "./BotCapabilities";
 import { useAudit, useSetReadPermission } from "../api/hooks";
 import { CONNECTORS, CONNECTOR_LABELS, type Bot } from "../api/types";
 
@@ -62,6 +63,8 @@ export function PermissionsTab({ bot }: { bot: Bot }) {
           {error}
         </p>
       )}
+
+      <BotCapabilities bot={bot} />
 
       <section aria-label="Permission change log">
         <h3 className="mb-2 font-semibold">Change log</h3>

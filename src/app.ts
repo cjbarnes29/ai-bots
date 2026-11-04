@@ -46,6 +46,9 @@ import { registerMonitorRoutes } from "./monitor/monitor.js";
 import { registerInboundRoutes } from "./inbound/routes.js";
 import { ManagerService } from "./manager/service.js";
 import { registerManagerRoutes } from "./manager/routes.js";
+import { SkillService } from "./skills/service.js";
+import { registerSkillRoutes } from "./skills/routes.js";
+import { ToolRegistry, realRunner, type CommandRunner } from "./tools/registry.js";
 import { ModelRouter } from "./routing/router.js";
 import { RoutingMaintenance, registerRoutingRoutes } from "./routing/routes.js";
 import { autoRef, loadRouting, saveRouting } from "./routing/config.js";
@@ -61,6 +64,9 @@ declare module "fastify" {
     push: PushService;
     /** The Manager AI. */
     manager: ManagerService;
+    /** The tool registry and skill library. */
+    skills: SkillService;
+    tools: ToolRegistry;
     /** Inbound message sources. The real server checks them with the clock; tests call `inbound.tick()` by hand. */
     inbound: InboundService;
   }
@@ -89,6 +95,8 @@ export interface BuildAppOptions {
   pushFetch?: typeof fetch;
   /** Tests: how often the Manager looks at a specialist's task. */
   managerPollMs?: number;
+  /** Tests: stands in for running 'git --version' and similar fixed checks on this PC. */
+  toolRunner?: CommandRunner;
   /** Tailscale names (*.ts.net) the phone may use. Empty = remote access is off and only this PC can connect. */
   remoteHosts?: string[];
   /** Folder with the built dashboard (web/dist). When given, the app serves the dashboard itself. */
@@ -199,7 +207,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const routingMaintenance = new RoutingMaintenance(llmRepo, catalog, now);
 
   // ---- Test chat: bots reply only when you send a message. No tools. ----
-  const chat = new ChatService(new ChatRepository(db), (id) => agentService.getBot(id), createRuntimeRegistry(llm), llm, now);
+  let skillService: SkillService | undefined; // created just below, once the approval gate and vault exist
+  const chat = new ChatService(new ChatRepository(db), (id) => agentService.getBot(id), createRuntimeRegistry(llm, async (botId) => (skillService ? await skillService.promptFor(botId) : "")), llm, now);
   await registerChatRoutes(app, chat);
 
   // ---- Collaboration: bots hand text tasks to teammates you allow (nobody, by default) ----
@@ -225,6 +234,39 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
   await registerApprovalRoutes(app, gate, audit);
 
+  // ---- Tool registry and skill library (Stage 3) ----
+  const tools = new ToolRegistry(
+    {
+      run: options.toolRunner ?? realRunner,
+      connectors: () => registry.list().map((c) => ({ id: c.id, label: c.label, notReady: c.notReady ? c.notReady({ secret: (n) => vault.resolve(n) }) : null })),
+      ollama: () => {
+        const p = catalog.listProviders().find((x) => x.id === "ollama");
+        return { enabled: p?.enabled ?? false, status: p?.status ?? null, usableModels: catalog.listModels("ollama").filter((m) => m.callable).length };
+      },
+      providersReady: () => catalog.listProviders().filter((p) => p.kind === "cloud" && p.enabled && p.keyConfigured).length,
+    },
+    now,
+  );
+  skillService = new SkillService({
+    db,
+    audit,
+    now,
+    tools: () => tools.list(),
+    toolIds: () => tools.ids(),
+    complete: (input) => llm.complete(input),
+    botExists: (id) => {
+      try {
+        agentService.getBot(id);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  });
+  app.decorate("skills", skillService);
+  app.decorate("tools", tools);
+  await registerSkillRoutes(app, skillService, tools);
+
   const taskRepo = new TaskRepository(db);
   let automation: AutomationService | undefined; // created just below; the engine tells it when a chain ends
   const engine = new TaskEngine({
@@ -233,6 +275,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     llm,
     now,
     actions: gate,
+    promptExtras: (botId) => skillService!.promptFor(botId),
     onRootFinished: (task) => automation?.onRootFinished(task),
   });
   engine.recoverInterrupted();
@@ -247,6 +290,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     listBots: () => agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, role: b.role, responsibilities: b.responsibilities, archived: b.archived, model: b.model, runtime: b.runtime })),
     audit,
     validateModel: (ref) => catalog.validateModelRef(ref),
+    toolsSummary: () => tools.summary(),
     ...(options.managerPollMs ? { pollMs: options.managerPollMs } : {}),
   });
   manager.recoverInterrupted();

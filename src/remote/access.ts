@@ -64,6 +64,8 @@ const OWNER_ONLY_ROUTES: RegExp[] = [
   /^\/api\/vault/,
   /^\/api\/inbound/,
   /^\/api\/manager\/settings/,
+  /^\/api\/skills/,
+  /^\/api\/bots\/:id\/(skills|tools)/,
   /^\/api\/devices\/pairing/,
   /^\/api\/gmail\/oauth\/start/,
   /^\/api\/llm\/(providers|models|limits|routing)/,

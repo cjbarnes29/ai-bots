@@ -74,6 +74,8 @@ export interface EngineDeps {
   now?: () => number;
   /** The approval gate. Without it, bots cannot ask for outside actions at all. */
   actions?: ActionPort;
+  /** Extra instructions for a bot (its assigned skills). */
+  promptExtras?: (botId: string) => Promise<string>;
   /** Called after a chain that was started from outside finishes (completed or failed). */
   onRootFinished?: (task: TaskRecord) => void;
 }
@@ -301,8 +303,10 @@ export class TaskEngine {
     // Outside actions this bot may ask for (none exist until connectors are built, and none at all while paused).
     const actionOffers = this.deps.actions?.offersFor(bot.id) ?? [];
 
+    const skillText = (await this.deps.promptExtras?.(bot.id)) ?? "";
     const system =
       buildSystemPrompt(bot) +
+      (skillText ? `\n\n${skillText}` : "") +
       (offered.length > 0 ? `\n\n${buildDelegationAddendum(offered, limits.maxSubtasksPerTask)}` : "") +
       (actionOffers.length > 0 ? `\n\n${buildActionAddendum(actionOffers, MAX_ACTIONS_PER_TASK)}` : "");
     const label = task.originLabel ?? task.origin;

@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
+import type { SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -699,5 +699,61 @@ export function useUpdateManagerSettings() {
   return useMutation({
     mutationFn: (patch: Partial<ManagerSettingsInfo>) => api("PUT", "/api/manager/settings", patch),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["manager"] }),
+  });
+}
+
+export function useTools() {
+  return useQuery({ queryKey: ["tools"], queryFn: async () => (await api<{ tools: ToolInfo[] }>("GET", "/api/tools")).tools, refetchInterval: 30_000 });
+}
+
+export function useRefreshTools() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await api<{ tools: ToolInfo[] }>("POST", "/api/tools/refresh", {})).tools,
+    onSuccess: (tools) => qc.setQueryData(["tools"], tools),
+  });
+}
+
+export function useSkills(archived: boolean) {
+  return useQuery({ queryKey: ["skills", { archived }], queryFn: async () => (await api<{ skills: SkillInfo[] }>("GET", `/api/skills?archived=${archived ? 1 : 0}`)).skills });
+}
+
+export function useSkill(id: string) {
+  return useQuery({ queryKey: ["skills", "one", id], queryFn: async () => (await api<{ skill: SkillInfo & { versions: SkillVersionInfo[] } }>("GET", `/api/skills/${id}`)).skill });
+}
+
+const useSkillMutation = <V, R = unknown>(fn: (v: V) => Promise<R>) => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["skills"] }), qc.invalidateQueries({ queryKey: ["capabilities"] })]) });
+};
+
+export const useCreateSkill = () => useSkillMutation((body: { name: string; description: string; instructions: string; requiredTools: string[] }) => api("POST", "/api/skills", body));
+export const useUpdateSkill = () => useSkillMutation((v: { id: string; patch: Record<string, unknown> }) => api("PATCH", `/api/skills/${v.id}`, v.patch));
+export const useDuplicateSkill = () => useSkillMutation((id: string) => api("POST", `/api/skills/${id}/duplicate`, {}));
+export const useArchiveSkill = () => useSkillMutation((v: { id: string; archived: boolean }) => api("POST", `/api/skills/${v.id}/${v.archived ? "archive" : "unarchive"}`, {}));
+export const useRestoreSkillVersion = () => useSkillMutation((v: { id: string; version: number }) => api("POST", `/api/skills/${v.id}/restore`, { version: v.version }));
+export const useImportSkill = () => useSkillMutation((file: unknown) => api("POST", "/api/skills/import", file));
+
+export function useTestSkill() {
+  return useMutation({ mutationFn: async (v: { id: string; input: string }) => (await api<{ result: SkillTestResult }>("POST", `/api/skills/${v.id}/test`, { input: v.input })).result });
+}
+
+export function useBotCapabilities(botId: string) {
+  return useQuery({ queryKey: ["capabilities", botId], queryFn: () => api<{ skills: string[]; tools: string[] }>("GET", `/api/bots/${botId}/capabilities`) });
+}
+
+export function useSetBotSkills(botId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (skillIds: string[]) => api("PUT", `/api/bots/${botId}/skills`, { skillIds }),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["capabilities", botId] }), qc.invalidateQueries({ queryKey: ["skills"] })]),
+  });
+}
+
+export function useSetBotTools(botId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (toolIds: string[]) => api("PUT", `/api/bots/${botId}/tools`, { toolIds }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["capabilities", botId] }),
   });
 }

@@ -535,3 +535,45 @@ export interface ManagerOverview {
   specialists: { id: string; name: string; role: string }[];
   runs: ManagerRun[];
 }
+
+export interface ToolInfo {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  status: "available" | "needs_setup" | "unavailable";
+  detail: string;
+  requiresAssignment: boolean;
+}
+
+export interface SkillInfo {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  requiredTools: string[];
+  tags: string[];
+  enabled: boolean;
+  archived: boolean;
+  imported: boolean;
+  version: number;
+  updatedAt: string;
+  missingTools: { id: string; name: string; reason: string }[];
+  assignedBots: string[];
+}
+
+export interface SkillVersionInfo {
+  version: number;
+  name: string;
+  changeNote: string | null;
+  restoredFrom: number | null;
+  createdAt: string;
+}
+
+export interface SkillTestResult {
+  output: string;
+  missingTools: { id: string; name: string; reason: string }[];
+  modelCalls: number;
+  tokens: number;
+  note: string | null;
+}

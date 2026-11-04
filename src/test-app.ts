@@ -28,6 +28,8 @@ export async function createTestApp(options: { connectors?: ConnectorDefinition[
     // Older tests expect a new bot to have NO model until one is chosen; routing tests switch automatic assignment back on.
     routingDefaults: { autoAssignNewBots: false },
     managerPollMs: 5,
+    // Tests never run real programs on this PC: pretend git and node exist, nothing else does.
+    toolRunner: async (command) => ((command === "node" ? "v24.0.0" : command === "git" ? "git version 2.0.0" : null)),
     connectors: options.connectors ?? [], // tests never get a real connector unless they ask for one
     ...(options.googleUrls ? { googleUrls: options.googleUrls } : {}),
     ...(options.remoteHosts ? { remoteHosts: options.remoteHosts } : {}),
