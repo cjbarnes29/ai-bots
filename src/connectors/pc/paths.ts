@@ -66,7 +66,7 @@ export function validateRoot(input: string, forbidden: string[] = []): PathResul
  * `relativeTo` is used for relative paths (normally the first workspace or the command's working folder).
  */
 export function resolveInRoots(roots: string[], input: string, relativeTo: string, options: { allowSecretNames?: boolean } = {}): PathResult {
-  if (roots.length === 0) return { ok: false, reason: "No workspace folder has been set up yet (Settings → PC agent)." };
+  if (roots.length === 0) return { ok: false, reason: "No workspace folder has been set up yet (the PC Control Center)." };
   if (typeof input !== "string" || input.length === 0 || input.length > 400 || /[\u0000-\u001f]/.test(input)) return { ok: false, reason: "That is not a valid path." };
   if (/^\\\\/.test(input) || /^[a-z]+:\/\//i.test(input)) return { ok: false, reason: "Network paths and web addresses are not allowed." };
   const abs = normalize(isAbsolute(input) ? input : resolve(relativeTo, input));

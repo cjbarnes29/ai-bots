@@ -14,6 +14,7 @@ import { registerApprovalRoutes } from "./approvals/routes.js";
 import { ActionGate } from "./approvals/service.js";
 import { AuditLog } from "./audit/audit.js";
 import { createBrowserConnector } from "./connectors/browser/browser.js";
+import { registerIntegrationCatalog } from "./connectors/catalog.js";
 import { createGmailConnector, registerGmailOAuthRoutes, registerGmailTestRoute, registerGoogleOAuthRoutes, type GoogleUrls } from "./connectors/gmail.js";
 import { createGithubConnector, createGoogleWorkspaceConnector, createMcpConnector, createN8nConnector, createNotionConnector, GWS_REFRESH_TOKEN, GWS_SCOPES } from "./connectors/integrations.js";
 import { createMemoryConnector } from "./memory/connector.js";
@@ -279,6 +280,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   if (registry.get("gmail")) await registerGmailOAuthRoutes({ app, vault, audit, now, ...(options.googleUrls ? { urls: options.googleUrls } : {}) });
   const integrationAccess = new IntegrationAccess(db, audit, now);
   if (registry.get("gworkspace")) await registerGoogleOAuthRoutes({ app, vault, audit, now, ...(options.googleUrls ? { urls: options.googleUrls } : {}) }, { slug: "gworkspace", label: "Google Workspace", scopes: GWS_SCOPES, refreshToken: GWS_REFRESH_TOKEN });
+  // agent's existing "browser" switch (no new permission table is needed).
+  const readEnabled = (botId: string, connector: string): boolean => {
+    return connector === "pc" || connector === "documents" || connector === "memory" || (isIntegration(connector) ? integrationAccess.has(botId, connector) : false) || agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled);
+  };
   const gate = new ActionGate({
     repo: new ApprovalRepository(db),
     registry,
@@ -286,10 +291,24 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     vault,
     getBot: (id) => agentService.getBot(id),
     // The PC agent has its own five permissions (checked by the connector); the generic read switch does not apply to it.
-    readEnabled: (botId, connector) => connector === "pc" || connector === "documents" || connector === "memory" || (isIntegration(connector) ? integrationAccess.has(botId, connector) : false) || agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
+    readEnabled,
     now,
   });
   await registerApprovalRoutes(app, gate, audit);
+  await registerIntegrationCatalog({
+    app,
+    registry,
+    vault,
+    audit,
+    gate,
+    agentsFor: (connector) => {
+      if (connector === "pc" || connector === "documents" || connector === "memory") return null;
+      return agentService
+        .listBots(false)
+        .filter((b) => readEnabled(b.id, connector))
+        .map((b) => ({ id: b.id, name: b.name }));
+    },
+  });
   if (registry.get("gmail")) await registerGmailTestRoute({ app, vault, gate, now, ...(options.googleUrls ? { urls: options.googleUrls } : {}) });
   await registerMemoryRoutes(app, memory, (id) => {
     try {

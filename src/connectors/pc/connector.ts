@@ -204,7 +204,7 @@ export function createPcConnector(pc: PcService): ConnectorDefinition {
         if (!existsSync(join(cwd, "package.json"))) throw new Error("There is no package.json in that folder.");
         const info = pc.startServer({ program: "npm", argv: ["run", String(a["script"])], cwd, timeoutMs: RUN_LIMITS.maxServerMs }, `npm run ${String(a["script"])}`, ctx.botId);
         pc.log({ botId: ctx.botId, action: "start_server", cwd, command: `npm run ${String(a["script"])} (started)`, status: "ok", output: `id ${info.id}` });
-        return `Started (id ${info.id}). It stops by itself at ${info.expiresAt}. You can stop it any time in Settings → PC agent.`;
+        return `Started (id ${info.id}). It stops by itself at ${info.expiresAt}. You can stop it any time in the PC Control Center.`;
       },
     },
 
@@ -238,8 +238,8 @@ export function createPcConnector(pc: PcService): ConnectorDefinition {
     label: "PC (PowerShell tools)",
     actions,
     notReady: () => {
-      if (pc.isStopped()) return "the PC agent is stopped (emergency stop). Resume it in Settings → PC agent.";
-      if (pc.roots().length === 0) return "choose a workspace folder in Settings → PC agent first.";
+      if (pc.isStopped()) return "the PC agent is stopped (emergency stop). Resume it in the PC Control Center.";
+      if (pc.roots().length === 0) return "choose a workspace folder in the PC Control Center first.";
       return null;
     },
     /** Each bot needs the matching permission: read for the read actions, modify, execute, install. Checked when asked and again when approved. */

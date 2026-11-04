@@ -336,7 +336,7 @@ describe("Gmail sign-in and the approval gate", () => {
       const [req] = await pending();
       g.mode.refreshStatus = 400;
       const res = await t.call("POST", `/api/approvals/${req.id}/approve`);
-      expect(res.body.approval).toMatchObject({ status: "failed", error: expect.stringMatching(/Connect Gmail in Settings to sign in again/) });
+      expect(res.body.approval).toMatchObject({ status: "failed", error: expect.stringMatching(/Connect Gmail in the Integrations Center to sign in again/) });
     });
 
     it("the kill switch stops sending", async () => {

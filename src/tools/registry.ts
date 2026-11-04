@@ -109,7 +109,7 @@ export function toolDefinitions(d: ToolProbeDeps): ToolDef[] {
       category: "ai",
       description: "Gemini, Groq, OpenRouter and OmniRoute, free models only.",
       requiresAssignment: false,
-      probe: async () => (d.providersReady() > 0 ? ok(`${d.providersReady()} provider(s) switched on with a key.`) : setup("No cloud provider is switched on with a key yet (Settings → Providers).")),
+      probe: async () => (d.providersReady() > 0 ? ok(`${d.providersReady()} provider(s) switched on with a key.`) : setup("No cloud provider is switched on with a key yet (Settings → AI Models).")),
     },
     {
       id: "ai-local",
@@ -119,7 +119,7 @@ export function toolDefinitions(d: ToolProbeDeps): ToolDef[] {
       requiresAssignment: false,
       probe: async () => {
         const o = d.ollama();
-        if (!o.enabled) return setup("Ollama is switched off in Settings → Providers (or not installed).");
+        if (!o.enabled) return setup("Ollama is switched off in Settings → AI Models (or not installed).");
         return o.usableModels > 0 ? ok(`${o.usableModels} local model(s) ready.`) : setup(`Ollama is on but has no usable model (${o.status ?? "not checked"}).`);
       },
     },
@@ -137,8 +137,8 @@ export function toolDefinitions(d: ToolProbeDeps): ToolDef[] {
       requiresAssignment: false, // controlled by each bot's five PC permissions, not by tool access
       probe: async () => {
         const p = d.pc();
-        if (p.stopped) return setup("Stopped by the emergency stop. Resume it in Settings → PC agent.");
-        if (p.roots === 0) return setup("Choose a workspace folder in Settings → PC agent. Until then bots cannot touch this PC.");
+        if (p.stopped) return setup("Stopped by the emergency stop. Resume it in the PC Control Center.");
+        if (p.roots === 0) return setup("Choose a workspace folder in the PC Control Center. Until then bots cannot touch this PC.");
         return ok(`${p.roots} workspace folder(s). Each bot needs its own PC permissions; everything that changes something needs your approval.`);
       },
     },
@@ -158,8 +158,8 @@ export function toolDefinitions(d: ToolProbeDeps): ToolDef[] {
       requiresAssignment: false, // uses the PC agent's folders and each bot's READ / MODIFY permissions
       probe: async () => {
         const p = d.pc();
-        if (p.stopped) return setup("Stopped by the emergency stop (Settings → PC agent).");
-        if (p.roots === 0) return setup("Choose a workspace folder in Settings → PC agent. Files are only ever written there.");
+        if (p.stopped) return setup("Stopped by the emergency stop (the PC Control Center).");
+        if (p.roots === 0) return setup("Choose a workspace folder in the PC Control Center. Files are only ever written there.");
         return ok("Ready. A bot needs the PC MODIFY permission to create files (READ to summarise data), and every file waits for your approval. Word, Excel and PowerPoint files were opened in the real Microsoft Office during development; PDFs are checked structurally only.");
       },
     },

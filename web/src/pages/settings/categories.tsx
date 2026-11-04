@@ -7,6 +7,7 @@ import { SkillsSection } from "../../components/SkillsSection";
 import { ToolsSection } from "../../components/ToolsSection";
 import { DelegationLimitsSection, LimitsSection, ModelsSection, ProvidersSection, SafetySection } from "../Settings";
 import { Usage } from "../Usage";
+import { ProviderSetupGuide } from "../../components/ProviderSetupGuide";
 import { ThemeSection } from "./ThemeSection";
 
 export interface SettingsCategory {
@@ -52,6 +53,7 @@ export const CATEGORIES: SettingsCategory[] = [
           </Link>
           . A provider only shows as Connected after a test call really succeeds.
         </p>
+        <ProviderSetupGuide />
         <ProvidersSection />
         <ModelsSection />
         <RoutingSection />

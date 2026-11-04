@@ -36,7 +36,20 @@ export interface ConnectorDefinition {
   notReady?(context: Pick<ActionContext, "secret">): string | null;
   /** Per-bot permission beyond the generic read switch (the PC agent's five permissions). Returns the reason to refuse, or null. Checked when asked AND when approved. */
   authorize?(botId: string, action: string, args: Record<string, unknown>): string | null;
+  /**
+   * A harmless check that the saved credentials really work: read-only, no side effects, nothing sent, nothing paid.
+   * Return a short summary on success, or throw an Error with a plain-language message. Never include a secret in the message.
+   * Connectors without this are shown as "not testable yet" and are never claimed to be verified.
+   */
+  verify?(context: Pick<ActionContext, "secret">): Promise<VerifyOk>;
   actions: Record<string, ActionSpec>;
+}
+
+export interface VerifyOk {
+  ok: true;
+  /** One line shown to the owner, e.g. "Signed in as me@example.com". */
+  summary: string;
+  account?: string;
 }
 
 export class ConnectorRegistry {

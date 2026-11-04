@@ -35,9 +35,9 @@ describe("the Approvals page", () => {
 
   it("says when a connection still needs its token", async () => {
     const api = createFakeApi();
-    (api.ext.connectors[0] as any).notReady = "paste the bot token in Settings first.";
+    (api.ext.connectors[0] as any).notReady = "paste the bot token in the Integrations Center first.";
     renderApp(api);
-    expect(await screen.findByText(/not set up yet: paste the bot token in Settings first/)).toBeInTheDocument();
+    expect(await screen.findByText(/not set up yet: paste the bot token in the Integrations Center first/)).toBeInTheDocument();
   });
 
   it("shows the exact content of a waiting request, and nothing runs until you confirm", async () => {

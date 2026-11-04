@@ -46,7 +46,7 @@ async function callTelegram(baseUrl: string, token: string, method: string, body
     /* not JSON */
   }
   if (!res.ok || !data?.ok) {
-    if (res.status === 401 || res.status === 404) throw new Error("Telegram did not accept the bot token. Check the token in Settings.");
+    if (res.status === 401 || res.status === 404) throw new Error("Telegram did not accept the bot token. Check the token in the Integrations Center.");
     const why = typeof data?.description === "string" ? clip(data.description, 200) : `status ${res.status}`;
     throw new Error(`Telegram refused the request: ${why}`);
   }
@@ -68,9 +68,14 @@ export function createTelegramConnector(baseUrl: string = TELEGRAM_BASE_URL): Co
     secrets: [{ name: TELEGRAM_TOKEN_NAME, description: "Telegram bot token (from @BotFather)" }],
     notReady: (ctx) => {
       const token = ctx.secret(TELEGRAM_TOKEN_NAME);
-      if (!token) return "paste the bot token in Settings first.";
+      if (!token) return "paste the bot token in the Integrations Center first.";
       if (!TOKEN_SHAPE.test(token)) return "the saved token does not look like a Telegram bot token.";
       return null;
+    },
+    verify: async (ctx) => {
+      const me = (await callTelegram(baseUrl, ctx.secret(TELEGRAM_TOKEN_NAME) ?? "", "getMe", {})) as { username?: string } | null;
+      const name = typeof me?.username === "string" ? `@${me.username}` : "the bot";
+      return { ok: true, summary: `Telegram accepted the token for ${name}`, ...(typeof me?.username === "string" ? { account: me.username } : {}) };
     },
     actions: {
       send_message: {

@@ -403,6 +403,35 @@ export interface AuditEvent {
   detail: Record<string, unknown>;
 }
 
+/** One outside service in the Integrations Center. "verified" only ever follows a real, successful check. */
+export type IntegrationStatus = "not_set_up" | "ready" | "verified" | "failed";
+
+export interface IntegrationEntry {
+  id: string;
+  label: string;
+  group: string;
+  status: IntegrationStatus;
+  notReady: string | null;
+  testable: boolean;
+  lastCheckAt: string | null;
+  lastCheckOk: boolean | null;
+  lastCheckText: string | null;
+  lastUsedAt: string | null;
+  secrets: { name: string; description: string; saved: boolean }[];
+  actions: { name: string; kind: "read" | "write"; description: string }[];
+  /** Which agents may use it. null = decided elsewhere (PC, documents, memory). */
+  agents: { id: string; name: string }[] | null;
+  help: string[];
+}
+
+export interface VerifyResponse {
+  result: "verified" | "failed" | "not_testable";
+  summary?: string;
+  message?: string;
+  reason?: string;
+  account?: string;
+}
+
 export interface SecretStatus {
   name: string;
   description: string;

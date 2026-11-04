@@ -36,7 +36,7 @@ async function http(label: string, url: string, init: RequestInit): Promise<{ st
 }
 
 function expectOk(label: string, r: { status: number; data: any }): void {
-  if (r.status === 401) throw new Error(`${label} did not accept the saved token. Check it in Settings.`);
+  if (r.status === 401) throw new Error(`${label} did not accept the saved token. Check it in the Integrations Center.`);
   if (r.status === 403) throw new Error(`${label} says this token is not allowed to do that.`);
   if (r.status === 404) throw new Error(`${label} could not find that (or the token cannot see it).`);
   if (r.status < 200 || r.status >= 300) {
@@ -84,7 +84,12 @@ export function createGithubConnector(base: string = GITHUB_API): ConnectorDefin
     id: "github",
     label: "GitHub",
     secrets: [{ name: GITHUB_TOKEN, description: "GitHub fine-grained personal access token (give it only the repositories and permissions you want bots to use)" }],
-    notReady: (ctx) => (ctx.secret(GITHUB_TOKEN) ? null : "paste a GitHub token in Settings first."),
+    notReady: (ctx) => (ctx.secret(GITHUB_TOKEN) ? null : "paste a GitHub token in the Integrations Center first."),
+    verify: async (ctx) => {
+      const me = await call(tok(ctx), "/user");
+      const login = typeof me?.login === "string" ? me.login : "";
+      return { ok: true, summary: login ? `GitHub accepted the token for ${login}` : "GitHub accepted the token", ...(login ? { account: login } : {}) };
+    },
     actions: {
       search_issues: {
         kind: "read",
@@ -177,7 +182,12 @@ export function createNotionConnector(base: string = NOTION_API): ConnectorDefin
     id: "notion",
     label: "Notion",
     secrets: [{ name: NOTION_TOKEN, description: "Notion internal integration secret (share only the pages you want bots to see with that integration)" }],
-    notReady: (ctx) => (ctx.secret(NOTION_TOKEN) ? null : "paste a Notion integration secret in Settings first."),
+    notReady: (ctx) => (ctx.secret(NOTION_TOKEN) ? null : "paste a Notion integration secret in the Integrations Center first."),
+    verify: async (ctx) => {
+      const me = await call(tok(ctx), "/users/me");
+      const name = typeof me?.name === "string" && me.name ? me.name : "the integration";
+      return { ok: true, summary: `Notion accepted the secret for ${name}` };
+    },
     actions: {
       search: {
         kind: "read",
@@ -236,7 +246,7 @@ export function createN8nConnector(): ConnectorDefinition {
     secrets: [{ name: N8N_WEBHOOK, description: "The n8n webhook address to start (https, or http://localhost). It is the only thing bots can start." }],
     notReady: (ctx) => {
       const u = ctx.secret(N8N_WEBHOOK);
-      if (!u) return "paste the n8n webhook address in Settings first.";
+      if (!u) return "paste the n8n webhook address in the Integrations Center first.";
       return safeEndpoint(u) ? null : "the saved n8n address must be https, or http on this PC (localhost), with no name or password inside.";
     },
     actions: {
@@ -313,7 +323,7 @@ export function createMcpConnector(): ConnectorDefinition {
     ],
     notReady: (ctx) => {
       const u = ctx.secret(MCP_URL);
-      if (!u) return "paste the MCP server address in Settings first.";
+      if (!u) return "paste the MCP server address in the Integrations Center first.";
       return safeEndpoint(u) ? null : "the saved MCP address must be https, or http on this PC (localhost), with no name or password inside.";
     },
     actions: {
@@ -378,7 +388,7 @@ export function createGoogleWorkspaceConnector(options: { urls?: GoogleUrls; now
     const t = await token(secret);
     const r = await googleFetch(url, { ...init, headers: { ...(init.headers ?? {}), authorization: `Bearer ${t}`, ...(init.body && !(init.headers as any)?.["content-type"] ? { "content-type": "application/json" } : {}) } });
     if (r.status === 401) throw new Error(NEEDS_RECONNECT.replaceAll("Gmail", "Google Workspace"));
-    if (r.status === 403) throw new Error("Google says this sign-in is not allowed to do that. Press Connect Google Workspace in Settings and accept every permission.");
+    if (r.status === 403) throw new Error("Google says this sign-in is not allowed to do that. Press Connect Google Workspace in the Integrations Center and accept every permission.");
     if (r.status < 200 || r.status >= 300) throw new Error(`Google refused the request: ${typeof r.data?.error?.message === "string" ? clip(r.data.error.message, 200) : `status ${r.status}`}`);
     return raw ? r : r.data;
   };
@@ -391,8 +401,13 @@ export function createGoogleWorkspaceConnector(options: { urls?: GoogleUrls; now
       { name: GWS_REFRESH_TOKEN, description: "Google Workspace sign-in (set automatically by 'Connect Google Workspace', do not paste)" },
     ],
     notReady: (ctx) => {
-      if (!ctx.secret(GMAIL_CLIENT_ID) || !ctx.secret(GMAIL_CLIENT_SECRET)) return "save the Google client ID and secret in Settings first (the same ones Gmail uses).";
-      return ctx.secret(GWS_REFRESH_TOKEN) ? null : "press Connect Google Workspace in Settings to sign in.";
+      if (!ctx.secret(GMAIL_CLIENT_ID) || !ctx.secret(GMAIL_CLIENT_SECRET)) return "save the Google client ID and secret in the Integrations Center first (the same ones Gmail uses).";
+      return ctx.secret(GWS_REFRESH_TOKEN) ? null : "press Connect Google Workspace in the Integrations Center to sign in.";
+    },
+    verify: async (ctx) => {
+      const about = await api(ctx.secret, `${drive}/drive/v3/about?fields=user`);
+      const email = typeof about?.user?.emailAddress === "string" ? about.user.emailAddress : "";
+      return { ok: true, summary: email ? `Signed in as ${email}` : "Google accepted the sign-in", ...(email ? { account: email } : {}) };
     },
     actions: {
       drive_search: {

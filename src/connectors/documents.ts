@@ -121,7 +121,7 @@ export function createDocumentsConnector(pc: PcService): ConnectorDefinition {
     id: "documents",
     label: "Documents (Word, Excel, PowerPoint, PDF, charts)",
     actions,
-    notReady: () => (pc.isStopped() ? "the PC agent is stopped (emergency stop)." : pc.roots().length === 0 ? "choose a workspace folder in Settings → PC agent first." : null),
+    notReady: () => (pc.isStopped() ? "the PC agent is stopped (emergency stop)." : pc.roots().length === 0 ? "choose a workspace folder in the PC Control Center first." : null),
     authorize: (botId, action) => {
       const need = action === "summarize_data" ? "read" : "modify";
       return pc.hasGrant(botId, need) ? null : `This bot does not have the PC "${need}" permission, which documents use. The owner can give it on the bot's Permissions tab.`;

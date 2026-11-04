@@ -75,6 +75,7 @@ const OWNER_ONLY_ROUTES: RegExp[] = [
   /^\/api\/devices\/pairing/,
   /^\/api\/(gmail|gworkspace)\/oauth\/start/,
   /^\/api\/gmail\/test-email/,
+  /^\/api\/integrations\/:id\/verify/,
   /^\/api\/llm\/(providers|models|limits|routing)/,
   /^\/api\/(delegation|automation)\/limits/,
   /^\/api\/bots\/:id\/permissions\//,

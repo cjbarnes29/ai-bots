@@ -301,6 +301,7 @@ describe("what a phone may do", () => {
     ["POST", "/api/devices/pairing", undefined],
     ["POST", "/api/gmail/oauth/start", {}],
     ["POST", "/api/gmail/test-email", { botId: "00000000-0000-4000-8000-000000000000" }],
+    ["POST", "/api/integrations/telegram/verify", undefined],
     ["PATCH", "/api/llm/providers/ollama", { enabled: true }],
     ["POST", "/api/llm/providers/ollama/refresh-models", undefined],
     ["PATCH", "/api/llm/models/1", { enabled: true }],

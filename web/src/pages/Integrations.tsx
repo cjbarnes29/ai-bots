@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { GmailSection } from "../components/GmailSection";
 import { GoogleWorkspaceSection } from "../components/GoogleWorkspaceSection";
+import { IntegrationCatalog } from "../components/IntegrationCatalog";
 import { SecretsSection } from "../components/SecretsSection";
 
 /**
- * Integrations Center: the one place for connecting outside services. For now it gathers the existing connection panels
- * (keys and tokens, Gmail, Google Workspace) in one page; a catalog with status and a test button per service comes later.
+ * Integrations Center: the one place for connecting outside services. The catalog shows every service with an honest status and a
+ * Test connection button; the panels below it are where credentials are saved and where Google sign-in is started.
  */
 export function Integrations() {
   return (
@@ -21,9 +22,13 @@ export function Integrations() {
           page.
         </p>
       </div>
-      <SecretsSection />
-      <GmailSection />
-      <GoogleWorkspaceSection />
+      <IntegrationCatalog />
+      <div className="space-y-6">
+        <h2 className="text-xl font-bold">Connection settings</h2>
+        <SecretsSection />
+        <GmailSection />
+        <GoogleWorkspaceSection />
+      </div>
     </div>
   );
 }

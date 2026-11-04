@@ -165,6 +165,12 @@ every new power is a connector behind it. Image/video/audio generation and Googl
 - Leads are stored as CSV/Excel files (no database migration). YouTube: Windows speech first (Piper investigated later), manual publishing packages first, automatic upload deferred.
 - Free-only until the owner approves paid services; paid-provider opt-in design stays in Phase 9; keep the model/provider layer independent. Do NOT raise provider request limits without checking real quotas and usage. Do NOT install FFmpeg, Piper or other dependencies without approval.
 
+### Stage 10 facts: Phase 4 (Integrations Center). Built and tested on FAKE services; NO real external call was made
+- `src/connectors/catalog.ts` (GET /api/integrations, POST /api/integrations/:id/verify, owner-only), optional `verify()` on connectors (Gmail, Telegram, GitHub, Notion, Google Workspace; none for n8n/MCP = "not testable"; local ones report ready). "Verified" only after a real check; last check and last use come from the audit log (`AuditLog.latest`), no schema change.
+- Dashboard: catalog with Test connection, details, Disconnect; `ProviderSetupGuide` (key, free-plan confirmation, test, models) on Settings > AI Models. Provider caps were NOT changed.
+- Wording fixes: messages that pointed to "Settings" now name the Integrations Center, the PC Control Center and AI Models.
+- Unverified: no real Gmail/Telegram/GitHub/Notion/Google check was made against the real services (see docs/DECISION-BOARD.md).
+
 ### Gmail "Send test email to myself"
 - `POST /api/gmail/test-email {botId}` (`registerGmailTestRoute` in `gmail.ts`; owner-only, a phone is refused). Reads the signed-in address from Gmail itself (`users/me/profile`, covered by gmail.readonly), then queues an ordinary `gmail.send_message` approval to that address ONLY. Nothing is sent until the owner approves on the Approvals page. The caller cannot choose the address (strict body).
 - Dashboard: Settings > Gmail panel, shown once connected (bot picker + button). Tests: 4 backend (`gmail.test.ts`), 1 dashboard (`approvals.test.tsx`). Still NOT verified against real Google.

@@ -138,7 +138,7 @@ describe("Telegram through the approval gate", () => {
     const [req] = await pending();
     const res = await t.call("POST", `/api/approvals/${req.id}/approve`);
     expect(res.body.approval.status).toBe("failed");
-    expect(res.body.approval.error).toBe("Telegram did not accept the bot token. Check the token in Settings.");
+    expect(res.body.approval.error).toBe("Telegram did not accept the bot token. Check the token in the Integrations Center.");
     expect(JSON.stringify(res.body)).not.toContain(WRONG_TOKEN);
     expect(JSON.stringify((await t.call("GET", "/api/audit?limit=100")).body)).not.toContain(WRONG_TOKEN);
   });

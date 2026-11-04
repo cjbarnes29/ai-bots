@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { MemoryNote, BotMemorySettings, WfGraph, WfOverview, WfProblem, PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
+import type { IntegrationEntry, VerifyResponse, MemoryNote, BotMemorySettings, WfGraph, WfOverview, WfProblem, PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -545,6 +545,22 @@ export function useSecurityLog(limit = 50) {
     queryKey: ["audit", limit],
     queryFn: async () => (await api<{ events: AuditEvent[] }>("GET", `/api/audit?limit=${limit}`)).events,
     refetchInterval: WATCH,
+  });
+}
+
+export function useIntegrations() {
+  return useQuery({
+    queryKey: ["integrations"],
+    queryFn: () => api<{ integrations: IntegrationEntry[]; paused: boolean }>("GET", "/api/integrations"),
+    refetchInterval: WATCH,
+  });
+}
+
+export function useVerifyIntegration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<VerifyResponse>("POST", `/api/integrations/${id}/verify`, {}),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["integrations"] }), qc.invalidateQueries({ queryKey: ["audit"] })]),
   });
 }
 

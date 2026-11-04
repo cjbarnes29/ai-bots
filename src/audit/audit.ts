@@ -34,6 +34,25 @@ export class AuditLog {
     );
   }
 
+  /** The newest event of any of these kinds, optionally only if its detail text contains every given fragment. Read-only; used for "last verified / last used". */
+  latest(kinds: string[], detailContains: string[] = []): AuditEvent | null {
+    if (kinds.length === 0) return null;
+    const marks = kinds.map(() => "?").join(", ");
+    // "!" is the escape character, so a fragment can contain % or _ and still match literally.
+    const likes = detailContains.map(() => " AND detail LIKE ? ESCAPE '!'").join("");
+    const params: string[] = [...kinds, ...detailContains.map((f) => `%${f.replace(/[!%_]/g, (c) => `!${c}`)}%`)];
+    const r = this.db.prepare(`SELECT * FROM audit_events WHERE kind IN (${marks})${likes} ORDER BY id DESC LIMIT 1`).get(...params);
+    if (!r) return null;
+    return {
+      id: Number(r["id"]),
+      createdAt: String(r["created_at"]),
+      kind: String(r["kind"]),
+      actor: String(r["actor"]),
+      botId: r["bot_id"] === null ? null : String(r["bot_id"]),
+      detail: JSON.parse(String(r["detail"])) as Record<string, unknown>,
+    };
+  }
+
   list(limit: number): AuditEvent[] {
     return this.db
       .prepare("SELECT * FROM audit_events ORDER BY id DESC LIMIT ?")

@@ -648,9 +648,9 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     pc: { roots: [] as string[], stopped: false, servers: [] as any[], executions: [] as any[], grants: new Map<string, string[]>(), rootError: null as string | null },
     tools: [
       { id: 'node', name: 'Node.js', category: 'coding', description: 'd', status: 'available', detail: 'v24.0.0', requiresAssignment: true },
-      { id: 'pc-agent', name: 'PowerShell / PC agent', category: 'pc', description: 'd', status: 'needs_setup', detail: 'Choose a workspace folder in Settings → PC agent.', requiresAssignment: false },
+      { id: 'pc-agent', name: 'PowerShell / PC agent', category: 'pc', description: 'd', status: 'needs_setup', detail: 'Choose a workspace folder in the PC Control Center.', requiresAssignment: false },
       { id: 'documents', name: 'Documents, spreadsheets and slides', category: 'documents', description: 'd', status: 'unavailable', detail: 'Not built yet (Stage 5).', requiresAssignment: true },
-      { id: 'gmail', name: 'Gmail', category: 'communication', description: 'd', status: 'needs_setup', detail: 'press Connect Gmail in Settings to sign in.', requiresAssignment: false },
+      { id: 'gmail', name: 'Gmail', category: 'communication', description: 'd', status: 'needs_setup', detail: 'press Connect Gmail in the Integrations Center to sign in.', requiresAssignment: false },
     ] as any[],
     skills: [] as any[],
     workflows: [] as any[],
@@ -677,10 +677,33 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       attention: [] as { level: 'info' | 'warn' | 'error'; text: string; link: string | null }[],
       activity: [] as { at: string; kind: 'task' | 'approval' | 'automation' | 'security'; level: 'info' | 'warn' | 'error'; summary: string; link: string | null }[],
     },
+    checks: {} as Record<string, { ok: boolean; text: string; at: string }>,
+    verifyOutcome: {} as Record<string, { result: string; summary?: string; message?: string }>,
     connectors: [
       { id: 'telegram', label: 'Telegram', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send a message' }] },
       { id: 'gmail', label: 'Gmail', actions: [{ name: 'send_message', kind: 'write' as const, description: 'Send an email' }] },
     ],
+  };
+  // Integrations catalog: what the real server derives from the connectors and the audit log.
+  const integrationEntry = (c: any) => {
+    const check = ext.checks[c.id] as { ok: boolean; text: string; at: string } | undefined;
+    const reason: string | null = c.notReady ?? null;
+    return {
+      id: c.id,
+      label: c.label,
+      group: c.group ?? 'Communication',
+      status: reason ? 'not_set_up' : check ? (check.ok ? 'verified' : 'failed') : 'ready',
+      notReady: reason,
+      testable: c.testable !== false,
+      lastCheckAt: check?.at ?? null,
+      lastCheckOk: check ? check.ok : null,
+      lastCheckText: check?.text ?? null,
+      lastUsedAt: null,
+      secrets: c.secrets ?? [],
+      actions: c.actions,
+      agents: c.agents ?? [],
+      help: c.help ?? [],
+    };
   };
   const extLog = (kind: string, actor: string, detail: Record<string, unknown> = {}) =>
     ext.audit.unshift({ id: ext.audit.length + 1, createdAt: new Date().toISOString(), kind, actor, botId: null, detail });
@@ -692,6 +715,16 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
         ext.paused = !!body.paused;
         extLog(ext.paused ? 'external.paused' : 'external.resumed', 'owner');
         return json({ paused: ext.paused });
+      }
+    }
+    if (parts[1] === 'integrations') {
+      if (!parts[2] && method === 'GET') return json({ integrations: ext.connectors.map(integrationEntry), paused: ext.paused });
+      if (parts[3] === 'verify' && method === 'POST') {
+        const c: any = ext.connectors.find((x: any) => x.id === parts[2]);
+        if (!c) return err(404, 'not_found', 'No such service.');
+        const out = ext.verifyOutcome[c.id] ?? (c.notReady ? { result: 'failed', message: 'Not set up yet: ' + c.notReady } : { result: 'verified', summary: 'Pretend account answered' });
+        if (out.result !== 'not_testable') ext.checks[c.id] = { ok: out.result === 'verified', text: (out.summary ?? out.message) as string, at: new Date().toISOString() };
+        return json(out);
       }
     }
     if (parts[1] === 'monitor' && method === 'GET') return json(ext.monitor);
@@ -924,6 +957,8 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
         ext.stored.set(s.name, body.value);
         s.inVault = true;
         s.updatedAt = new Date().toISOString();
+        // A saved provider key is seen by the AI provider list, like the real server.
+        for (const pr of llm.providers.values()) if (pr.keyEnv === s.name) llm.providers.set(pr.id, { ...pr, keyConfigured: true });
         extLog('vault.set', 'owner', { name: s.name });
         return json({ secrets: ext.secrets });
       }
@@ -974,7 +1009,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc", "workflows", "gworkspace", "memory"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc", "workflows", "gworkspace", "memory", "integrations"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "bots" && ["capabilities", "skills", "tools", "pc", "integrations", "memory"].includes(parts[3] ?? "")) {

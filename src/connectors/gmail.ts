@@ -63,7 +63,7 @@ export async function googleFetch(url: string, init: RequestInit): Promise<{ sta
   return { status: res.status, data };
 }
 
-export const NEEDS_RECONNECT = "Gmail did not accept the saved sign-in. Press Connect Gmail in Settings to sign in again.";
+export const NEEDS_RECONNECT = "Gmail did not accept the saved sign-in. Press Connect Gmail in the Integrations Center to sign in again.";
 
 /** Gets (and caches, in memory only) a short-lived access token. The cache is tied to the refresh token it came from. */
 export function makeTokenSource(urls: GoogleUrls, secret: (name: string) => string | null, now: () => number, refreshName: string = GMAIL_REFRESH_TOKEN, label = "Gmail") {
@@ -92,7 +92,7 @@ export function makeTokenSource(urls: GoogleUrls, secret: (name: string) => stri
 async function gmailApi(urls: GoogleUrls, token: string, path: string, init: RequestInit = {}): Promise<any> {
   const { status, data } = await googleFetch(`${urls.api}${path}`, { ...init, headers: { ...(init.headers ?? {}), authorization: `Bearer ${token}` } });
   if (status === 401) throw new Error(NEEDS_RECONNECT);
-  if (status === 403) throw new Error("Google says this sign-in is not allowed to do that. Press Connect Gmail in Settings and accept both permissions.");
+  if (status === 403) throw new Error("Google says this sign-in is not allowed to do that. Press Connect Gmail in the Integrations Center and accept both permissions.");
   if (status < 200 || status >= 300) {
     const why = typeof data?.error?.message === "string" ? clip(data.error.message, 200) : `status ${status}`;
     throw new Error(`Gmail refused the request: ${why}`);
@@ -166,9 +166,15 @@ export function createGmailConnector(options: { urls?: GoogleUrls; now?: () => n
       { name: GMAIL_REFRESH_TOKEN, description: "Gmail sign-in (set automatically by 'Connect Gmail', do not paste)" },
     ],
     notReady: (ctx) => {
-      if (!ctx.secret(GMAIL_CLIENT_ID) || !ctx.secret(GMAIL_CLIENT_SECRET)) return "paste the Google client ID and client secret in Settings first.";
-      if (!ctx.secret(GMAIL_REFRESH_TOKEN)) return "press Connect Gmail in Settings to sign in.";
+      if (!ctx.secret(GMAIL_CLIENT_ID) || !ctx.secret(GMAIL_CLIENT_SECRET)) return "paste the Google client ID and client secret in the Integrations Center first.";
+      if (!ctx.secret(GMAIL_REFRESH_TOKEN)) return "press Connect Gmail in the Integrations Center to sign in.";
       return null;
+    },
+    verify: async (ctx) => {
+      const profile = await gmailApi(urls, await access(ctx.secret), "/gmail/v1/users/me/profile");
+      const address = String(profile?.emailAddress ?? "");
+      if (!address) throw new Error("Gmail did not say which address is signed in.");
+      return { ok: true, summary: `Signed in as ${address}`, account: address };
     },
     actions: {
       search_messages: {

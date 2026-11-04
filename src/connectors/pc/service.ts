@@ -159,7 +159,7 @@ export class PcService {
   // ---------------- running programs ----------------
   /** Runs a program to the end (with a time limit). The emergency stop ends it early. */
   async run(spec: RunSpec): Promise<RunResult> {
-    if (this.isStopped()) throw new AppError(409, "pc_stopped", "The PC agent is stopped (emergency stop). Resume it in Settings first.");
+    if (this.isStopped()) throw new AppError(409, "pc_stopped", "The PC agent is stopped (emergency stop). Resume it in the Integrations Center first.");
     const proc = (this.d.start ?? startProcess)(spec);
     this.running.add(proc);
     try {
@@ -170,7 +170,7 @@ export class PcService {
   }
 
   startServer(spec: RunSpec, command: string, botId: string | null): RunningServer {
-    if (this.isStopped()) throw new AppError(409, "pc_stopped", "The PC agent is stopped (emergency stop). Resume it in Settings first.");
+    if (this.isStopped()) throw new AppError(409, "pc_stopped", "The PC agent is stopped (emergency stop). Resume it in the Integrations Center first.");
     if (this.servers.size >= RUN_LIMITS.maxServers) throw new AppError(409, "too_many_servers", `At most ${RUN_LIMITS.maxServers} programs can be kept running. Stop one first.`);
     const proc = (this.d.start ?? startProcess)({ ...spec, timeoutMs: RUN_LIMITS.maxServerMs });
     const id = `srv${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
