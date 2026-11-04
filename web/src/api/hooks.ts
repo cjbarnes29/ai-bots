@@ -580,6 +580,14 @@ export function useStartGmailSignIn() {
   return useMutation({ mutationFn: async () => (await api<{ url: string }>("POST", "/api/gmail/oauth/start", {})).url });
 }
 
+export function useSendGmailTest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (botId: string) => api<{ to: string; approvalId: string }>("POST", "/api/gmail/test-email", { botId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["approvals"] }),
+  });
+}
+
 export function useSession() {
   return useQuery({ queryKey: ["session"], queryFn: () => api<SessionInfo>("GET", "/api/session"), refetchInterval: 60_000 });
 }

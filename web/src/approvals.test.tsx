@@ -5,7 +5,7 @@ import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { routes } from "./App";
 import type { Approval } from "./api/types";
-import { createFakeApi } from "./test/fakeApi";
+import { createFakeApi, makeBot } from "./test/fakeApi";
 
 function renderApp(api: { fetch: typeof fetch }, path = "/approvals") {
   vi.stubGlobal("fetch", api.fetch);
@@ -192,5 +192,25 @@ describe("the Gmail panel (Settings)", () => {
     expect(api.writes().every((w) => w.headers["x-awp-client"] === "dashboard")).toBe(true);
     api.ext.gmail.connected = true;
     expect(await screen.findByText("Connected", {}, { timeout: 8000 })).toBeInTheDocument();
+  }, 20_000);
+});
+
+describe("Send test email to myself (Settings > Gmail)", () => {
+  it("is hidden until Gmail is connected, then queues a test for the chosen bot and points to Approvals", async () => {
+    const api = createFakeApi([makeBot({ id: "b1", name: "Mailer" })]);
+    api.ext.secrets.find((s) => s.name === "GOOGLE_CLIENT_ID")!.inVault = true;
+    api.ext.secrets.find((s) => s.name === "GOOGLE_CLIENT_SECRET")!.inVault = true;
+    renderApp(api, "/settings");
+    expect(await screen.findByText("Ready to sign in")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send test email to myself" })).not.toBeInTheDocument();
+    api.ext.gmail.connected = true;
+    const button = await screen.findByRole("button", { name: "Send test email to myself" }, { timeout: 8000 });
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.click(button);
+    expect(await screen.findByText(/owner@example\.com/)).toBeInTheDocument();
+    expect(within(screen.getByRole("status")).getByRole("link", { name: "Approvals" })).toHaveAttribute("href", "/approvals");
+    const posts = api.writes().filter((w) => w.path === "/api/gmail/test-email");
+    expect(posts).toHaveLength(1);
+    expect(Object.keys(posts[0]!.body as object)).toEqual(["botId"]); // the address is never sent from the page
   }, 20_000);
 });

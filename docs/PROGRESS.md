@@ -151,6 +151,10 @@ every new power is a connector behind it. Image/video/audio generation and Googl
 - Not built: automatic summarising of tasks/workflows into notes, document chunking/embeddings (search is keyword-based). Task history search covers a bot's own completed tasks only.
 - Tests: 8 backend (`src/memory/memory.test.ts`; mutation checks on the privacy filter and the secret check were caught) + 4 dashboard (`web/src/knowledge.test.tsx`).
 
+### Gmail "Send test email to myself"
+- `POST /api/gmail/test-email {botId}` (`registerGmailTestRoute` in `gmail.ts`; owner-only, a phone is refused). Reads the signed-in address from Gmail itself (`users/me/profile`, covered by gmail.readonly), then queues an ordinary `gmail.send_message` approval to that address ONLY. Nothing is sent until the owner approves on the Approvals page. The caller cannot choose the address (strict body).
+- Dashboard: Settings > Gmail panel, shown once connected (bot picker + button). Tests: 4 backend (`gmail.test.ts`), 1 dashboard (`approvals.test.tsx`). Still NOT verified against real Google.
+
 ### Inbound messages and phone alerts (approved after Phase 11)
 - Inbound (`src/inbound/`, migration 009, Automation page section "Inbound messages"): a source watches Telegram (read_messages) or Gmail (unread, last day) and turns each NEW message into a text event
   (default names `telegram_message` / `gmail_message`) that the owner's triggers can use. Created OFF, PC-only to change; can be switched on only if the chosen bot has that connector's READ permission;

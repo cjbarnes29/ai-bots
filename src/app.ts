@@ -14,7 +14,7 @@ import { registerApprovalRoutes } from "./approvals/routes.js";
 import { ActionGate } from "./approvals/service.js";
 import { AuditLog } from "./audit/audit.js";
 import { createBrowserConnector } from "./connectors/browser/browser.js";
-import { createGmailConnector, registerGmailOAuthRoutes, registerGoogleOAuthRoutes, type GoogleUrls } from "./connectors/gmail.js";
+import { createGmailConnector, registerGmailOAuthRoutes, registerGmailTestRoute, registerGoogleOAuthRoutes, type GoogleUrls } from "./connectors/gmail.js";
 import { createGithubConnector, createGoogleWorkspaceConnector, createMcpConnector, createN8nConnector, createNotionConnector, GWS_REFRESH_TOKEN, GWS_SCOPES } from "./connectors/integrations.js";
 import { createMemoryConnector } from "./memory/connector.js";
 import { registerMemoryRoutes } from "./memory/routes.js";
@@ -290,6 +290,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     now,
   });
   await registerApprovalRoutes(app, gate, audit);
+  if (registry.get("gmail")) await registerGmailTestRoute({ app, vault, gate, now, ...(options.googleUrls ? { urls: options.googleUrls } : {}) });
   await registerMemoryRoutes(app, memory, (id) => {
     try {
       agentService.getBot(id);

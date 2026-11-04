@@ -17,7 +17,7 @@ const b64 = (s: string) => Buffer.from(s, "utf8").toString("base64url");
 /** A pretend Google (sign-in server and Gmail) on this PC. Records what it is asked and can be told to misbehave. */
 async function startFakeGoogle() {
   const requests: { method: string; url: string; auth?: string; body: any }[] = [];
-  const mode = { challenge: "", exchangeScope: GMAIL_SCOPES.join(" "), refreshStatus: 200, sendStatus: 200, messages: [] as string[] };
+  const mode = { challenge: "", exchangeScope: GMAIL_SCOPES.join(" "), refreshStatus: 200, sendStatus: 200, messages: [] as string[], profileAddress: "owner@example.com" };
   const server = http.createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on("data", (c) => chunks.push(c));
@@ -43,6 +43,7 @@ async function startFakeGoogle() {
         }
       }
       if (req.headers.authorization !== `Bearer ${ACCESS}`) return send(401, { error: { message: "bad token" } });
+      if (url === "/gmail/v1/users/me/profile") return send(200, { emailAddress: mode.profileAddress });
       if (url.startsWith("/gmail/v1/users/me/messages/send")) return mode.sendStatus === 200 ? send(200, { id: "sent123" }) : send(mode.sendStatus, { error: { message: "nope" } });
       if (/^\/gmail\/v1\/users\/me\/messages\?/.test(url)) return send(200, mode.messages.length ? { messages: mode.messages.map((id) => ({ id })) } : {});
       const one = /^\/gmail\/v1\/users\/me\/messages\/([A-Za-z0-9]+)\?format=(\w+)/.exec(url);
@@ -347,6 +348,49 @@ describe("Gmail sign-in and the approval gate", () => {
       await t.call("PUT", "/api/external/pause", { paused: true });
       expect((await t.call("POST", `/api/approvals/${req.id}/approve`)).body.error).toBe("external_paused");
       expect(apiCalls()).toHaveLength(0);
+    });
+  });
+
+  describe("Send test email to myself", () => {
+    it("queues a send to the signed-in address only, and nothing leaves until approved", async () => {
+      await connect();
+      const bot = await mkBot();
+      const res = await t.call("POST", "/api/gmail/test-email", { botId: bot.id });
+      expect(res.status).toBe(200);
+      expect(res.body.to).toBe("owner@example.com");
+      expect(apiCalls().filter((r) => r.url.includes("/messages/send"))).toHaveLength(0);
+      const [req] = await pending();
+      expect(req.args.to).toEqual(["owner@example.com"]);
+      const done = await t.call("POST", `/api/approvals/${req.id}/approve`);
+      expect(done.body.approval).toMatchObject({ status: "executed" });
+      expect(apiCalls().filter((r) => r.url.includes("/messages/send"))).toHaveLength(1);
+    });
+
+    it("cannot be pointed at another address", async () => {
+      await connect();
+      const bot = await mkBot();
+      expect((await t.call("POST", "/api/gmail/test-email", { botId: bot.id, to: ["x@example.com"] })).status).toBe(400);
+      await t.call("POST", "/api/gmail/test-email", { botId: bot.id });
+      expect((await pending())[0].args.to).toEqual(["owner@example.com"]);
+    });
+
+    it("refuses when Gmail is not connected, when paused, and for an unknown bot", async () => {
+      const bot = await mkBot();
+      expect((await t.call("POST", "/api/gmail/test-email", { botId: bot.id })).body.error).toBe("gmail_not_connected");
+      await connect();
+      expect((await t.call("POST", "/api/gmail/test-email", { botId: "nope" })).body.error).toBe("gmail_test_refused");
+      await t.call("PUT", "/api/external/pause", { paused: true });
+      expect((await t.call("POST", "/api/gmail/test-email", { botId: bot.id })).body.error).toBe("gmail_test_refused");
+      expect(await pending()).toHaveLength(0);
+    });
+
+    it("reports a rejected sign-in without leaking any secret", async () => {
+      await connect();
+      const bot = await mkBot();
+      g.mode.refreshStatus = 400;
+      const res = await t.call("POST", "/api/gmail/test-email", { botId: bot.id });
+      expect(res.status).toBe(502);
+      for (const secret of [ACCESS, REFRESH, CLIENT_SECRET]) expect(JSON.stringify(res.body)).not.toContain(secret);
     });
   });
 });

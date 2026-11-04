@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import type { ActionGate } from "../approvals/service.js";
 import type { AuditLog } from "../audit/audit.js";
 import { AppError } from "../errors.js";
 import type { VaultService } from "../vault/service.js";
@@ -332,5 +333,48 @@ export async function registerGoogleOAuthRoutes(o: GmailOAuthOptions, cfg: Googl
     o.vault.set(cfg.refreshToken, refresh);
     o.audit.record(`${slug}.connected`, { scopes: granted }, { actor: "owner" });
     return reply.send(page(`${label} is connected`, "You can close this tab and go back to the dashboard. Bots still need your permission to read, and your approval to send."));
+  });
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// "Send test email to myself"
+// ---------------------------------------------------------------------------------------------------------------------
+
+export interface GmailTestOptions {
+  app: FastifyInstance;
+  vault: VaultService;
+  gate: ActionGate;
+  urls?: GoogleUrls;
+  now?: () => number;
+}
+
+/**
+ * Lets the owner check the whole path (sign-in, approval, send) with one click. The address is NOT chosen by the caller:
+ * it is read from Google as the signed-in account itself, so this can only ever mail the owner. The email is queued as an
+ * ordinary approval request, so nothing leaves until the owner approves it on the Approvals page.
+ */
+export async function registerGmailTestRoute(o: GmailTestOptions): Promise<void> {
+  const urls = o.urls ?? GOOGLE_URLS;
+  const token = makeTokenSource(urls, (n) => o.vault.resolve(n), o.now ?? Date.now);
+  const bodySchema = z.strictObject({ botId: z.string().min(1).max(100) });
+
+  o.app.post("/api/gmail/test-email", async (req) => {
+    const { botId } = bodySchema.parse(req.body ?? {});
+    if (!o.vault.resolve(GMAIL_REFRESH_TOKEN)) throw new AppError(409, "gmail_not_connected", "Press Connect Gmail first.");
+    let address: string;
+    try {
+      const profile = await gmailApi(urls, await token(), "/gmail/v1/users/me/profile");
+      address = String(profile?.emailAddress ?? "");
+    } catch (err) {
+      throw new AppError(502, "gmail_test_failed", err instanceof Error ? err.message : "Could not reach Gmail.");
+    }
+    if (!EMAIL.test(address)) throw new AppError(502, "gmail_test_failed", "Gmail did not say which address you are signed in as.");
+    const outcome = await o.gate.request(botId, null, {
+      connector: "gmail",
+      action: "send_message",
+      args: { to: [address], subject: "Test email from AI Workforce", body: "If you can read this, Gmail sending works. You approved it on the Approvals page." },
+    });
+    if (outcome.status === "pending_approval") return { to: address, approvalId: outcome.approvalId };
+    throw new AppError(409, "gmail_test_refused", outcome.status === "done" ? "The test email was not queued." : outcome.reason);
   });
 }

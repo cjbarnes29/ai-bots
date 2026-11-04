@@ -641,7 +641,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     stored: new Map<string, string>(),
     /** When set, approving fails with this message. */
     executeError: null as string | null,
-    gmail: { connected: false, startedUrl: null as string | null },
+    gmail: { connected: false, startedUrl: null as string | null, testBotId: null as string | null },
     session: { mode: 'local' as 'local' | 'remote', remoteEnabled: true, remoteHosts: ['pc.tail1.ts.net'], paired: null as boolean | null, device: null as { id: string; name: string } | null },
     devices: [] as { id: string; name: string; userAgent: string | null; createdAt: string; lastSeenAt: string; revokedAt: string | null }[],
     pairingCode: 'ABCDE23456',
@@ -862,6 +862,11 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       }
     }
     if (parts[1] === 'gmail') {
+      if (parts[2] === 'test-email' && method === 'POST') {
+        if (!ext.gmail.connected) return err(409, 'gmail_not_connected', 'Press Connect Gmail first.');
+        ext.gmail.testBotId = body?.botId ?? null;
+        return json({ to: 'owner@example.com', approvalId: 'a1' });
+      }
       const hasClient = !!ext.secrets.find((s) => s.name === 'GOOGLE_CLIENT_ID')?.inVault && !!ext.secrets.find((s) => s.name === 'GOOGLE_CLIENT_SECRET')?.inVault;
       if (parts[2] === 'status' && method === 'GET')
         return json({ hasClient, connected: ext.gmail.connected, redirectUri: 'http://127.0.0.1:3000/api/gmail/oauth/callback', scopes: ['read', 'send'] });
