@@ -20,6 +20,7 @@ The one central record of what the owner decided, what is waiting, what is NOT v
 | NV-4 | Google integration (Gmail, Drive, Calendar, Tasks) | **NOT VERIFIED.** Awaiting the owner's Google Cloud client configuration. | A real sign-in, a Test connection that succeeds, and an owner-approved test email |
 | NV-5 | UAE data-protection (PDPL) legal checks | **NOT VERIFIED.** Pending the owner's own verification. Not legal advice. | The owner's written confirmation |
 | NV-6 | UAE telecom cold-outreach compliance (regulator rules on unsolicited marketing) | **NOT VERIFIED.** Pending the owner's own verification. Not legal advice. | The owner's written confirmation |
+| NV-7 | Licensing terms of the free Windows evaluation image planned for the AI desktop VM (D-024) | **NOT VERIFIED.** The terms have not been read or checked. No image is chosen or downloaded. | A written check of the publisher's terms for the exact image (permitted use, expiry, limits), approved by the owner before any download |
 
 ---
 
@@ -48,6 +49,57 @@ The one central record of what the owner decided, what is waiting, what is NOT v
 | D-020 | 2026-11-04 | Commit structure: Commit 3 = `.gitignore` fix + original `src/tools/registry.ts`; then a docs commit (this board + `CLAUDE.md`); then Phase 4; then Business Workforce, each separate and never combined. | Owner | active |
 | D-021 | 2026-11-04 | Each commit needs the owner's explicit approval after being shown: Git status, changed files, test results, proposed message and exact commands. Local rollback tags only; tags and commits are never pushed. | Owner | active |
 | D-022 | 2026-11-04 | The Gmail "Send test email to myself" feature (approval-gated). | Owner | done (c62cf1c) |
+| D-023 | 2026-11-04 | Build order: the independent emergency controller and read-only installed-application discovery come first, before any VM work. | Owner | approved; not started |
+| D-024 | 2026-11-04 | Plan around a free Windows evaluation image for the guest; verify its licensing terms before use (NV-7). | Owner | approved; not started |
+| D-025 | 2026-11-04 | Defer local GPU image/video generation; keep it as a possible optional capability. | Owner | approved (deferred) |
+| D-026 | 2026-11-04 | Finish the security audit, architecture proposal and resource allocation plan before creating or modifying any VM. | Owner | approved; not started |
+| D-027 | 2026-11-04 | Installed-application discovery stays read-only and never authorizes control of an application. | Owner | approved; not started |
+| D-028 | 2026-11-04 | The emergency controller operates independently of the AI agents and the Manager AI. | Owner | approved; not started |
+
+### Extended records for D-023 to D-028 (AI desktop / VM programme)
+Approval status for all six: **approved by the owner on 2026-11-04, as documentation approval only.** Implementation status for all six: **NOT STARTED.** Nothing has been built, installed, configured or created (no VM, no Windows setting, no software, no code).
+
+**D-023 Build order**
+- Decision: start with the independent emergency controller and read-only installed-application discovery, before any VM work.
+- Reasoning: neither needs a VM. The stop mechanism must exist and be tested before anything can be operated. Discovery supplies the facts the VM design needs. Today's stops (`pc.emergency_stop`, the outside-actions pause, the automation pause) only work inside the app's own process.
+- Risks: the controller may need rework when the final VM layout is known. Discovery only sees what the Windows uninstall lists show.
+- Alternatives considered: build the VM first (no stop, no inventory); build everything in parallel (weaker verification).
+- Approval: approved 2026-11-04. Implementation: not started.
+
+**D-024 Free Windows evaluation image**
+- Decision: plan around a free Windows evaluation image initially, and verify its licensing terms before use.
+- Reasoning: the free-only rule (D-001); no license cost without the owner's approval.
+- Risks: evaluation images expire and can limit support, updates or permitted use. The terms may restrict this use. They have NOT been checked (NV-7).
+- Alternatives considered: buy a license (a cost needing explicit approval); a Linux guest (cannot run the Windows applications).
+- Approval: approved 2026-11-04. Implementation: not started; no image chosen or downloaded.
+
+**D-025 Defer local GPU generation**
+- Decision: defer local GPU image and video generation; keep it as a future optional capability.
+- Reasoning: inspected hardware has Intel integrated graphics only, with no NVIDIA/CUDA. VMware Workstation does not pass the host GPU through to the guest (assumption, T-9).
+- Risks: no local image/video generation for now; such tasks depend on approved free cloud tiers or are unavailable.
+- Alternatives considered: a host-side GPU inference service (no capable GPU to serve); CPU-only generation (impractically slow).
+- Approval: approved 2026-11-04 (deferral). Implementation: not applicable; nothing built.
+
+**D-026 Design before any VM**
+- Decision: complete the security audit, architecture proposal and resource allocation plan before creating or modifying a VM.
+- Reasoning: a VM only isolates if its settings are right, and the host has limited memory (23.6 GB total, 7.2 GB free when inspected).
+- Risks: slower start; the plan can go stale if the machine changes.
+- Alternatives considered: build a VM now and refine later (insecure defaults could become permanent).
+- Approval: approved 2026-11-04. Implementation: not started; no VM exists.
+
+**D-027 Discovery is read-only**
+- Decision: installed-application discovery stays read-only and must not automatically authorize application control. Each application starts with control switched off; only applications the owner explicitly approves may be controlled. Statuses: Verified, Partially Supported, Untested, Unsupported.
+- Reasoning: seeing an application is not permission to operate it; this keeps the approval rules intact.
+- Risks: the list can be incomplete or stale (Store apps and portable programs may be missed); a "Verified" label could be mistaken for permission.
+- Alternatives considered: auto-enable control for verified applications (rejected as unsafe).
+- Approval: approved 2026-11-04. Implementation: not started.
+
+**D-028 Independent emergency controller**
+- Decision: the emergency controller operates independently of the AI agents and the Manager AI (a separate host-side process that does not need the Manager to authorize it).
+- Reasoning: it must work if the Manager crashes, hangs or is compromised. It may only act on its own registered processes, the VM and the VM's network, never on unrelated Windows processes.
+- Risks: it cannot protect against a compromised host or a power loss; a second control path costs maintenance; it must be tested (frozen guest, killed Manager, agent loop) before any autonomous desktop operation.
+- Alternatives considered: reuse the in-process switches (they stop working when the process does).
+- Approval: approved 2026-11-04. Implementation: not started.
 
 ## 2. Pending approvals
 | ID | Item | Waiting for |
@@ -55,6 +107,10 @@ The one central record of what the owner decided, what is waiting, what is NOT v
 | P-5 | First real external tests: 1 map request, 1 request to `https://example.com/`, up to 9 requests to businesses' own home pages (details in `docs/BUSINESS-WORKFORCE.md`) | Owner approval of exactly these requests; check the map service's current usage policy first |
 | P-6 | Gemini API key, Google Cloud client, Tailscale steps | Owner action |
 | P-7 | Phases 5-6, 8-9 and the YouTube Studio phases | Owner review after each stage |
+| P-8 | Design of the independent emergency controller (D-028) | Owner approval of the design before any code |
+| P-9 | Design of read-only application discovery and the Application Library (D-027) | Owner approval of the design before any code |
+| P-10 | VM security audit, architecture proposal and resource allocation plan (D-026) | Owner approval of the plan before any VM is created |
+| P-11 | Written check of the Windows evaluation image terms (D-024, NV-7) | Owner review before any download |
 
 ## 3. Rejected proposals
 None so far. (Deferred, not rejected: D-005 stored Team entity, D-006 "last verified" column, automatic YouTube uploads.)
@@ -69,6 +125,10 @@ None so far. (Deferred, not rejected: D-005 stored Team entity, D-006 "last veri
 | T-5 | The 50 requests per day cap on Gemini and Groq is the APP's own safety cap, not the providers' real quotas. | Code | Real quotas are unknown until checked (D-017) |
 | T-6 | No FFmpeg and no real Python on this PC (Windows with only Node). | Checked 2026-11-04 | YouTube Studio assembly needs an approved install |
 | T-7 | Git here converts line endings (`autocrlf`), so "LF will be replaced by CRLF" warnings are harmless. | Observed | None |
+| T-8 | Hardware seen on 2026-11-04: Windows 11 Home build 26300; Intel Core 5 120U (10 cores, 12 threads, virtualization enabled in firmware, no hypervisor active); 23.6 GB RAM (7.2 GB free at that moment); Intel integrated graphics only, no NVIDIA/`nvidia-smi`; one 477 GB NVMe SSD (healthy), C: 265 GB free, G: 39 GB free; VMware Workstation 17.5.0 installed, no VM created. Re-check before the VM plan. | Read-only inspection | Settings in the plan could be wrong if this changes |
+| T-9 | VMware Workstation gives the guest virtual graphics, not CUDA or full host-GPU passthrough. | Assistant knowledge, not tested here | A GPU option might exist that was missed |
+| T-10 | `python` on this PC's PATH is the Microsoft Store stub, not a real Python; FFmpeg, AutoHotkey, LibreOffice, Ollama and Docker are not installed. 44 desktop programs were listed from the Windows uninstall lists (Store apps and portable programs not scanned). | Read-only inspection | The PC agent's `python` entry may not work |
+| T-11 | `vmrun` (the VMware command line) is expected to be available from the installed VMware VIX folder, but `vmrun.exe` was not confirmed. | Folder seen only | The controller design may need another VM-control method |
 
 ## 5. Unverified integrations (all tested only against fake services)
 Gemini (NV-3), Gmail and Google Workspace (NV-4), Telegram, GitHub, Notion, n8n, MCP, the real internet through the browser connector, OpenStreetMap discovery (NV-1, NV-2), real website audits, phone access over Tailscale, OmniRoute. "Tested" in the progress file means tested against a fake local service unless it says otherwise.
@@ -81,12 +141,16 @@ Gemini (NV-3), Gmail and Google Workspace (NV-4), Telegram, GitHub, Notion, n8n,
 | S-3 | Leads contain business names and phone numbers. | `workspace/` is git-ignored (added in the Business commit); never commit it. |
 | S-4 | Secrets: API keys live only in the encrypted vault or `.env`, are never shown, never logged, and are redacted from errors. | Active. |
 | S-5 | A mutation test once removed the address guard in `overpassPost` and the test then attempted real requests to a non-existent example host and a link-local address (nothing meaningful sent). | Lesson recorded: never mutation-test network-sending guards that way. |
-| S-6 | `src/tools/registry.ts` was never tracked since Stage 3 (ignore rule too broad), so a clean clone could not compile. | Fixed by Commit 3 once approved (P-1). |
+| S-6 | `src/tools/registry.ts` was never tracked since Stage 3 (ignore rule too broad), so a clean clone could not compile. | Fixed by Commit 3 (`98964e3`, approved 2026-11-04). |
 | S-7 | Cold outreach law (PDPL, telecom rules) is the owner's responsibility (NV-5, NV-6). The app never contacts anyone by itself. | Open. |
 | S-8 | No remote repository is configured, so nothing can be pushed by mistake. | Active. |
+| S-9 | The app's current stop switches (PC emergency stop, outside-actions pause, automation pause, AI-calls pause) all run inside the same Node process as the Manager, so they cannot stop a hung or compromised Manager. | Open; addressed by D-028 once built. |
+| S-10 | Remote-access software is installed on the host (UltraVnc, UltraViewer, WinSCP). Whether any is listening was not checked. | Open; check during the security audit (D-026). |
+| S-11 | A VM is not fully isolated if shared folders, clipboard, drag-and-drop, USB, bridged networking, host credentials or personal files are exposed. | Open; defaults must be locked down and watched (D-026). |
+| S-12 | Personal data on the host (cloud drives, Microsoft 365, a trading application) must never be reachable from the AI desktop. | Open; part of the VM plan. |
 
 ## 7. Completed milestones
-Stages 1-8 (routing, Manager, tools and skills, PC agent, documents, workflows, integrations, memory), Gmail test email, Stage 9 shell/Dashboard/Settings (Phases 1-3 and 3.5): committed. Phase 4 (Integrations Center, c98f295) and the Business Workforce (7a-7f, next commit): BUILT AND TESTED ON FAKE DATA ONLY; no real external call made. Details: `docs/PROGRESS.md`, `docs/UI-AUDIT.md`, `docs/BUSINESS-WORKFORCE.md`.
+Stages 1-8 (routing, Manager, tools and skills, PC agent, documents, workflows, integrations, memory), Gmail test email, Stage 9 shell/Dashboard/Settings (Phases 1-3 and 3.5): committed. Phase 4 (Integrations Center, c98f295) and the Business Workforce (7a-7f, 65c319b): committed; BUILT AND TESTED ON FAKE DATA ONLY; no real external call made. Details: `docs/PROGRESS.md`, `docs/UI-AUDIT.md`, `docs/BUSINESS-WORKFORCE.md`.
 
 ## 8. Git commits and rollback points
 All tags are LOCAL. Nothing is ever pushed (there is no remote).
@@ -98,7 +162,7 @@ All tags are LOCAL. Nothing is ever pushed (there is no remote).
 | `rollback/before-docs` (tag) | `98964e3` | Commit 3: `.gitignore` fix (`tools/` to `/tools/`) + original `src/tools/registry.ts`. Approved by the owner 2026-11-04. Verified in a scratch export: 1013 backend + 208 web tests, builds clean. | `git reset --hard rollback/before-docs` (destructive: only with approval) |
 | `rollback/before-phase4` (tag) | `6df65bf` | Docs commit: this board + `CLAUDE.md`. Approved 2026-11-04. Documentation only. | `git reset --hard rollback/before-phase4` (destructive: approval needed) |
 | `rollback/before-business` (tag) | `c98f295` | Phase 4: Integrations Center, `verify()`, catalog routes, provider setup guide, wording fixes. Approved 2026-11-04. Scratch export: 1025 backend + 219 web tests, builds clean. Fake services only. | `git reset --hard rollback/before-business` (destructive: approval needed) |
-| Business Workforce commit | the commit right after `c98f295` (its own hash is not written here; see `git log`) | `src/business/`, the /business page, the Business team, `docs/BUSINESS-WORKFORCE.md`, `workspace/` ignore rule. Fake services only; no real external call. | `git reset --hard rollback/before-business` (destructive: approval needed) |
+| Business Workforce commit | `65c319b` | `src/business/`, the /business page, the Business team, `docs/BUSINESS-WORKFORCE.md`, `workspace/` ignore rule. Fake services only; no real external call. | `git reset --hard rollback/before-business` (destructive: approval needed) |
 
 Hashes and tags are added here after each commit is made (in the next commit, so no commit ever has to describe itself).
 
@@ -108,3 +172,4 @@ Hashes and tags are added here after each commit is made (in the next commit, so
 - 2026-11-04: Board created from the decisions recorded in the project conversation up to this date.
 - 2026-11-04: Docs commit (6df65bf) and Phase 4 commit (c98f295) approved and made; P-2 and P-3 closed; Business commit prepared (P-4 closed with it).
 - 2026-11-04: Commit 3 approved and made (98964e3); P-1 closed; local tag rollback/before-docs created.
+- 2026-11-04: Recorded the owner's decisions D-023 to D-028 (emergency controller and read-only discovery first, free Windows evaluation image, GPU generation deferred, design before any VM, discovery never authorizes control, independent controller), NV-7, P-8 to P-11, T-8 to T-11 and S-9 to S-12. Documentation only; implementation NOT started.
