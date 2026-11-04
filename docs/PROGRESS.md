@@ -113,6 +113,18 @@ every new power is a connector behind it. Image/video/audio generation and Googl
 - Honest limits: `npm run <script>` runs whatever the project's package.json says (owner sees the command, not the script text); Windows .cmd launching uses the command interpreter with restricted arguments.
   NOT verified: adb, VS Code, git/python on the real PC from the app; Android builds; anything needing administrator rights (unsupported by design).
 
+### Stage 5 facts: deliverables (DONE)
+- `src/documents/` (zip, spec, office, pdf, svg, render) + connector `src/connectors/documents.ts` (id "documents"). NO new packages: the Office libraries tried (docx/exceljs/pptxgenjs/pdfkit) pulled in packages with known
+  vulnerabilities (image-size, minimatch/glob via archiver), so they were NOT used; the files are written directly (npm audit stays at 0).
+- Actions (all behind the approval gate; files go only into PC-agent workspace folders; uses the PC permissions MODIFY to create, READ to summarise; ".docx" etc. extension must match; no overwrite unless told):
+  create_document (docx / pdf / html / md; heading, paragraph, bullets, numbered, table, chart, pagebreak), create_spreadsheet (xlsx / csv), create_presentation (pptx; chart bars drawn as shapes),
+  create_chart (svg bar/line/pie), create_diagram (svg flow), summarize_data (exact stats from a .csv; no AI call).
+- Safety: text is escaped for every format; no formulas ever written (xlsx text is inlineStr; csv cells starting = + - @ get an apostrophe); no macros, fields, hyperlinks, embedded objects or outside links; html page carries a
+  no-scripts / no-outside-loading policy; hard limits (5000 rows, 200 blocks, 40 slides, 5 MB per file).
+- VERIFIED IN REAL MICROSOFT OFFICE (COM, read-only, scratch folder): Word opened the .docx (2 tables, 2 pages, 0 fields/hyperlinks), Excel opened the .xlsx (2 sheets, number cells numbers, "=cmd|..." stayed text with no formula),
+  PowerPoint opened the .pptx (4 slides). PDF is checked structurally only (xref offsets, page streams); not opened in a PDF reader here. Charts inside Word are a table of numbers (SVG file is separate).
+- Tests: documents.test.ts (36) incl. a strict XML checker, package-consistency checks, PDF xref checks, gate tests.
+
 ### Inbound messages and phone alerts (approved after Phase 11)
 - Inbound (`src/inbound/`, migration 009, Automation page section "Inbound messages"): a source watches Telegram (read_messages) or Gmail (unread, last day) and turns each NEW message into a text event
   (default names `telegram_message` / `gmail_message`) that the owner's triggers can use. Created OFF, PC-only to change; can be switched on only if the chosen bot has that connector's READ permission;

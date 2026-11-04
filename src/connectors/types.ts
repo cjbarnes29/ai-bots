@@ -28,7 +28,7 @@ export interface ActionSpec {
 }
 
 export interface ConnectorDefinition {
-  id: Connector | "pc";
+  id: Connector | "pc" | "documents";
   label: string;
   /** The vault secrets this connector needs (for the Secrets screen). */
   secrets?: { name: string; description: string }[];

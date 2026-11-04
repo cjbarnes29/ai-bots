@@ -77,7 +77,7 @@ describe("the real app's connector list", () => {
     const app = await buildApp({ dbPath: ":memory:" });
     try {
       const status = (await app.inject({ method: "GET", url: "/api/external/status" })).json();
-      expect(status.connectors.map((c: any) => c.id)).toEqual(["telegram", "browser", "gmail", "pc"]);
+      expect(status.connectors.map((c: any) => c.id)).toEqual(["telegram", "browser", "gmail", "pc", "documents"]);
       expect(status.connectors[2].notReady).toMatch(/client ID/);
       expect((await app.inject({ method: "GET", url: "/api/gmail/status" })).json()).toMatchObject({ hasClient: false, connected: false });
     } finally {

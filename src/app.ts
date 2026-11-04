@@ -46,6 +46,7 @@ import { registerMonitorRoutes } from "./monitor/monitor.js";
 import { registerInboundRoutes } from "./inbound/routes.js";
 import { ManagerService } from "./manager/service.js";
 import { registerManagerRoutes } from "./manager/routes.js";
+import { createDocumentsConnector } from "./connectors/documents.js";
 import { createPcConnector } from "./connectors/pc/connector.js";
 import { registerPcRoutes } from "./connectors/pc/routes.js";
 import { PcService } from "./connectors/pc/service.js";
@@ -253,7 +254,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   app.addHook("onClose", async () => pcService.shutdown());
   const registry = new ConnectorRegistry([
     ...(options.connectors ?? [createTelegramConnector(), createBrowserConnector(), createGmailConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })]),
-    ...(options.connectors === undefined || options.includePc ? [createPcConnector(pcService)] : []),
+    ...(options.connectors === undefined || options.includePc ? [createPcConnector(pcService), createDocumentsConnector(pcService)] : []),
   ]);
   const vault = new VaultService(db, vaultKey, audit, () => [...registry.list().flatMap((c) => c.secrets ?? []), { name: PUSH_SECRET_NAME, description: "Phone alerts signing key (made automatically, do not paste)" }], now);
   setSecretLookup((name) => vault.getStored(name));
@@ -267,7 +268,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     vault,
     getBot: (id) => agentService.getBot(id),
     // The PC agent has its own five permissions (checked by the connector); the generic read switch does not apply to it.
-    readEnabled: (botId, connector) => connector === "pc" || agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
+    readEnabled: (botId, connector) => connector === "pc" || connector === "documents" || agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
     now,
   });
   await registerApprovalRoutes(app, gate, audit);
