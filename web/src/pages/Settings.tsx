@@ -3,6 +3,7 @@ import { AlertsSection } from "../components/AlertsSection";
 import { DevicesSection } from "../components/DevicesSection";
 import { GmailSection } from "../components/GmailSection";
 import { ManagerSettings } from "../components/ManagerSettings";
+import { PcSection } from "../components/PcSection";
 import { RoutingSection } from "../components/RoutingSection";
 import { SkillsSection } from "../components/SkillsSection";
 import { ToolsSection } from "../components/ToolsSection";
@@ -550,6 +551,7 @@ export function Settings() {
       <RoutingSection />
       <ManagerSettings />
       <ToolsSection />
+      <PcSection />
       <SkillsSection />
       <ProvidersSection />
       <ModelsSection />

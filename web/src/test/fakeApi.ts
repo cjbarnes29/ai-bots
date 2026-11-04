@@ -645,9 +645,11 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     session: { mode: 'local' as 'local' | 'remote', remoteEnabled: true, remoteHosts: ['pc.tail1.ts.net'], paired: null as boolean | null, device: null as { id: string; name: string } | null },
     devices: [] as { id: string; name: string; userAgent: string | null; createdAt: string; lastSeenAt: string; revokedAt: string | null }[],
     pairingCode: 'ABCDE23456',
+    pc: { roots: [] as string[], stopped: false, servers: [] as any[], executions: [] as any[], grants: new Map<string, string[]>(), rootError: null as string | null },
     tools: [
       { id: 'node', name: 'Node.js', category: 'coding', description: 'd', status: 'available', detail: 'v24.0.0', requiresAssignment: true },
-      { id: 'pc-agent', name: 'PowerShell / PC agent', category: 'pc', description: 'd', status: 'unavailable', detail: 'Not built yet (Stage 4).', requiresAssignment: true },
+      { id: 'pc-agent', name: 'PowerShell / PC agent', category: 'pc', description: 'd', status: 'needs_setup', detail: 'Choose a workspace folder in Settings → PC agent.', requiresAssignment: false },
+      { id: 'documents', name: 'Documents, spreadsheets and slides', category: 'documents', description: 'd', status: 'unavailable', detail: 'Not built yet (Stage 5).', requiresAssignment: true },
       { id: 'gmail', name: 'Gmail', category: 'communication', description: 'd', status: 'needs_setup', detail: 'press Connect Gmail in Settings to sign in.', requiresAssignment: false },
     ] as any[],
     skills: [] as any[],
@@ -688,6 +690,23 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       }
     }
     if (parts[1] === 'monitor' && method === 'GET') return json(ext.monitor);
+    if (parts[1] === 'pc') {
+      const status = () => ({ roots: ext.pc.roots, stopped: ext.pc.stopped, servers: ext.pc.servers, limits: { maxServers: 3, maxRoots: 5 } });
+      if (!parts[2] && method === 'GET') return json({ ...status(), executions: ext.pc.executions, resources: { cpuPercent: 12, memoryUsedPercent: 40, memoryGb: 24, cpuThreads: 16, disk: ext.pc.roots.map((p: string) => ({ path: p, freeGb: 100, totalGb: 500 })), uptimeHours: 5, os: 'win32', localAi: { enabled: true, usableModels: 2 } } });
+      if (parts[2] === 'workspaces' && !parts[3] && method === 'POST') {
+        if (!String(body.path).includes(':')) return err(400, 'bad_workspace', 'Use the full path, for example C:\\Users\\you\\Projects.');
+        ext.pc.roots.push(body.path);
+        return json({ roots: ext.pc.roots });
+      }
+      if (parts[2] === 'workspaces' && parts[3] === 'remove') { ext.pc.roots = ext.pc.roots.filter((r: string) => r !== body.path); return json({ roots: ext.pc.roots }); }
+      if (parts[2] === 'stop') { ext.pc.stopped = true; return json({ ended: ext.pc.servers.length, ...status() }); }
+      if (parts[2] === 'resume') { ext.pc.stopped = false; return json(status()); }
+      if (parts[2] === 'servers' && parts[4] === 'stop') { ext.pc.servers = ext.pc.servers.filter((s: any) => s.id !== parts[3]); return json({ stopped: true }); }
+    }
+    if (parts[1] === 'bots' && parts[3] === 'pc') {
+      if (method === 'GET') return json({ grants: ext.pc.grants.get(parts[2]!) ?? [] });
+      if (method === 'PUT') { ext.pc.grants.set(parts[2]!, body.grants); return json({ grants: body.grants }); }
+    }
     if (parts[1] === 'tools') {
       if (!parts[2] && method === 'GET') return json({ tools: ext.tools });
       if (parts[2] === 'refresh' && method === 'POST') return json({ tools: ext.tools });
@@ -867,10 +886,10 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
-    if (parts[0] === "api" && parts[1] === "bots" && ["capabilities", "skills", "tools"].includes(parts[3] ?? "")) {
+    if (parts[0] === "api" && parts[1] === "bots" && ["capabilities", "skills", "tools", "pc"].includes(parts[3] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);

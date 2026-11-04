@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
+import type { PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -755,5 +755,31 @@ export function useSetBotTools(botId: string) {
   return useMutation({
     mutationFn: (toolIds: string[]) => api("PUT", `/api/bots/${botId}/tools`, { toolIds }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["capabilities", botId] }),
+  });
+}
+
+export function usePc() {
+  return useQuery({ queryKey: ["pc"], queryFn: () => api<PcOverview>("GET", "/api/pc"), refetchInterval: 4000 });
+}
+
+const usePcMutation = <V,>(fn: (v: V) => Promise<unknown>) => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["pc"] }), qc.invalidateQueries({ queryKey: ["tools"] })]) });
+};
+export const useAddWorkspace = () => usePcMutation((path: string) => api("POST", "/api/pc/workspaces", { path }));
+export const useRemoveWorkspace = () => usePcMutation((path: string) => api("POST", "/api/pc/workspaces/remove", { path }));
+export const usePcStop = () => usePcMutation(() => api("POST", "/api/pc/stop", {}));
+export const usePcResume = () => usePcMutation(() => api("POST", "/api/pc/resume", {}));
+export const useStopServer = () => usePcMutation((id: string) => api("POST", `/api/pc/servers/${id}/stop`, {}));
+
+export function useBotPc(botId: string) {
+  return useQuery({ queryKey: ["bot-pc", botId], queryFn: async () => (await api<{ grants: string[] }>("GET", `/api/bots/${botId}/pc`)).grants });
+}
+
+export function useSetBotPc(botId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (grants: string[]) => api("PUT", `/api/bots/${botId}/pc`, { grants }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bot-pc", botId] }),
   });
 }

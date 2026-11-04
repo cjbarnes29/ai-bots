@@ -8,6 +8,8 @@ import type { Connector } from "../agent-manager/types.js";
 export interface ActionContext {
   /** Looks up a stored secret (from the vault, or .env). Connectors never see other secrets. */
   secret(name: string): string | null;
+  /** The bot that asked (null when the platform itself is acting). */
+  botId: string | null;
 }
 
 export interface ActionSpec {
@@ -19,17 +21,21 @@ export interface ActionSpec {
   args: z.ZodType<Record<string, unknown>>;
   /** One line shown in the approval screen, e.g. "Send a Telegram message to Sam". */
   summarize(args: Record<string, unknown>): string;
+  /** How long the gate waits for execute() before giving up. Default 30 seconds. */
+  timeoutMs?: number;
   /** Does the real work. Only ever called by the gate, and for writes only after the owner approved. */
   execute(args: Record<string, unknown>, context: ActionContext): Promise<string>;
 }
 
 export interface ConnectorDefinition {
-  id: Connector;
+  id: Connector | "pc";
   label: string;
   /** The vault secrets this connector needs (for the Secrets screen). */
   secrets?: { name: string; description: string }[];
   /** Returns a plain-language reason if the connector cannot be used yet (for example, no token saved), otherwise null. */
-  notReady?(context: ActionContext): string | null;
+  notReady?(context: Pick<ActionContext, "secret">): string | null;
+  /** Per-bot permission beyond the generic read switch (the PC agent's five permissions). Returns the reason to refuse, or null. Checked when asked AND when approved. */
+  authorize?(botId: string, action: string, args: Record<string, unknown>): string | null;
   actions: Record<string, ActionSpec>;
 }
 

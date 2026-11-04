@@ -97,6 +97,22 @@ every new power is a connector behind it. Image/video/audio generation and Googl
 - Bug found by tests and fixed: a skill PATCH with fields left out must not apply schema defaults (it would have wiped tags/tools).
 - Tests: skills.test.ts (33; mutation checks on secret refusal, imported-off, enabled filter, assignable rule caught), dashboard skills.test.tsx (7).
 
+### Stage 4 facts: PC agent / PowerShell tools (DONE; real-PC behaviour only exercised with temp folders and harmless node scripts)
+- `src/connectors/pc/` (policy, paths, runner, service, connector, routes), migration 013. A connector id "pc" behind the SAME approval gate. Gate additions (apply to all connectors): `ConnectorDefinition.authorize(botId, action)`
+  checked when asked, when listing offers, AND again at approval time; `ActionSpec.timeoutMs`; `ActionContext.botId`; approval now re-checks connector readiness.
+- Five SEPARATE per-bot permissions (`pc_grants`): READ (list_dir, read_file, system_status; no approval), MODIFY (make_dir, write_file, delete_path = move to .awp-trash), EXECUTE (run_command, start_server),
+  INSTALL (install_dependencies), ADMIN = does not exist (refused). Everything except READ always waits for the owner's approval and shows the exact command/content.
+- Commands are NEVER shell strings: program + args list, program in {node, npm, git, python, adb, code}, each argument charset-restricted, per-program rules (no -e/-c/--eval/-r/--import, no npm install/exec/publish/config,
+  no git push/pull/fetch/clone/reset/clean/rebase/merge/config/branch -D/checkout -f). Path-like args must be inside a workspace. Installs: named packages only, `--ignore-scripts` always, never global, pip wheels only.
+- Workspaces (max 5, owner-only): not a drive root, not the user folder, not system folders, not this app's own folders. All paths resolved through real locations (links/junctions cannot escape), `..` and UNC refused,
+  secrets files (.env, vault.key, *.db, keys, .npmrc...) always refused. Programs run with a clean environment (no app keys), timeout (120 s, max 300 s), output cap 16 KB, process-tree kill.
+- Emergency stop (POST /api/pc/stop, phone allowed): kills everything running and blocks new work (also blocks already-approved requests); only the PC can resume. Dev servers: max 3, stop by themselves after 30 min.
+- Permanent log `pc_executions` (append-only triggers) shown in Settings > PC agent; resources (CPU, memory, disk of workspaces, local AI).
+- Bugs found by tests and fixed: npm package-name rule allowed a leading "-" (flag injection such as -g); delete_path "." was accepted at request time.
+- Tests: policy.test.ts + pc.test.ts (193) incl. real node runs in temp folders; mutation checks (request-time authorize, approval-time re-check, link escape, env cleaning) caught; dashboard pc.test.tsx (5).
+- Honest limits: `npm run <script>` runs whatever the project's package.json says (owner sees the command, not the script text); Windows .cmd launching uses the command interpreter with restricted arguments.
+  NOT verified: adb, VS Code, git/python on the real PC from the app; Android builds; anything needing administrator rights (unsupported by design).
+
 ### Inbound messages and phone alerts (approved after Phase 11)
 - Inbound (`src/inbound/`, migration 009, Automation page section "Inbound messages"): a source watches Telegram (read_messages) or Gmail (unread, last day) and turns each NEW message into a text event
   (default names `telegram_message` / `gmail_message`) that the owner's triggers can use. Created OFF, PC-only to change; can be switched on only if the chosen bot has that connector's READ permission;

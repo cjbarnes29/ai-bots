@@ -38,9 +38,10 @@ describe("Settings: Tools", () => {
     const tools = within(await screen.findByRole("region", { name: "Tools" }));
     expect(within(await tools.findByRole("listitem", { name: "Tool Node.js" })).getByText("Available")).toBeInTheDocument();
     expect(within(tools.getByRole("listitem", { name: "Tool Gmail" })).getByText("Needs setup")).toBeInTheDocument();
-    const pc = tools.getByRole("listitem", { name: "Tool PowerShell / PC agent" });
-    expect(within(pc).getByText("Not available")).toBeInTheDocument();
-    expect(within(pc).getByText(/Not built yet/)).toBeInTheDocument();
+    const docs = tools.getByRole("listitem", { name: "Tool Documents, spreadsheets and slides" });
+    expect(within(docs).getByText("Not available")).toBeInTheDocument();
+    expect(within(docs).getByText(/Not built yet/)).toBeInTheDocument();
+    expect(within(tools.getByRole("listitem", { name: "Tool PowerShell / PC agent" })).getByText("Needs setup")).toBeInTheDocument();
   });
 });
 
@@ -141,7 +142,8 @@ describe("a bot Permissions tab: skills and tools", () => {
     await waitFor(() => expect(api.ext.botCaps.get("b1")?.skills).toEqual(["sk1"]));
     await userEvent.click(section.getByRole("checkbox", { name: "Node.js" }));
     await waitFor(() => expect(api.ext.botCaps.get("b1")?.tools).toEqual(["node"]));
-    expect(section.getByRole("checkbox", { name: /PowerShell \/ PC agent/ })).toBeDisabled();
+    expect(section.getByRole("checkbox", { name: /Documents, spreadsheets and slides/ })).toBeDisabled();
+    expect(section.queryByRole("checkbox", { name: /PowerShell \/ PC agent/ })).not.toBeInTheDocument(); // the PC agent has its own five permissions
     expect(section.queryByRole("checkbox", { name: "Gmail" })).not.toBeInTheDocument(); // connectors stay with the switches above
   });
 });

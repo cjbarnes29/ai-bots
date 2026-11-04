@@ -127,6 +127,7 @@ export class ActionGate {
       if (this.notReadyReason(connector)) continue;
       for (const [action, spec] of Object.entries(connector.actions)) {
         if (spec.kind === "read" && !this.deps.readEnabled(botId, connector.id)) continue;
+        if (connector.authorize?.(botId, action, {}) != null) continue; // the bot lacks the permission this action needs
         offers.push({ connector: connector.id, connectorLabel: connector.label, action, kind: spec.kind, description: spec.description, argNames: argNamesOf(spec.args) });
       }
     }
@@ -162,6 +163,8 @@ export class ActionGate {
       const problem = parsed.error.issues.map((i) => `${i.path.join(".") || "args"} ${i.message}`).join("; ");
       return deny(`The arguments are not valid: ${clip(problem, 300)}`);
     }
+    const notAllowed = connector.authorize?.(botId, req.action, parsed.data) ?? null;
+    if (notAllowed) return deny(notAllowed, "external.read_denied");
     const argsJson = JSON.stringify(parsed.data);
     if (argsJson.length > GATE_LIMITS.maxArgsJsonChars) return deny("The arguments are too large.");
     const summary = clip(spec.summarize(parsed.data), 300);
@@ -176,7 +179,7 @@ export class ActionGate {
         return deny(`This bot has reached today's limit of ${GATE_LIMITS.maxReadsPerBotPerDay} outside reads.`);
       }
       try {
-        const text = await withTimeout(spec.execute(parsed.data, { secret: (n) => this.deps.vault.resolve(n) }), GATE_LIMITS.executeTimeoutMs);
+        const text = await withTimeout(spec.execute(parsed.data, { secret: (n) => this.deps.vault.resolve(n), botId }), spec.timeoutMs ?? GATE_LIMITS.executeTimeoutMs);
         audit.record("external.read", { action: label, summary, ok: true }, { botId, actor: "bot" });
         return { status: "done", text: clip(redactKnownSecrets(text), GATE_LIMITS.maxResultForBotChars) };
       } catch (err) {
@@ -282,9 +285,13 @@ export class ActionGate {
     if (!spec) return fail("That action no longer exists. Nothing was run.");
     const args = spec.args.safeParse(JSON.parse(existing.argsJson));
     if (!args.success) return fail("The request no longer passes its checks. Nothing was run.");
+    const notReadyNow = this.notReadyReason(registry.get(existing.connector)!);
+    if (notReadyNow) return fail(`${registry.get(existing.connector)!.label} is not ready: ${notReadyNow} Nothing was run.`);
+    const stillAllowed = registry.get(existing.connector)?.authorize?.(existing.botId, existing.action, args.data) ?? null;
+    if (stillAllowed) return fail(`${stillAllowed} Nothing was run.`);
 
     try {
-      const result = await withTimeout(spec.execute(args.data, { secret: (n) => this.deps.vault.resolve(n) }), GATE_LIMITS.executeTimeoutMs);
+      const result = await withTimeout(spec.execute(args.data, { secret: (n) => this.deps.vault.resolve(n), botId: existing.botId }), spec.timeoutMs ?? GATE_LIMITS.executeTimeoutMs);
       repo.finish(id, "executed", this.iso(), { result: clip(redactKnownSecrets(result), GATE_LIMITS.maxStoredResultChars) });
       audit.record("approval.executed", { id, action: `${existing.connector}.${existing.action}` }, { botId: existing.botId });
       return this.get(id);

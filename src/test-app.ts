@@ -19,7 +19,7 @@ export interface TestApp {
 
 export const FAKE_GEMINI_KEY = "AIzaSyFAKEKEYFORTESTSONLY0123456789";
 
-export async function createTestApp(options: { connectors?: ConnectorDefinition[]; googleUrls?: GoogleUrls; remoteHosts?: string[]; dashboardDir?: string; pushAllowHost?: (host: string) => boolean } = {}): Promise<TestApp> {
+export async function createTestApp(options: { connectors?: ConnectorDefinition[]; googleUrls?: GoogleUrls; remoteHosts?: string[]; dashboardDir?: string; includePc?: boolean; pcStart?: (spec: import("./connectors/pc/runner.js").RunSpec) => import("./connectors/pc/runner.js").PcProcess; pushAllowHost?: (host: string) => boolean } = {}): Promise<TestApp> {
   const provider = new ScriptedProvider();
   const clock = { t: new Date(2026, 5, 15, 12, 0, 0).getTime() };
   const sleeps: number[] = [];
@@ -34,6 +34,8 @@ export async function createTestApp(options: { connectors?: ConnectorDefinition[
     ...(options.googleUrls ? { googleUrls: options.googleUrls } : {}),
     ...(options.remoteHosts ? { remoteHosts: options.remoteHosts } : {}),
     ...(options.pushAllowHost ? { pushAllowHost: options.pushAllowHost } : {}),
+    ...(options.includePc ? { includePc: true } : {}),
+    ...(options.pcStart ? { pcStart: options.pcStart } : {}),
     ...(options.dashboardDir ? { dashboardDir: options.dashboardDir } : {}),
     providerFactory: () => provider,
     clock: () => clock.t,

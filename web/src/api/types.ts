@@ -577,3 +577,12 @@ export interface SkillTestResult {
   tokens: number;
   note: string | null;
 }
+
+export interface PcOverview {
+  roots: string[];
+  stopped: boolean;
+  servers: { id: string; command: string; cwd: string; startedAt: string; expiresAt: string; botId: string | null }[];
+  limits: { maxServers: number; maxRoots: number };
+  executions: { id: number; startedAt: string; botName: string | null; action: string; cwd: string | null; command: string; status: "ok" | "failed" | "timeout" | "stopped" | "refused"; exitCode: number | null; durationMs: number | null; output: string | null }[];
+  resources: { cpuPercent: number; memoryUsedPercent: number; memoryGb: number; cpuThreads: number; disk: { path: string; freeGb: number; totalGb: number }[]; uptimeHours: number; os: string; localAi: { enabled: boolean; usableModels: number } | null };
+}

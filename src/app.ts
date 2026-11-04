@@ -46,6 +46,9 @@ import { registerMonitorRoutes } from "./monitor/monitor.js";
 import { registerInboundRoutes } from "./inbound/routes.js";
 import { ManagerService } from "./manager/service.js";
 import { registerManagerRoutes } from "./manager/routes.js";
+import { createPcConnector } from "./connectors/pc/connector.js";
+import { registerPcRoutes } from "./connectors/pc/routes.js";
+import { PcService } from "./connectors/pc/service.js";
 import { SkillService } from "./skills/service.js";
 import { registerSkillRoutes } from "./skills/routes.js";
 import { ToolRegistry, realRunner, type CommandRunner } from "./tools/registry.js";
@@ -66,6 +69,8 @@ declare module "fastify" {
     manager: ManagerService;
     /** The tool registry and skill library. */
     skills: SkillService;
+    /** The PC agent (workspaces, permissions, emergency stop, log). */
+    pc: PcService;
     tools: ToolRegistry;
     /** Inbound message sources. The real server checks them with the clock; tests call `inbound.tick()` by hand. */
     inbound: InboundService;
@@ -97,6 +102,10 @@ export interface BuildAppOptions {
   managerPollMs?: number;
   /** Tests: stands in for running 'git --version' and similar fixed checks on this PC. */
   toolRunner?: CommandRunner;
+  /** Tests: add the PC agent connector to the connectors given above (the real app always has it). */
+  includePc?: boolean;
+  /** Tests: start programs with a fake instead of the real thing. */
+  pcStart?: (spec: import("./connectors/pc/runner.js").RunSpec) => import("./connectors/pc/runner.js").PcProcess;
   /** Tailscale names (*.ts.net) the phone may use. Empty = remote access is off and only this PC can connect. */
   remoteHosts?: string[];
   /** Folder with the built dashboard (web/dist). When given, the app serves the dashboard itself. */
@@ -217,7 +226,35 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   // Tests and test harnesses supply their own (fake) connectors instead. ----
   const vaultKey =
     options.vaultKey ?? (options.dbPath === ":memory:" ? newEphemeralKey() : loadOrCreateKeyFile(join(dirname(resolve(options.dbPath)), "vault.key")));
-  const registry = new ConnectorRegistry(options.connectors ?? [createTelegramConnector(), createBrowserConnector(), createGmailConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })]);
+  const pcService = new PcService({
+    db,
+    audit,
+    now,
+    forbiddenRoots: () => [process.cwd(), ...(options.dbPath === ":memory:" ? [] : [dirname(resolve(options.dbPath))])],
+    botName: (id) => {
+      try {
+        return agentService.getBot(id).name;
+      } catch {
+        return null;
+      }
+    },
+    botExists: (id) => {
+      try {
+        agentService.getBot(id);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    ...(options.pcStart ? { start: options.pcStart } : {}),
+    ollama: () => ({ enabled: catalog.listProviders().find((p) => p.id === "ollama")?.enabled ?? false, usableModels: catalog.listModels("ollama").filter((m) => m.callable).length }),
+  });
+  app.decorate("pc", pcService);
+  app.addHook("onClose", async () => pcService.shutdown());
+  const registry = new ConnectorRegistry([
+    ...(options.connectors ?? [createTelegramConnector(), createBrowserConnector(), createGmailConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })]),
+    ...(options.connectors === undefined || options.includePc ? [createPcConnector(pcService)] : []),
+  ]);
   const vault = new VaultService(db, vaultKey, audit, () => [...registry.list().flatMap((c) => c.secrets ?? []), { name: PUSH_SECRET_NAME, description: "Phone alerts signing key (made automatically, do not paste)" }], now);
   setSecretLookup((name) => vault.getStored(name));
   app.addHook("onClose", async () => setSecretLookup(null));
@@ -229,7 +266,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     audit,
     vault,
     getBot: (id) => agentService.getBot(id),
-    readEnabled: (botId, connector) => agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
+    // The PC agent has its own five permissions (checked by the connector); the generic read switch does not apply to it.
+    readEnabled: (botId, connector) => connector === "pc" || agentService.getBot(botId).permissions.some((p) => p.connector === connector && p.readEnabled),
     now,
   });
   await registerApprovalRoutes(app, gate, audit);
@@ -243,6 +281,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         const p = catalog.listProviders().find((x) => x.id === "ollama");
         return { enabled: p?.enabled ?? false, status: p?.status ?? null, usableModels: catalog.listModels("ollama").filter((m) => m.callable).length };
       },
+      pc: () => ({ roots: pcService.roots().length, stopped: pcService.isStopped() }),
       providersReady: () => catalog.listProviders().filter((p) => p.kind === "cloud" && p.enabled && p.keyConfigured).length,
     },
     now,
@@ -266,6 +305,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   app.decorate("skills", skillService);
   app.decorate("tools", tools);
   await registerSkillRoutes(app, skillService, tools);
+  await registerPcRoutes(app, pcService);
 
   const taskRepo = new TaskRepository(db);
   let automation: AutomationService | undefined; // created just below; the engine tells it when a chain ends

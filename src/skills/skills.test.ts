@@ -36,7 +36,9 @@ describe("the tool registry tells the truth", () => {
     expect(by("git")).toMatchObject({ status: "available" });
     expect(by("python")).toMatchObject({ status: "unavailable" });
     expect(by("python").detail).toMatch(/Not found on this PC/);
-    for (const id of ["pc-agent", "documents", "google-workspace", "github", "notion", "n8n", "mcp"]) {
+    expect(by("pc-agent")).toMatchObject({ status: "needs_setup" });
+    expect(by("pc-agent").detail).toMatch(/Choose a workspace folder/);
+    for (const id of ["documents", "google-workspace", "github", "notion", "n8n", "mcp"]) {
       expect(by(id).status, id).toBe("unavailable");
       expect(by(id).detail).toMatch(/Not built yet/);
     }
@@ -264,7 +266,8 @@ describe("tool access for bots", () => {
   it("only tools that need explicit access and exist can be given; connectors stay with the Permissions tab", async () => {
     const bot = await mkBot();
     expect((await t.call("PUT", `/api/bots/${bot.id}/tools`, { toolIds: ["node", "git"] })).body.tools.sort()).toEqual(["git", "node"]);
-    expect((await t.call("PUT", `/api/bots/${bot.id}/tools`, { toolIds: ["pc-agent"] })).body.error).toBe("tool_unavailable");
+    expect((await t.call("PUT", `/api/bots/${bot.id}/tools`, { toolIds: ["documents"] })).body.error).toBe("tool_unavailable");
+    expect((await t.call("PUT", `/api/bots/${bot.id}/tools`, { toolIds: ["pc-agent"] })).body.error).toBe("not_assignable"); // the PC agent has its own five permissions
     expect((await t.call("PUT", `/api/bots/${bot.id}/tools`, { toolIds: ["gmail"] })).status).toBe(400);
     expect((await t.call("PUT", `/api/bots/${bot.id}/tools`, { toolIds: ["nope-tool"] })).body.error).toBe("unknown_tool");
     expect((await t.call("GET", `/api/bots/${bot.id}/capabilities`)).body.tools.sort()).toEqual(["git", "node"]); // a refused change changed nothing

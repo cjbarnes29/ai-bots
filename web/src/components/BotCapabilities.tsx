@@ -1,5 +1,5 @@
 import { ApiError } from "../api/client";
-import { useBotCapabilities, useSetBotSkills, useSetBotTools, useSkills, useTools } from "../api/hooks";
+import { useBotCapabilities, useBotPc, useSetBotPc, useSetBotSkills, useSetBotTools, useSkills, useTools } from "../api/hooks";
 import type { Bot } from "../api/types";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
@@ -11,10 +11,13 @@ export function BotCapabilities({ bot }: { bot: Bot }) {
   const tools = useTools();
   const setSkills = useSetBotSkills(bot.id);
   const setTools = useSetBotTools(bot.id);
+  const pcGrants = useBotPc(bot.id);
+  const setPc = useSetBotPc(bot.id);
+  const myPc = new Set(pcGrants.data ?? []);
   const mySkills = new Set(caps.data?.skills ?? []);
   const myTools = new Set(caps.data?.tools ?? []);
   const assignable = (tools.data ?? []).filter((t) => t.requiresAssignment);
-  const error = errorText(setSkills.error ?? setTools.error);
+  const error = errorText(setSkills.error ?? setTools.error ?? setPc.error);
 
   return (
     <section aria-label="Skills and tools" className="space-y-4">
@@ -55,6 +58,36 @@ export function BotCapabilities({ bot }: { bot: Bot }) {
               {t.status === "unavailable" && <span className="hint"> (not available)</span>}
             </label>
           ))}
+        </div>
+      </div>
+      <div>
+        <h3 className="font-semibold">PC access (PowerShell tools)</h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Five separate permissions. Anything that changes something on the PC still waits for your approval each time, and works only inside the workspace folders set in Settings.
+        </p>
+        <div className="mt-1 flex flex-wrap gap-4">
+          {(
+            [
+              ["read", "READ (look at files, see PC status)"],
+              ["execute", "EXECUTE (run approved commands)"],
+              ["modify", "MODIFY (write files, move to trash)"],
+              ["install", "INSTALL (add packages)"],
+            ] as const
+          ).map(([id, label]) => (
+            <label key={id} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                disabled={bot.archived || setPc.isPending}
+                checked={myPc.has(id)}
+                onChange={(e) => setPc.mutate(e.target.checked ? [...myPc, id] : [...myPc].filter((x) => x !== id))}
+              />
+              {label}
+            </label>
+          ))}
+          <label className="flex items-center gap-2 text-sm opacity-60">
+            <input type="checkbox" disabled checked={false} readOnly />
+            ADMIN (not available)
+          </label>
         </div>
       </div>
       {error && (
