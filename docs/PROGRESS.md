@@ -65,7 +65,9 @@ Totals after Phase 9: 441 backend + 124 dashboard tests, both builds, 9 + 9 real
   PUSH_VAPID_PRIVATE_KEY). Subscriptions only for real push-service hosts (fcm.googleapis.com, Mozilla, Apple, Windows). One wake-up per newly waiting approval, max 1/min, no redirects; the phone's service worker
   asks the app how many are waiting. Revoked phones get nothing. 17 backend + 3 service-worker + 3 dashboard tests. NOT verified with a real phone / real push service.
 - Real-browser regression rerun after these changes: phone flow 12/12 (now also checks /monitor and /automation at 393px) and OmniRoute 9/9 passed.
-- OpenClaw: researched, NOT installed. See the final report: it is a shell-capable agent with a cited CVE and no approval step by default, which conflicts with this platform's gate. Waiting for the owner to confirm after reading the risks.
+- OpenClaw (owner said "install open claw"): installed PROJECT-LOCALLY and isolated, not globally: `tools/openclaw/` (git-ignored), package `openclaw@2026.10.10`, npm `--ignore-scripts`, 360 packages, Node 24.22 OK.
+  Verified: `node tools/openclaw/node_modules/openclaw/openclaw.mjs --version` -> 2026.10.10. Run it only with `USERPROFILE`/`HOME`/`OPENCLAW_STATE_DIR` pointed inside `tools/openclaw/home` so nothing is written to the user profile.
+  NOT configured, NOT started, no onboarding, no daemon, no model keys, no channels. The bot runtime "openclaw" in `src/runtimes/openclaw.ts` is still the placeholder (not wired). Wiring it behind the approval gate is part of the master plan awaiting owner approval.
 
 ### Monitoring and backup facts (added after Phase 11)
 - `src/monitor/monitor.ts`: GET /api/monitor/overview (read-only): bots, tasks (running / done / failed 24 h), approvals, AI calls and tokens today, automation, paired phones, the

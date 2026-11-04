@@ -26,3 +26,6 @@ Thumbs.db
 
 # Personal Claude Code settings for this project (never commit)
 .claude/
+
+# Optional local tools (OpenClaw), never committed
+tools/
