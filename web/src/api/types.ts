@@ -586,3 +586,68 @@ export interface PcOverview {
   executions: { id: number; startedAt: string; botName: string | null; action: string; cwd: string | null; command: string; status: "ok" | "failed" | "timeout" | "stopped" | "refused"; exitCode: number | null; durationMs: number | null; output: string | null }[];
   resources: { cpuPercent: number; memoryUsedPercent: number; memoryGb: number; cpuThreads: number; disk: { path: string; freeGb: number; totalGb: number }[]; uptimeHours: number; os: string; localAi: { enabled: boolean; usableModels: number } | null };
 }
+
+// ---- workflows (Stage 6)
+export interface WfNode {
+  id: string;
+  type: "trigger" | "bot_task" | "manager" | "condition" | "checkpoint" | "set" | "end";
+  label: string;
+  x: number;
+  y: number;
+  [key: string]: unknown;
+}
+export interface WfEdge {
+  id: string;
+  from: string;
+  to: string;
+  when: "always" | "true" | "false";
+}
+export interface WfGraph {
+  nodes: WfNode[];
+  edges: WfEdge[];
+}
+export interface WfProblem {
+  node?: string;
+  message: string;
+}
+export interface WfRunStep {
+  nodeId: string;
+  label: string;
+  type: string;
+  status: string;
+  output: string | null;
+  error: string | null;
+  attempts: number;
+  refKind: string | null;
+  refId: string | null;
+  decidedBy: string | null;
+}
+export interface WfRun {
+  id: string;
+  workflowId: string;
+  workflowName: string;
+  workflowVersion: number;
+  status: string;
+  trigger: string;
+  input: string;
+  error: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+  steps: WfRunStep[];
+}
+export interface WfInfo {
+  id: string;
+  name: string;
+  enabled: boolean;
+  archived: boolean;
+  version: number;
+  graph: WfGraph;
+  problems: WfProblem[];
+  updatedAt: string;
+  lastRun: { id: string; status: string; createdAt: string } | null;
+}
+export interface WfOverview {
+  workflows: WfInfo[];
+  runs: WfRun[];
+  waiting: { runId: string; workflowName: string; nodeId: string; message: string }[];
+}

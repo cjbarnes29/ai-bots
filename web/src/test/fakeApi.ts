@@ -653,6 +653,8 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       { id: 'gmail', name: 'Gmail', category: 'communication', description: 'd', status: 'needs_setup', detail: 'press Connect Gmail in Settings to sign in.', requiresAssignment: false },
     ] as any[],
     skills: [] as any[],
+    workflows: [] as any[],
+    wfRuns: [] as any[],
     botCaps: new Map<string, { skills: string[]; tools: string[] }>(),
     manager: {
       settings: { enabled: true, allowedBots: [] as string[], model: 'auto/general', escalationModel: 'auto/research', maxRunsPerDay: 20, defaultBudget: { maxModelCalls: 12, maxTokens: 40000, maxSteps: 6 } },
@@ -710,6 +712,47 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     if (parts[1] === 'tools') {
       if (!parts[2] && method === 'GET') return json({ tools: ext.tools });
       if (parts[2] === 'refresh' && method === 'POST') return json({ tools: ext.tools });
+    }
+    if (parts[1] === 'workflows') {
+      const wfView = (w: any) => ({ ...w, problems: [], lastRun: null });
+      const checkGraph = (g: any) => (g.nodes.some((n: any) => n.type === 'trigger') ? [] : [{ message: 'A workflow needs one Start box.' }]);
+      if (!parts[2] && method === 'GET') {
+        const arch = url.searchParams.get('archived') === '1';
+        const waiting = ext.wfRuns.flatMap((r: any) => r.steps.filter((s: any) => s.status === 'waiting').map((s: any) => ({ runId: r.id, workflowName: r.workflowName, nodeId: s.nodeId, message: 'Continue?' })));
+        return json({ workflows: ext.workflows.filter((w: any) => w.archived === arch).map(wfView), runs: ext.wfRuns, waiting, limits: {} });
+      }
+      if (!parts[2] && method === 'POST') {
+        const w = { id: 'wf' + (ext.workflows.length + 1), name: body.name, enabled: false, archived: false, version: 1, graph: body.graph, updatedAt: new Date().toISOString() };
+        ext.workflows.push(w);
+        return json({ workflow: wfView(w) }, 201);
+      }
+      if (parts[2] === 'validate' && method === 'POST') return json({ problems: checkGraph(body.graph) });
+      if (parts[2] === 'runs' && parts[3]) {
+        const r = ext.wfRuns.find((x: any) => x.id === parts[3]);
+        if (!r) return err(404, 'not_found', 'No such run.');
+        if (parts[4] === 'cancel') r.status = 'cancelled';
+        if (parts[4] === 'steps') {
+          const st = r.steps.find((x: any) => x.nodeId === parts[5]);
+          if (parts[6] === 'approve') { st.status = 'done'; r.status = 'done'; }
+          if (parts[6] === 'reject') { st.status = 'failed'; r.status = 'failed'; }
+        }
+        return json({ run: r });
+      }
+      const w = ext.workflows.find((x: any) => x.id === parts[2]);
+      if (!w) return err(404, 'not_found', 'No such workflow.');
+      if (!parts[3] && method === 'PATCH') { Object.assign(w, body.name ? { name: body.name } : {}, body.graph ? { graph: body.graph, version: w.version + 1 } : {}); return json({ workflow: wfView(w) }); }
+      if (parts[3] === 'enable') w.enabled = true;
+      if (parts[3] === 'disable') w.enabled = false;
+      if (parts[3] === 'archive') w.archived = true;
+      if (parts[3] === 'unarchive') w.archived = false;
+      if (parts[3] === 'duplicate') { const c = { ...w, id: 'wf' + (ext.workflows.length + 1), name: 'Copy of ' + w.name, enabled: false, version: 1 }; ext.workflows.push(c); return json({ workflow: wfView(c) }, 201); }
+      if (parts[3] === 'run') {
+        const r = { id: 'run' + (ext.wfRuns.length + 1), workflowId: w.id, workflowName: w.name, workflowVersion: w.version, status: w.graph.nodes.some((n: any) => n.type === 'checkpoint') ? 'waiting' : 'done', trigger: 'manual', input: body.input ?? '', error: null, createdAt: new Date().toISOString(), finishedAt: null,
+          steps: w.graph.nodes.map((n: any) => ({ nodeId: n.id, label: n.label, type: n.type, status: n.type === 'checkpoint' ? 'waiting' : 'done', output: null, error: null, attempts: 1, refKind: null, refId: null, decidedBy: null })) };
+        ext.wfRuns.unshift(r);
+        return json({ run: r }, 202);
+      }
+      return json({ workflow: wfView(w) });
     }
     if (parts[1] === 'skills') {
       const view = (s: any) => ({ ...s, missingTools: [], assignedBots: [...ext.botCaps.entries()].filter(([, c]) => c.skills.includes(s.id)).map(([b]) => b) });
@@ -886,7 +929,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc", "workflows"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "bots" && ["capabilities", "skills", "tools", "pc"].includes(parts[3] ?? "")) {

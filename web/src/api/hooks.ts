@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
+import type { WfGraph, WfOverview, WfProblem, PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -783,3 +783,21 @@ export function useSetBotPc(botId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bot-pc", botId] }),
   });
 }
+
+// ---- workflows (Stage 6)
+export function useWorkflows(archived = false) {
+  return useQuery({ queryKey: ["workflows", { archived }], queryFn: () => api<WfOverview>("GET", `/api/workflows?archived=${archived ? 1 : 0}`), refetchInterval: 5_000 });
+}
+
+const useWfMutation = <V, R = unknown>(fn: (v: V) => Promise<R>) => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["workflows"] }) });
+};
+
+export const useValidateWorkflow = () => useMutation({ mutationFn: async (graph: WfGraph) => (await api<{ problems: WfProblem[] }>("POST", "/api/workflows/validate", { graph })).problems });
+export const useCreateWorkflow = () => useWfMutation((v: { name: string; graph: WfGraph }) => api("POST", "/api/workflows", v));
+export const useUpdateWorkflow = () => useWfMutation((v: { id: string; patch: { name?: string; graph?: WfGraph } }) => api("PATCH", `/api/workflows/${v.id}`, v.patch));
+export const useWorkflowAction = () => useWfMutation((v: { id: string; action: "enable" | "disable" | "archive" | "unarchive" | "duplicate" }) => api("POST", `/api/workflows/${v.id}/${v.action}`, {}));
+export const useRunWorkflow = () => useWfMutation((v: { id: string; input: string }) => api("POST", `/api/workflows/${v.id}/run`, { input: v.input }));
+export const useCancelWorkflowRun = () => useWfMutation((runId: string) => api("POST", `/api/workflows/runs/${runId}/cancel`, {}));
+export const useWorkflowStep = () => useWfMutation((v: { runId: string; nodeId: string; action: "approve" | "reject" | "retry" }) => api("POST", `/api/workflows/runs/${v.runId}/steps/${v.nodeId}/${v.action}`, {}));

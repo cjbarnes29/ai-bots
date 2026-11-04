@@ -599,6 +599,13 @@ export class AutomationService {
   }
 
   /** A text event arrives (from the test form now, from connectors such as Telegram in the future). */
+  private readonly eventListeners: ((name: string, text: string) => number)[] = [];
+
+  /** Other parts (workflows) that also want to react to text events. They return how many things they started. */
+  addEventListener(listener: (name: string, text: string) => number): void {
+    this.eventListeners.push(listener);
+  }
+
   handleEvent(name: string, text: string): EventOutcome[] {
     if (text.length > EVENT_TEXT_MAX) {
       throw new AppError(413, "event_too_long", `That text is too long (${text.length.toLocaleString()} characters; the limit is ${EVENT_TEXT_MAX.toLocaleString()}).`);
@@ -610,7 +617,8 @@ export class AutomationService {
       if (!this.matches(trigger, text)) continue;
       outcomes.push({ ...this.fire(trigger, text, 0), triggerId: trigger.id, triggerName: trigger.name });
     }
-    if (outcomes.length === 0) {
+    const alsoStarted = this.eventListeners.reduce((n, l) => n + l(eventName, text), 0);
+    if (outcomes.length === 0 && alsoStarted === 0) {
       const reason = "No enabled trigger matched this event.";
       this.deps.repo.insertRun({ nowMs: this.now(), source: "event", sourceId: null, sourceName: eventName, status: "skipped", reason });
       outcomes.push({ status: "skipped", reason, triggerId: null, triggerName: "(none)" });

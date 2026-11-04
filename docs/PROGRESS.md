@@ -125,6 +125,14 @@ every new power is a connector behind it. Image/video/audio generation and Googl
   PowerPoint opened the .pptx (4 slides). PDF is checked structurally only (xref offsets, page streams); not opened in a PDF reader here. Charts inside Word are a table of numbers (SVG file is separate).
 - Tests: documents.test.ts (36) incl. a strict XML checker, package-consistency checks, PDF xref checks, gate tests.
 
+### Stage 6 facts: workflows and persistent queue (DONE)
+- Code: `src/workflows/{graph,service,routes}.ts`, migration 014 (workflows, append-only workflow_versions, workflow_runs, workflow_steps; workflows are never deleted, only archived). Dashboard: `WorkflowsSection` + `WorkflowEditor` (drag boxes with pointer events, "Arrow from/to here" buttons, live check via POST /api/workflows/validate) on the Automation page.
+- Boxes: trigger (manual/event/interval>=15 min), bot_task, manager, condition, checkpoint, set, end. DAG only (loops refused), max 25 boxes/60 arrows. Templates only `{{input}}` / `{{box}}` (clipped, no code).
+- Safety: new workflows are OFF; Run copies the graph so later edits never change a running run; bot tasks go through TaskEngine and the ActionGate (outside actions still need approval); a box that created an approval is never retried automatically; restart recovery never re-runs a running bot task (adopts the finished result); automation pause holds everything; event dedupe 60 s; interval triggers never replayed after downtime.
+- Limits: 20 runs/day/workflow, 60 total, 5 alive, 2 concurrent, 2 parallel boxes, 30 min per run.
+- Phone: can look, Run, cancel, approve/reject checkpoints; cannot create/edit/enable/archive/duplicate/retry (OWNER_ONLY_ROUTES).
+- Tests: 43 backend (`src/workflows/workflows.test.ts`, with mutation checks) + 5 dashboard (`web/src/workflows.test.tsx`). Not verified in a real browser by drag yet.
+
 ### Inbound messages and phone alerts (approved after Phase 11)
 - Inbound (`src/inbound/`, migration 009, Automation page section "Inbound messages"): a source watches Telegram (read_messages) or Gmail (unread, last day) and turns each NEW message into a text event
   (default names `telegram_message` / `gmail_message`) that the owner's triggers can use. Created OFF, PC-only to change; can be switched on only if the chosen bot has that connector's READ permission;

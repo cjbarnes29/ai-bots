@@ -1,0 +1,144 @@
+import { useState } from "react";
+import { ApiError } from "../api/client";
+import { useCancelWorkflowRun, useRunWorkflow, useWorkflowAction, useWorkflowStep, useWorkflows } from "../api/hooks";
+import type { Bot, WfInfo, WfRun } from "../api/types";
+import { STARTER, WorkflowEditor } from "./WorkflowEditor";
+
+const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
+const ALIVE = new Set(["queued", "running", "waiting"]);
+const STATUS_WORDS: Record<string, string> = { queued: "waiting its turn", running: "running", waiting: "waiting for you", done: "finished", failed: "failed", cancelled: "cancelled", interrupted: "interrupted by a restart" };
+
+/** Workflows: boxes and arrows that run in order, survive restarts, and stop at checkpoints for your decision. */
+export function WorkflowsSection({ bots }: { bots: Bot[] }) {
+  const [showArchived, setShowArchived] = useState(false);
+  const data = useWorkflows(showArchived);
+  const action = useWorkflowAction();
+  const run = useRunWorkflow();
+  const cancel = useCancelWorkflowRun();
+  const step = useWorkflowStep();
+  const [editing, setEditing] = useState<{ id?: string; name: string; graph: WfInfo["graph"] } | null>(null);
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [open, setOpen] = useState<string | null>(null);
+  const err = errorText(action.error ?? run.error ?? cancel.error ?? step.error);
+
+  return (
+    <section aria-label="Workflows" className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">Workflows</h2>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1 text-sm">
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} /> Show archived
+          </label>
+          <button className="btn-primary" onClick={() => setEditing({ name: "New workflow", graph: STARTER })}>
+            New workflow
+          </button>
+        </div>
+      </div>
+      <p className="hint">A workflow is a drawing of boxes and arrows. New ones start switched off and only run when you press Run. Anything that touches the outside world still asks for your approval.</p>
+      {err && (
+        <p role="alert" className="rounded-md bg-red-100 p-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+          {err}
+        </p>
+      )}
+
+      {editing && <WorkflowEditor key={editing.id ?? "new"} workflowId={editing.id} initialName={editing.name} initial={editing.graph} bots={bots} onClose={() => setEditing(null)} />}
+
+      {(data.data?.waiting.length ?? 0) > 0 && (
+        <div aria-label="Waiting for you" className="space-y-2 rounded-md border border-rose-400 p-3">
+          <h3 className="font-semibold">Waiting for your decision</h3>
+          {data.data!.waiting.map((w) => (
+            <div key={`${w.runId}-${w.nodeId}`} className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="flex-1">
+                <strong>{w.workflowName}</strong>: {w.message}
+              </span>
+              <button className="btn-primary" aria-label={`Approve ${w.workflowName}`} onClick={() => step.mutate({ runId: w.runId, nodeId: w.nodeId, action: "approve" })}>
+                Approve
+              </button>
+              <button className="btn-secondary" aria-label={`Reject ${w.workflowName}`} onClick={() => step.mutate({ runId: w.runId, nodeId: w.nodeId, action: "reject" })}>
+                Reject
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data.data?.workflows.length === 0 && <p className="hint">No workflows yet.</p>}
+      <ul className="space-y-2">
+        {data.data?.workflows.map((w) => (
+          <li key={w.id} className="space-y-2 rounded-md border border-slate-300 p-3 dark:border-slate-700">
+            <div className="flex flex-wrap items-center gap-2">
+              <strong>{w.name}</strong>
+              <span className="hint">
+                version {w.version} · {w.enabled ? "switched on" : "switched off"}
+                {w.lastRun ? ` · last run ${STATUS_WORDS[w.lastRun.status] ?? w.lastRun.status}` : ""}
+              </span>
+              {w.problems.length > 0 && <span className="text-sm text-red-700 dark:text-red-300">Has problems: {w.problems[0]!.message}</span>}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input aria-label={`Input for ${w.name}`} placeholder="Optional text to start with" value={inputs[w.id] ?? ""} onChange={(e) => setInputs({ ...inputs, [w.id]: e.target.value })} className="min-w-48 flex-1" />
+              <button className="btn-primary" disabled={w.archived || w.problems.length > 0} onClick={() => run.mutate({ id: w.id, input: inputs[w.id] ?? "" })} aria-label={`Run ${w.name}`}>
+                Run
+              </button>
+              <button className="btn-secondary" aria-label={`Edit ${w.name}`} onClick={() => setEditing({ id: w.id, name: w.name, graph: w.graph })}>
+                Edit
+              </button>
+              <button className="btn-secondary" aria-label={`${w.enabled ? "Switch off" : "Switch on"} ${w.name}`} disabled={w.archived || (!w.enabled && w.problems.length > 0)} onClick={() => action.mutate({ id: w.id, action: w.enabled ? "disable" : "enable" })}>
+                {w.enabled ? "Switch off" : "Switch on"}
+              </button>
+              <button className="btn-secondary" aria-label={`Duplicate ${w.name}`} onClick={() => action.mutate({ id: w.id, action: "duplicate" })}>
+                Duplicate
+              </button>
+              <button className="btn-secondary" aria-label={`${w.archived ? "Restore" : "Archive"} ${w.name}`} onClick={() => action.mutate({ id: w.id, action: w.archived ? "unarchive" : "archive" })}>
+                {w.archived ? "Restore" : "Archive"}
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <h3 className="font-semibold">Recent runs</h3>
+      {data.data?.runs.length === 0 && <p className="hint">Nothing has run yet.</p>}
+      <ul className="space-y-2">
+        {data.data?.runs.map((r) => (
+          <RunRow key={r.id} run={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} onCancel={() => cancel.mutate(r.id)} onRetry={(nodeId) => step.mutate({ runId: r.id, nodeId, action: "retry" })} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function RunRow({ run, open, onToggle, onCancel, onRetry }: { run: WfRun; open: boolean; onToggle: () => void; onCancel: () => void; onRetry: (nodeId: string) => void }) {
+  return (
+    <li className="rounded-md border border-slate-300 p-2 text-sm dark:border-slate-700">
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="underline" aria-expanded={open} onClick={onToggle}>
+          {run.workflowName} (v{run.workflowVersion})
+        </button>
+        <span>{STATUS_WORDS[run.status] ?? run.status}</span>
+        <span className="hint">{new Date(run.createdAt).toLocaleString()}</span>
+        {ALIVE.has(run.status) && (
+          <button className="btn-secondary" aria-label={`Cancel the run of ${run.workflowName}`} onClick={onCancel}>
+            Cancel
+          </button>
+        )}
+      </div>
+      {run.error && <p className="text-red-700 dark:text-red-300">{run.error}</p>}
+      {open && (
+        <ol className="mt-2 space-y-1">
+          {run.steps.map((s) => (
+            <li key={s.nodeId}>
+              <strong>{s.label || s.nodeId}</strong> — {STATUS_WORDS[s.status] ?? s.status}
+              {s.error && <span className="text-red-700 dark:text-red-300"> ({s.error})</span>}
+              {s.output && <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-slate-100 p-1 text-xs dark:bg-slate-800">{s.output}</pre>}
+              {s.status === "failed" && (
+                <button className="ml-2 underline" aria-label={`Retry ${s.label || s.nodeId}`} onClick={() => onRetry(s.nodeId)}>
+                  Retry this box
+                </button>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </li>
+  );
+}

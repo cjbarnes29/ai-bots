@@ -50,6 +50,8 @@ import { createDocumentsConnector } from "./connectors/documents.js";
 import { createPcConnector } from "./connectors/pc/connector.js";
 import { registerPcRoutes } from "./connectors/pc/routes.js";
 import { PcService } from "./connectors/pc/service.js";
+import { registerWorkflowRoutes } from "./workflows/routes.js";
+import { WorkflowService } from "./workflows/service.js";
 import { SkillService } from "./skills/service.js";
 import { registerSkillRoutes } from "./skills/routes.js";
 import { ToolRegistry, realRunner, type CommandRunner } from "./tools/registry.js";
@@ -70,6 +72,8 @@ declare module "fastify" {
     manager: ManagerService;
     /** The tool registry and skill library. */
     skills: SkillService;
+    /** Workflows (boxes and arrows) and their run queue. */
+    workflows: WorkflowService;
     /** The PC agent (workspaces, permissions, emergency stop, log). */
     pc: PcService;
     tools: ToolRegistry;
@@ -372,7 +376,34 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
   app.decorate("push", push);
   await registerPushRoutes(app, push);
-  const scheduler = new AutomationScheduler(automation, () => Promise.all([inbound.tick(), push.tick(), routingMaintenance.tick()]));
+  // ---- Workflows (Stage 6): drawn as boxes and arrows, with a saved queue that survives restarts ----
+  const workflows = new WorkflowService({
+    db,
+    audit,
+    now,
+    engine,
+    getTask: (id) => taskRepo.getTask(id),
+    manager,
+    botExists: (id) => {
+      try {
+        agentService.getBot(id);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    automationPaused: () => automation!.isPaused(),
+    ...(options.managerPollMs ? { pollMs: options.managerPollMs } : {}),
+  });
+  workflows.recover();
+  automation.addEventListener((name, text) => workflows.onEvent(name, text));
+  app.decorate("workflows", workflows);
+  await registerWorkflowRoutes(app, workflows);
+  const scheduler = new AutomationScheduler(automation, async () => {
+    workflows.tickSchedules();
+    workflows.tick();
+    await Promise.all([inbound.tick(), push.tick(), routingMaintenance.tick()]);
+  });
   app.decorate("automation", scheduler);
   app.addHook("onClose", async () => scheduler.stop());
   await registerAutomationRoutes(app, automation);
