@@ -78,16 +78,24 @@ export function BotEditor() {
             </label>
             <select
               id="bot-status"
+              aria-describedby="bot-status-help"
               value={b.status}
               disabled={b.archived || update.isPending}
               onChange={(e) => update.mutate({ status: e.target.value as BotStatus })}
             >
               <option value="disabled">Disabled</option>
               <option value="paused">Paused</option>
-              <option value="active" disabled>
-                Active (not available yet)
+              <option value="active" disabled={!b.model}>
+                Active{b.model ? "" : " (choose a model first)"}
               </option>
             </select>
+            <p id="bot-status-help" className="hint max-w-64">
+              {b.status === "active"
+                ? "Active: it answers chats and runs tasks. Its permissions are unchanged."
+                : b.model
+                  ? "It does not run (no chat, tasks, schedules or teamwork) until you set it to Active."
+                  : "Choose an AI model on the Details tab, then set it to Active."}
+            </p>
           </div>
           <button
             type="button"

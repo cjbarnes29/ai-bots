@@ -1,6 +1,7 @@
 import { ApiError } from "../api/client";
 import { useAssignRouting, useRefreshAllProviders, useRouting, useUpdateRouting } from "../api/hooks";
 import type { RoutingConfig } from "../api/types";
+import { RoutingControls } from "./RoutingControls";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 
@@ -34,8 +35,10 @@ export function RoutingSection() {
   if (!r) return <section aria-label="Model routing" className="card"><p role="status">Loading model routing…</p></section>;
 
   const set = (patch: Partial<RoutingConfig>) => update.mutate(patch);
-  const cloud = r.providers.filter((p) => p.kind === "cloud");
+  // Every provider, local ones included: listing only cloud providers here used to leave Ollama out for good once any box was ticked.
+  const choosable = r.providers;
   const allowed = new Set(r.config.allowedProviders);
+  const localLeftOut = r.providers.filter((p) => p.kind === "local" && p.enabled && allowed.size > 0 && !allowed.has(p.id));
 
   return (
     <section aria-label="Model routing" className="card space-y-4">
@@ -51,12 +54,13 @@ export function RoutingSection() {
         <Toggle label="Automatic routing is on" checked={r.config.enabled} onChange={(v) => set({ enabled: v })} disabled={update.isPending} />
         <Toggle label="New bots without a model use automatic routing" checked={r.config.autoAssignNewBots} onChange={(v) => set({ autoAssignNewBots: v })} disabled={update.isPending} />
         <Toggle label="Switch on newly discovered free models by themselves" checked={r.config.autoEnableEligible} onChange={(v) => set({ autoEnableEligible: v })} disabled={update.isPending} />
+        <Toggle label="Share work between providers (equally good models take turns)" checked={r.config.spreadLoad} onChange={(v) => set({ spreadLoad: v })} disabled={update.isPending} />
         <Toggle label="Prefer local Ollama models (otherwise they are only a backup)" checked={r.config.preferLocal} onChange={(v) => set({ preferLocal: v })} disabled={update.isPending} />
       </div>
 
       <div className="flex flex-wrap items-end gap-4">
         <label className="text-sm">
-          <span className="label">Models to try per task</span>
+          <span className="label">Models to try per task (maximum attempts)</span>
           <select aria-label="Models to try per task" value={r.config.maxAttempts} onChange={(e) => set({ maxAttempts: Number(e.target.value) })} className="rounded-md border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900">
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>
@@ -79,7 +83,7 @@ export function RoutingSection() {
       <fieldset className="space-y-1">
         <legend className="label">Providers routing may use (none ticked = all that are switched on)</legend>
         <div className="flex flex-wrap gap-4">
-          {cloud.map((p) => (
+          {choosable.map((p) => (
             <label key={p.id} className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -87,9 +91,15 @@ export function RoutingSection() {
                 onChange={(e) => set({ allowedProviders: e.target.checked ? [...allowed, p.id] : [...allowed].filter((x) => x !== p.id) })}
               />
               {p.displayName}
+              {p.simulated ? " (simulated)" : p.kind === "local" ? " (on this PC)" : ""}
             </label>
           ))}
         </div>
+        {localLeftOut.length > 0 && (
+          <p role="status" className="rounded-md bg-amber-100 p-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            {localLeftOut.map((p) => p.displayName).join(", ")} is switched on but not ticked here, so automatic routing never uses it. Tick it to use it.
+          </p>
+        )}
       </fieldset>
 
       <div className="flex flex-wrap gap-2">
@@ -116,6 +126,8 @@ export function RoutingSection() {
           {errorText(update.error ?? refreshAll.error ?? assign.error)}
         </p>
       )}
+
+      <RoutingControls r={r} />
 
       <div className="space-y-2">
         <h3 className="font-semibold">Provider health</h3>

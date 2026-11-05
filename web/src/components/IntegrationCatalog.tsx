@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useDeleteSecret, useIntegrations, useVerifyIntegration } from "../api/hooks";
 import type { IntegrationEntry, IntegrationStatus } from "../api/types";
+import { CATEGORY_ORDER, serviceGuide, type ServiceGuide } from "../lib/serviceGuides";
+import { GOALS, SCOPE_CHIP, nextStep, scopeOf } from "../lib/integrationNeeds";
+import { DisconnectDialog } from "./setup/DisconnectDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 /**
@@ -26,9 +29,10 @@ function Monogram({ label }: { label: string }) {
   );
 }
 
-function Card({ e, paused }: { e: IntegrationEntry; paused: boolean }) {
+function Card({ e, paused, guide }: { e: IntegrationEntry; paused: boolean; guide?: ServiceGuide | undefined }) {
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
   const verify = useVerifyIntegration();
   const del = useDeleteSecret();
   const chip = STATUS[e.status];
@@ -37,6 +41,8 @@ function Card({ e, paused }: { e: IntegrationEntry; paused: boolean }) {
   const reads = e.actions.filter((a) => a.kind === "read");
   const writes = e.actions.filter((a) => a.kind === "write");
   const detailsId = `integration-${e.id}-details`;
+  // Disconnect removes only this integration's OWN saved values (Gmail keeps the Google client it shares with Workspace).
+  const ownSaved = guide ? guide.disconnect.secrets.filter((n) => e.secrets.some((s) => s.name === n && s.saved)) : [];
 
   return (
     <li className="card space-y-3">
@@ -45,8 +51,48 @@ function Card({ e, paused }: { e: IntegrationEntry; paused: boolean }) {
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold">{e.label}</h3>
           <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${chip.tone}`}>{chip.label}</span>
+          <span className={`ml-1 mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${SCOPE_CHIP[scopeOf(e)].tone}`}>{SCOPE_CHIP[scopeOf(e)].label}</span>
         </div>
       </div>
+
+      {guide && (
+        <>
+          <p className="text-sm">{guide.description}</p>
+          <p className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="font-medium">For example:</span> {guide.allows.slice(0, 2).join("; ")}.
+          </p>
+          <dl className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <dt className="text-slate-500">Setup</dt>
+              <dd className="font-medium">{guide.difficulty}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Sign-in</dt>
+              <dd className="font-medium">{guide.auth}</dd>
+            </div>
+          </dl>
+          <div className="flex flex-wrap gap-2">
+            {guide.configure ? (
+              <Link to={guide.configure.to} className="btn-primary min-h-11" aria-label={`Configure ${e.label}`}>
+                Configure
+              </Link>
+            ) : (
+              <Link to={`/integrations/setup/${guide.id}`} className="btn-primary min-h-11" aria-label={`${e.status === "not_set_up" ? "Connect" : "Configure"} ${e.label}`}>
+                {e.status === "not_set_up" ? "Connect" : "Configure"}
+              </Link>
+            )}
+            <Link to={`/integrations/guide/${guide.id}`} className="btn-secondary min-h-11" aria-label={`Setup tutorial for ${e.label}`}>
+              Setup tutorial
+            </Link>
+            {ownSaved.length > 0 && (
+              <button type="button" className="btn-secondary min-h-11" onClick={() => setDisconnecting(true)} aria-label={`Disconnect ${e.label}`}>
+                Disconnect
+              </button>
+            )}
+          </div>
+        </>
+      )}
+      {disconnecting && guide && <DisconnectDialog guide={guide} names={ownSaved} onClose={() => setDisconnecting(false)} />}
 
       <p className="text-sm text-slate-600 dark:text-slate-400">
         {e.status === "not_set_up" && e.notReady ? `Not set up: ${e.notReady}` : null}
@@ -63,10 +109,14 @@ function Card({ e, paused }: { e: IntegrationEntry; paused: boolean }) {
           : null}
       </p>
 
+      <p className="text-sm">
+        <span className="font-medium">Next step:</span> {nextStep(e)}
+      </p>
+
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          className="btn-primary min-h-11"
+          className={guide ? "btn-secondary min-h-11" : "btn-primary min-h-11"}
           disabled={verify.isPending || (paused && e.group !== "On this PC and the web" && e.group !== "Business Workforce")}
           onClick={() => verify.mutate(e.id)}
           aria-label={`Test connection for ${e.label}`}
@@ -151,7 +201,7 @@ function Card({ e, paused }: { e: IntegrationEntry; paused: boolean }) {
                   </li>
                 ))}
               </ul>
-              <p className="hint">Save or replace credentials under Keys and tokens below.</p>
+              <p className="hint">{guide && !guide.configure ? "Save or replace them with Configure." : "Save or replace them under Advanced at the bottom of this page."}</p>
             </section>
           )}
 
@@ -188,33 +238,79 @@ function Card({ e, paused }: { e: IntegrationEntry; paused: boolean }) {
   );
 }
 
+/**
+ * The services, one card each, in the Integration Setup Center's categories. Categories come from the setup guides (serviceGuides.ts);
+ * a connector without a guide still appears, under "Other", with its existing test and details.
+ */
+function WhatDoINeed({ entries }: { entries: IntegrationEntry[] }) {
+  const [goalId, setGoalId] = useState("");
+  const goal = GOALS.find((g) => g.id === goalId);
+  return (
+    <section aria-label="Which services do I need?" className="card space-y-2">
+      <h2 className="text-lg font-semibold">Which services do I need?</h2>
+      <label className="block text-sm">
+        <span className="label">I want to…</span>
+        <select aria-label="What do you want to do?" value={goalId} onChange={(e) => setGoalId(e.target.value)} className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-900">
+          <option value="">Choose a goal</option>
+          {GOALS.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      {goal && (
+        <div className="space-y-1 text-sm" role="status">
+          {goal.needs.length === 0 ? <p>No service is needed.</p> : (
+            <ul className="list-disc pl-5">
+              {goal.needs.map((id) => {
+                const e = entries.find((x) => x.id === id);
+                const ok = e && (e.status === "verified" || e.status === "ready");
+                return (
+                  <li key={id}>
+                    <strong>{e?.label ?? id}</strong>: {e ? (ok ? (e.status === "verified" ? "set up and checked" : "set up, not tested yet") : "not set up yet") : "not available"}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p>{goal.needsRealAi ? "Also needs a real AI provider for the thinking part (the simulated Demo AI cannot do it)." : "Does not need a real AI provider."}</p>
+          <p className="hint">{goal.note}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function IntegrationCatalog() {
   const q = useIntegrations();
   if (q.isPending) return <p role="status">Loading services…</p>;
   if (q.isError || !q.data) return <p role="alert">Could not load the list of services.</p>;
-  const groups = [...new Set(q.data.integrations.map((i) => i.group))];
+  const categoryOf = (id: string) => serviceGuide(id)?.category ?? "Other";
+  const present = [...CATEGORY_ORDER, "Other" as const].filter((c) => q.data.integrations.some((i) => categoryOf(i.id) === c));
   return (
-    <section aria-labelledby="catalog-heading" className="space-y-4">
+    <section aria-labelledby="catalog-heading" className="space-y-6">
       <div>
-        <h2 id="catalog-heading" className="text-lg font-semibold">
+        <h2 id="catalog-heading" className="sr-only">
           Services
         </h2>
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          A service shows <strong>Verified</strong> only after a real check succeeded. Saved credentials alone read &ldquo;Ready, not tested yet&rdquo;.
+          Connect one service at a time: press Connect and follow the steps. A service shows <strong>Verified</strong> only after a real check succeeded. Saved credentials alone read &ldquo;Ready, not tested yet&rdquo;.
           {q.data.paused ? " Outside actions are paused, so connection tests that reach the internet are switched off." : ""}
         </p>
       </div>
-      {groups.map((g) => (
-        <div key={g} className="space-y-2">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{g}</h3>
+      <WhatDoINeed entries={q.data.integrations} />
+      {present.map((c) => (
+        <section key={c} aria-label={c} className="space-y-2">
+          <h2 className="text-lg font-semibold">{c}</h2>
           <ul className="grid gap-3 md:grid-cols-2">
             {q.data.integrations
-              .filter((i) => i.group === g)
+              .filter((i) => categoryOf(i.id) === c)
               .map((i) => (
-                <Card key={i.id} e={i} paused={q.data.paused} />
+                <Card key={i.id} e={i} paused={q.data.paused} guide={serviceGuide(i.id)} />
               ))}
           </ul>
-        </div>
+        </section>
       ))}
     </section>
   );

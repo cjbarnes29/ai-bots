@@ -2,6 +2,10 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useExternalStatus, useMonitor, useProviders, useWorkflows } from "../api/hooks";
 import type { ActivityLevel } from "../api/types";
+import { AiOverview } from "../components/AiOverview";
+import { DemoCard } from "../components/DemoCard";
+
+const RUN_WORD: Record<string, string> = { queued: "waiting its turn", running: "running", waiting: "waiting for you", completed: "finished", failed: "failed", cancelled: "cancelled", interrupted: "interrupted by a restart" };
 
 const LEVEL_STYLE: Record<ActivityLevel, string> = {
   info: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
@@ -54,7 +58,8 @@ export function Dashboard() {
   const m = monitor.data;
   const ext = external.data;
 
-  const connectable = (providers.data ?? []).filter((p) => p.connectable);
+  // The built-in simulated provider is never counted as a connected AI.
+  const connectable = (providers.data ?? []).filter((p) => p.connectable && !p.simulated);
   const connected = connectable.filter((p) => p.status === "connected");
   const lastTest = connected.map((p) => p.lastCheckedAt).filter((v): v is string => Boolean(v)).sort().at(-1);
 
@@ -65,7 +70,7 @@ export function Dashboard() {
   const runs = workflows.data?.runs ?? [];
   const wfRunning = runs.filter((r) => ["queued", "running", "waiting"].includes(r.status)).length;
   const recent = runs.filter((r) => now - new Date(r.createdAt).getTime() < DAY_MS);
-  const wfDone = recent.filter((r) => r.status === "done").length;
+  const wfDone = recent.filter((r) => r.status === "completed").length;
   const wfFailed = recent.filter((r) => r.status === "failed").length;
   const wfWaiting = workflows.data?.waiting.length ?? 0;
 
@@ -98,6 +103,7 @@ export function Dashboard() {
                 Connect an AI model
               </Link>{" "}
               (a free provider key, then Test connection).
+              <span className="hint block">No key yet? Use the "Try it without an AI account" card below: a simulated AI lets you explore everything.</span>
             </li>
             <li>
               {m && m.bots.total > 0 ? "Done: " : ""}
@@ -194,6 +200,9 @@ export function Dashboard() {
         </div>
       </section>
 
+      <AiOverview />
+      <DemoCard compact />
+
       <div className="grid gap-6 lg:grid-cols-2">
         <section aria-labelledby="quick-heading" className="space-y-2">
           <h2 id="quick-heading" className="text-lg font-semibold">
@@ -233,6 +242,34 @@ export function Dashboard() {
           </ul>
         </section>
       </div>
+
+      <section aria-labelledby="runs-heading" className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="runs-heading" className="text-lg font-semibold">
+            Recent workflow runs
+          </h2>
+          <Link to="/workflows" className="text-sm underline">
+            All workflows
+          </Link>
+        </div>
+        {workflows.data && runs.length === 0 && <p className="hint">No workflow has run yet.</p>}
+        <ul className="space-y-1">
+          {runs.slice(0, 5).map((run) => {
+            const failedBox = run.steps.find((x) => x.status === "failed");
+            return (
+              <li key={run.id} className="flex flex-wrap items-center gap-2 text-sm">
+                <Link to="/workflows" className="underline">
+                  {run.workflowName}
+                </Link>
+                <span className={run.status === "failed" ? "font-semibold text-red-700 dark:text-red-300" : "font-medium"}>{RUN_WORD[run.status] ?? run.status}</span>
+                {failedBox && <span className="hint">at "{failedBox.label || failedBox.nodeId}"</span>}
+                {run.steps.some((x) => x.output?.startsWith("[SIMULATED RESPONSE")) && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200">Simulated AI</span>}
+                <span className="hint">{new Date(run.createdAt).toLocaleString()}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <section aria-labelledby="activity-heading" className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">

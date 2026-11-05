@@ -111,7 +111,7 @@ describe("Settings: providers", () => {
     renderApp(createFakeApi(), "/settings/ai-models");
     for (const name of ["OpenRouter", "Ollama (local)"]) {
       const c = within(await screen.findByRole("listitem", { name }));
-      expect(c.queryByRole("checkbox")).not.toBeInTheDocument();
+      expect(c.queryByRole("checkbox", { name: /no billing/ })).not.toBeInTheDocument();
       expect(c.getByRole("switch", { name: `Enable ${name}` })).toBeEnabled();
     }
   });
@@ -408,7 +408,16 @@ describe("bot editor: model, temperature and max tokens", () => {
 });
 
 describe("test chat", () => {
-  const readyBot = (over = {}) => makeBot({ name: "Scout", model: "groq/llama-3.1-8b-instant", currentVersion: 1, ...over });
+  const readyBot = (over = {}) => makeBot({ name: "Scout", model: "groq/llama-3.1-8b-instant", currentVersion: 1, status: "active", ...over });
+
+  it("a switched-off bot explains how to switch it on instead of failing on Send", async () => {
+    const user = userEvent.setup();
+    const bot = readyBot({ status: "disabled" });
+    renderApp(createFakeApi([bot]), `/bots/${bot.id}`);
+    await user.click(await screen.findByRole("tab", { name: "Chat" }));
+    expect(await screen.findByText(/This bot is switched off. Set its Status \(top right\) to Active/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
 
   it("asks you to choose a model first", async () => {
     const user = userEvent.setup();

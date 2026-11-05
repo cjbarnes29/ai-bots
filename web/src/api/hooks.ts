@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { FINAL_TASK_STATUSES } from "./types";
-import type { BusinessInstallResult, BusinessLead, BusinessStatus, BusinessTeamStatus, IntegrationEntry, LeadStatus, StagedBatch, VerifyResponse, MemoryNote, BotMemorySettings, WfGraph, WfOverview, WfProblem, PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
+import type { RegistryView, EvaluationResult, RecMode, RecView, DemoStatus, AccessApps, AccessFolders, GrantPreviewInfo, GrantRequest, GuardianView, BusinessInstallResult, BusinessLead, BusinessStatus, BusinessTeamStatus, IntegrationEntry, LeadStatus, StagedBatch, VerifyResponse, MemoryNote, BotMemorySettings, WfGraph, WfOverview, WfProblem, PcOverview, SkillInfo, SkillTestResult, SkillVersionInfo, ToolInfo, ManagerOverview, ManagerSettingsInfo, RoutingConfig, RoutingView, DeviceInfo, GmailStatus, InboundSourceInfo, MonitorOverview, PairingCode, SessionInfo,
   Bot,
   BotVersion,
   ChatMessageRecord,
@@ -33,6 +33,7 @@ import type { BusinessInstallResult, BusinessLead, BusinessStatus, BusinessTeamS
   Permission,
   PermissionAuditEntry,
   ProviderView,
+  TryModelResult,
   UpdateBotInput,
   UsageSummary,
 } from "./types";
@@ -173,6 +174,7 @@ export interface ProviderPatch {
   freeConfirmed?: boolean;
   dailyRequestCap?: number | null;
   baseUrl?: string;
+  appAutomation?: boolean;
 }
 
 export function usePatchProvider() {
@@ -210,6 +212,15 @@ export function usePatchModel() {
     mutationFn: async (input: { id: number; enabled: boolean }) =>
       (await api<{ model: ModelView }>("PATCH", `/api/llm/models/${input.id}`, { enabled: input.enabled })).model,
     onSuccess: refresh,
+  });
+}
+
+/** The setup wizard's test chat: one short message to one model. The backend applies every normal check (pause, free-only, caps). */
+export function useTryModel() {
+  const refresh = useRefreshLlm();
+  return useMutation({
+    mutationFn: (input: { id: number; message: string }) => api<TryModelResult>("POST", `/api/llm/models/${input.id}/try`, { message: input.message }),
+    onSettled: refresh,
   });
 }
 
@@ -494,6 +505,14 @@ export function useSendEvent() {
 }
 
 // ---- Approvals, outside actions, secrets vault ----
+export function useGuardianStatus() {
+  return useQuery({
+    queryKey: ["guardian", "status"],
+    queryFn: () => api<GuardianView>("GET", "/api/guardian/status"),
+    refetchInterval: 3000,
+  });
+}
+
 export function useExternalStatus() {
   return useQuery({
     queryKey: ["external", "status"],
@@ -867,6 +886,21 @@ export function useSetBotPc(botId: string) {
 }
 
 // ---- workflows (Stage 6)
+export function useDemo() {
+  return useQuery({ queryKey: ["demo"], queryFn: () => api<DemoStatus>("GET", "/api/demo") });
+}
+
+export function useSetupDemo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<DemoStatus>("POST", "/api/demo/setup"),
+    onSuccess: (view) => {
+      qc.setQueryData(["demo"], view);
+      return Promise.all([qc.invalidateQueries({ queryKey: ["llm"] }), qc.invalidateQueries({ queryKey: ["bots"] }), qc.invalidateQueries({ queryKey: ["workflows"] })]);
+    },
+  });
+}
+
 export function useWorkflows(archived = false) {
   return useQuery({ queryKey: ["workflows", { archived }], queryFn: () => api<WfOverview>("GET", `/api/workflows?archived=${archived ? 1 : 0}`), refetchInterval: 5_000 });
 }
@@ -929,5 +963,89 @@ export function useSetBotMemory(botId: string) {
   return useMutation({
     mutationFn: async (patch: Partial<BotMemorySettings>) => (await api<{ settings: BotMemorySettings }>("PUT", `/api/bots/${botId}/memory`, patch)).settings,
     onSuccess: (s) => qc.setQueryData(["memory-settings", botId], s),
+  });
+}
+
+// ---- Application and folder access ----
+export function useAccessApps() {
+  return useQuery({ queryKey: ["access", "apps"], queryFn: () => api<AccessApps>("GET", "/api/access/applications") });
+}
+const useAccessMutation = <V, R = unknown>(fn: (v: V) => Promise<R>) => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["access"] }) });
+};
+export const useScanApps = () => useAccessMutation(() => api<AccessApps>("POST", "/api/access/applications/scan", {}));
+export const useSessionApproveApp = () => useAccessMutation((v: { id: string; capabilities: string[] }) => api("POST", `/api/access/applications/${v.id}/session`, { capabilities: v.capabilities }));
+export const useSetApp = () =>
+  useAccessMutation((v: { id: string; level: "approved" | "trusted"; capabilities: string[]; expiresInDays?: number | null; reviewInDays?: number | null }) => {
+    const { id, ...body } = v;
+    return api("PUT", `/api/access/applications/${id}`, body);
+  });
+export const useRevokeApp = () => useAccessMutation((id: string) => api("POST", `/api/access/applications/${id}/revoke`, {}));
+export const useRevokeAllApps = () => useAccessMutation(() => api("POST", "/api/access/applications/revoke-all", {}));
+
+export function useAccessFolders() {
+  return useQuery({ queryKey: ["access", "folders"], queryFn: () => api<AccessFolders>("GET", "/api/access/folders"), refetchInterval: 10_000 });
+}
+export const usePreviewGrant = () => useMutation({ mutationFn: (v: GrantRequest) => api<GrantPreviewInfo>("POST", "/api/access/folders/preview", v) });
+export const useGrantFolder = () => useAccessMutation((v: GrantRequest) => api("POST", "/api/access/folders", v));
+export const useRevokeFolder = () => useAccessMutation((id: string) => api("POST", `/api/access/folders/${id}/revoke`, {}));
+export const useRevokeAllFolders = () => useAccessMutation(() => api("POST", "/api/access/folders/revoke-all", {}));
+export const useCheckFolder = () => useAccessMutation((v: { path: string; op: string; subject?: string }) => api<{ allowed: boolean; reason?: string }>("POST", "/api/access/check", v));
+export function useAccessLog() {
+  return useQuery({ queryKey: ["access", "log"], queryFn: async () => (await api<{ events: AuditEvent[] }>("GET", "/api/access/log")).events, refetchInterval: 10_000 });
+}
+
+// ---- Desktop control (UI Automation + OCR) ----
+export interface DesktopStatus {
+  engine: { uia: boolean; ocr: boolean; ocrLanguage: string | null; powershell: string } | null;
+  problem: string | null;
+  sessions: { session: string; app: string; name: string }[];
+  cloudScreenText: boolean;
+}
+export function useDesktopStatus() {
+  return useQuery({ queryKey: ["desktop", "status"], queryFn: () => api<DesktopStatus>("GET", "/api/desktop/status"), refetchInterval: 8000 });
+}
+export function useDesktopLog() {
+  return useQuery({ queryKey: ["desktop", "log"], queryFn: async () => (await api<{ events: AuditEvent[] }>("GET", "/api/desktop/log")).events, refetchInterval: 8000 });
+}
+export function useSetDesktopCloudText() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (on: boolean) => api("PUT", "/api/desktop/settings", { cloudScreenText: on }), onSuccess: () => qc.invalidateQueries({ queryKey: ["desktop"] }) });
+}
+
+// ---- Recommended settings
+export function useRecommendations() {
+  return useQuery({ queryKey: ["recommendations"], queryFn: () => api<RecView>("GET", "/api/recommendations") });
+}
+
+/** Applying or restoring changes real settings, so everything that shows them is refreshed afterwards. */
+function useRecMutation<V>(fn: (v: V) => Promise<RecView>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (view) => {
+      qc.setQueryData(["recommendations"], view);
+      return Promise.all([qc.invalidateQueries({ queryKey: ["llm"] }), qc.invalidateQueries({ queryKey: ["desktop"] })]);
+    },
+  });
+}
+export const useSetRecMode = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (mode: RecMode) => api<RecView>("PUT", "/api/recommendations/mode", { mode }), onSuccess: (view) => qc.setQueryData(["recommendations"], view) });
+};
+export const useApplyRecommendations = () => useRecMutation((ids: string[]) => api<RecView>("POST", "/api/recommendations/apply", { ids }));
+export const useRestoreRecommendation = () => useRecMutation((historyId: string) => api<RecView>("POST", "/api/recommendations/restore", { historyId }));
+
+// ---- Model registry
+export function useRegistry() {
+  return useQuery({ queryKey: ["llm", "registry"], queryFn: () => api<RegistryView>("GET", "/api/llm/registry") });
+}
+/** Sends REAL requests to a provider (owner-started, with an approved request count). Everything about models is refreshed afterwards. */
+export function useEvaluateModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { ref: string; tests: string[]; approvedRequests: number }) => api<{ result: EvaluationResult }>("POST", "/api/llm/registry/evaluate", v),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["llm"] }),
   });
 }

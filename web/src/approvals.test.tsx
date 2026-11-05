@@ -169,10 +169,14 @@ describe("the secrets vault panel (Settings)", () => {
   });
 });
 
-describe("the Gmail panel (Settings)", () => {
+// Since the 2026-11-04 redesign the Gmail sign-in lives in the Gmail wizard (Integrations Center > Gmail > Connect, step "Sign in").
+const atGmailStep = (step: number) => localStorage.setItem("awp.setup.service.gmail", JSON.stringify({ step, done: Array.from({ length: step }, (_, i) => i) }));
+
+describe("the Gmail sign-in (Gmail wizard)", () => {
   it("cannot start signing in until the client ID and secret are saved", async () => {
     const api = createFakeApi();
-    renderApp(api, "/integrations");
+    atGmailStep(3);
+    renderApp(api, "/integrations/setup/gmail");
     expect(await screen.findByText("Not set up")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect Gmail" })).toBeDisabled();
     expect(screen.getByText(/127\.0\.0\.1:3000\/api\/gmail\/oauth\/callback/)).toBeInTheDocument();
@@ -184,8 +188,11 @@ describe("the Gmail panel (Settings)", () => {
     api.ext.secrets.find((s) => s.name === "GOOGLE_CLIENT_SECRET")!.inVault = true;
     const open = vi.fn();
     vi.stubGlobal("open", open);
-    renderApp(api, "/integrations");
+    atGmailStep(3);
+    renderApp(api, "/integrations/setup/gmail");
     expect(await screen.findByText("Ready to sign in")).toBeInTheDocument();
+    expect(screen.getByText(/Read your email/)).toBeInTheDocument(); // the permissions are explained before signing in
+    expect(screen.getByText(/Send email as you \(every email waits for your approval first\)/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Connect Gmail" }));
     await waitFor(() => expect(open).toHaveBeenCalledWith("https://accounts.example.test/auth?state=abc", "_blank", "noopener"));
     expect(api.writes().filter((w) => w.path === "/api/gmail/oauth/start")).toHaveLength(1);
@@ -195,20 +202,21 @@ describe("the Gmail panel (Settings)", () => {
   }, 20_000);
 });
 
-describe("Send test email to myself (Settings > Gmail)", () => {
+describe("Send test email to myself (Gmail wizard, last step)", () => {
   it("is hidden until Gmail is connected, then queues a test for the chosen bot and points to Approvals", async () => {
     const api = createFakeApi([makeBot({ id: "b1", name: "Mailer" })]);
     api.ext.secrets.find((s) => s.name === "GOOGLE_CLIENT_ID")!.inVault = true;
     api.ext.secrets.find((s) => s.name === "GOOGLE_CLIENT_SECRET")!.inVault = true;
-    renderApp(api, "/integrations");
-    expect(await screen.findByText("Ready to sign in")).toBeInTheDocument();
+    atGmailStep(5);
+    renderApp(api, "/integrations/setup/gmail");
+    expect(await screen.findByText(/Gmail: /)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send test email to myself" })).not.toBeInTheDocument();
     api.ext.gmail.connected = true;
     const button = await screen.findByRole("button", { name: "Send test email to myself" }, { timeout: 8000 });
     await waitFor(() => expect(button).toBeEnabled());
     await userEvent.click(button);
     expect(await screen.findByText(/owner@example\.com/)).toBeInTheDocument();
-    expect(within(screen.getByRole("status")).getByRole("link", { name: "Approvals" })).toHaveAttribute("href", "/approvals");
+    expect(within(screen.getByText(/Queued a test email/).closest("p")!).getByRole("link", { name: "Approvals" })).toHaveAttribute("href", "/approvals");
     const posts = api.writes().filter((w) => w.path === "/api/gmail/test-email");
     expect(posts).toHaveLength(1);
     expect(Object.keys(posts[0]!.body as object)).toEqual(["botId"]); // the address is never sent from the page

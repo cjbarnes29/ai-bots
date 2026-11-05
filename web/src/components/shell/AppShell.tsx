@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useExternalStatus } from "../../api/hooks";
+import { GuardianBanner } from "../GuardianBanner";
 import { Icon } from "../Icon";
+import { OwnerProofDialog } from "../OwnerProofDialog";
 import { NAV, isActive, type NavEntry } from "./nav";
 
 const SAFETY_KEY = "awp-safety-note-dismissed";
@@ -56,6 +58,8 @@ export function AppShell() {
 
       {moreOpen && <MoreSheet pathname={pathname} waiting={waiting} onClose={() => setMoreOpen(false)} />}
 
+      <GuardianBanner />
+      <OwnerProofDialog />
       <SafetyNote />
       <main className="mx-auto max-w-6xl px-4 py-6 pb-28 md:pb-8">
         <Outlet />

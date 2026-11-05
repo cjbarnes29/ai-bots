@@ -4,10 +4,12 @@ import { FREE_LABELS } from "./FreeBadge";
 
 /** A short reason a model can't be picked right now (the full reason is in Settings). */
 export function shortReason(model: ModelView): string {
+  if (model.retired) return "retired by the provider";
   if (model.freeStatus === "blocked") return "blocked, not free";
   if (model.availability === "not_installed") return "not installed";
   if (model.availability === "removed") return "no longer listed";
   if (!model.enabled) return "switched off in Settings → AI Models";
+  if (model.callable && model.routable === false) return model.verification === "unverified" ? "not verified yet (see the model registry in Settings → AI Models)" : "not available to bots";
   return "provider not ready";
 }
 
@@ -58,8 +60,8 @@ export function ModelSelect({ id, value, models, disabled, onChange }: Props) {
             {models
               .filter((m) => m.providerId === providerId)
               .map((m) => (
-                <option key={m.ref} value={m.ref} disabled={!m.callable && m.ref !== value}>
-                  {m.callable ? label(m) : `${label(m)} (unavailable: ${shortReason(m)})`}
+                <option key={m.ref} value={m.ref} disabled={(!m.callable || m.routable === false) && m.ref !== value}>
+                  {m.callable && m.routable !== false ? label(m) : `${label(m)} (unavailable: ${shortReason(m)})`}
                 </option>
               ))}
           </optgroup>

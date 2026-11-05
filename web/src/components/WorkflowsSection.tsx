@@ -2,11 +2,14 @@ import { useState } from "react";
 import { ApiError } from "../api/client";
 import { useCancelWorkflowRun, useRunWorkflow, useWorkflowAction, useWorkflowStep, useWorkflows } from "../api/hooks";
 import type { Bot, WfInfo, WfRun } from "../api/types";
+import { DemoCard } from "./DemoCard";
 import { STARTER, WorkflowEditor } from "./WorkflowEditor";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
+export const SIMULATED_MARK = "[SIMULATED RESPONSE";
+const isSimulatedText = (t: string | null) => t !== null && t.startsWith(SIMULATED_MARK);
 const ALIVE = new Set(["queued", "running", "waiting"]);
-const STATUS_WORDS: Record<string, string> = { queued: "waiting its turn", running: "running", waiting: "waiting for you", done: "finished", failed: "failed", cancelled: "cancelled", interrupted: "interrupted by a restart" };
+const STATUS_WORDS: Record<string, string> = { queued: "waiting its turn", running: "running", waiting: "waiting for you", completed: "finished", skipped: "skipped (not on the chosen path)", pending: "not reached", done: "finished", failed: "failed", cancelled: "cancelled", interrupted: "interrupted by a restart" };
 
 /** Workflows: boxes and arrows that run in order, survive restarts, and stop at checkpoints for your decision. */
 export function WorkflowsSection({ bots }: { bots: Bot[] }) {
@@ -62,12 +65,18 @@ export function WorkflowsSection({ bots }: { bots: Bot[] }) {
         </div>
       )}
 
-      {data.data?.workflows.length === 0 && <p className="hint">No workflows yet.</p>}
+      {data.data?.workflows.length === 0 && (
+        <div className="space-y-2">
+          <p className="hint">No workflows yet. Press New workflow to draw one, or try the ready-made demonstration below (it uses a simulated AI, so no account is needed).</p>
+          <DemoCard compact />
+        </div>
+      )}
       <ul className="space-y-2">
         {data.data?.workflows.map((w) => (
           <li key={w.id} className="space-y-2 rounded-md border border-slate-300 p-3 dark:border-slate-700">
             <div className="flex flex-wrap items-center gap-2">
               <strong>{w.name}</strong>
+              {w.graph.nodes.some((n) => n.type === "bot_task" && bots.find((b) => b.id === n.botId)?.model?.startsWith("demo/")) && <SimulatedBadge />}
               <span className="hint">
                 version {w.version} · {w.enabled ? "switched on" : "switched off"}
                 {w.lastRun ? ` · last run ${STATUS_WORDS[w.lastRun.status] ?? w.lastRun.status}` : ""}
@@ -107,6 +116,10 @@ export function WorkflowsSection({ bots }: { bots: Bot[] }) {
   );
 }
 
+function SimulatedBadge() {
+  return <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200">Simulated AI</span>;
+}
+
 function RunRow({ run, open, onToggle, onCancel, onRetry }: { run: WfRun; open: boolean; onToggle: () => void; onCancel: () => void; onRetry: (nodeId: string) => void }) {
   return (
     <li className="rounded-md border border-slate-300 p-2 text-sm dark:border-slate-700">
@@ -115,6 +128,7 @@ function RunRow({ run, open, onToggle, onCancel, onRetry }: { run: WfRun; open: 
           {run.workflowName} (v{run.workflowVersion})
         </button>
         <span>{STATUS_WORDS[run.status] ?? run.status}</span>
+        {run.steps.some((x) => isSimulatedText(x.output)) && <SimulatedBadge />}
         <span className="hint">{new Date(run.createdAt).toLocaleString()}</span>
         {ALIVE.has(run.status) && (
           <button className="btn-secondary" aria-label={`Cancel the run of ${run.workflowName}`} onClick={onCancel}>
@@ -123,8 +137,14 @@ function RunRow({ run, open, onToggle, onCancel, onRetry }: { run: WfRun; open: 
         )}
       </div>
       {run.error && <p className="text-red-700 dark:text-red-300">{run.error}</p>}
+      {run.steps.find((x) => x.status === "failed") && (
+        <p role="status" className="text-red-700 dark:text-red-300">
+          Stopped at the box "{run.steps.find((x) => x.status === "failed")!.label || run.steps.find((x) => x.status === "failed")!.nodeId}". Open this run to see the error; boxes before it finished normally.
+        </p>
+      )}
       {open && (
         <ol className="mt-2 space-y-1">
+          {run.input && <li className="hint">Started with: {run.input}</li>}
           {run.steps.map((s) => (
             <li key={s.nodeId}>
               <strong>{s.label || s.nodeId}</strong> — {STATUS_WORDS[s.status] ?? s.status}

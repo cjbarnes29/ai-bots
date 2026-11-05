@@ -24,11 +24,15 @@ describe("Settings: Google Workspace", () => {
     expect(screen.queryByRole("heading", { name: "Google Workspace" })).not.toBeInTheDocument();
   });
 
+  // Since the 2026-11-04 redesign the sign-in lives in the Google Workspace wizard, step "Sign in".
+  const atStep = (step: number) => localStorage.setItem("awp.setup.service.gworkspace", JSON.stringify({ step, done: Array.from({ length: step }, (_, i) => i) }));
+
   it("the button needs the saved Google client; with one it opens Google's page", async () => {
     const noClient = createFakeApi();
     noClient.ext.connectors.push({ id: "gworkspace", label: "Google Workspace", actions: [] });
-    renderApp(noClient, "/integrations");
-    const sec = within(await screen.findByRole("region", { name: "Google Workspace" }));
+    atStep(3);
+    renderApp(noClient, "/integrations/setup/gworkspace");
+    const sec = within(await screen.findByRole("region", { name: "Google Workspace sign-in" }));
     expect(await sec.findByText("Not set up")).toBeInTheDocument();
     expect(sec.getByRole("button", { name: "Connect Google Workspace" })).toBeDisabled();
   });
@@ -39,8 +43,9 @@ describe("Settings: Google Workspace", () => {
     for (const n of ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]) api.ext.secrets.find((x: any) => x.name === n)!.inVault = true;
     const open = vi.fn();
     vi.stubGlobal("open", open);
-    renderApp(api, "/integrations");
-    const sec = within(await screen.findByRole("region", { name: "Google Workspace" }));
+    atStep(3);
+    renderApp(api, "/integrations/setup/gworkspace");
+    const sec = within(await screen.findByRole("region", { name: "Google Workspace sign-in" }));
     await waitFor(() => expect(sec.getByRole("button", { name: "Connect Google Workspace" })).toBeEnabled());
     await userEvent.click(sec.getByRole("button", { name: "Connect Google Workspace" }));
     await waitFor(() => expect(open).toHaveBeenCalledWith(expect.stringContaining("accounts.example.test"), "_blank", "noopener"));

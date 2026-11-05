@@ -81,6 +81,22 @@ export function makeProvider(overrides: Partial<ProviderView> = {}): ProviderVie
     modelCount: 0,
     enabledModelCount: 0,
     requestsToday: 0,
+    appAutomation: false,
+    quota: { dailyCap: 50, requestsToday: 0, exhausted: false },
+    profile: {
+      costClass: "free_with_limits",
+      freeSummary: "Several models are free of charge on the free tier.",
+      cardRequired: null,
+      limits: "Per project; shown in AI Studio.",
+      commercialUse: "Not verified.",
+      privacy: "Free-tier content is used to improve Google products.",
+      provider: { vision: "yes", toolCalling: "untested" },
+      inThisApp: { vision: false, toolCalling: false },
+      suitability: { planning: "yes", workerSteps: "yes", screenshots: "partly", visualNavigation: "untested", toolCalls: "untested", errorRecovery: "partly", multiStep: "partly" },
+      recommendation: "Best free cloud candidate once the app can send images.",
+      verifiedOn: new Date().toISOString().slice(0, 10),
+      sources: ["https://aistudio.google.com/docs/pricing"],
+    },
     ...overrides,
   };
 }
@@ -103,6 +119,7 @@ export function makeModel(overrides: Partial<ModelView> = {}): ModelView {
     enabled: true,
     availability: "available",
     isLlama: false,
+    capabilities: { text: "yes", image_input: "unknown", vision: "unknown", audio_input: "unknown", audio_output: "unknown", tool_calling: "unknown", structured_output: "unknown", long_context: "unknown", coding: "unknown" },
     ownerVerified: false,
     ownerOverridable: false,
     callable: true,
@@ -198,7 +215,7 @@ export interface FakeApiOptions {
 
 /**
  * A tiny in-memory imitation of the real backend, used only by tests.
- * It follows the same rules (versions, restore, archive, permissions, no activation,
+ * It follows the same rules (versions, restore, archive, permissions, activation only with a model, only active bots chat,
  * free-only, locked addresses...).
  */
 export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {}) {
@@ -212,7 +229,17 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
   const llm = {
     providers: new Map<string, ProviderView>((options.providers ?? defaultProviders()).map((p) => [p.id, p])),
     models: [...(options.models ?? [])],
-    routing: { enabled: true, autoAssignNewBots: true, autoEnableEligible: true, providerOrder: ['gemini', 'groq'], allowedProviders: [] as string[], excludedModels: [] as string[], preferLocal: false, maxAttempts: 3, autoRefreshHours: 24 },
+    routing: { enabled: true, autoAssignNewBots: true, autoEnableEligible: true, spreadLoad: false, providerOrder: ['gemini', 'groq'], allowedProviders: [] as string[], excludedModels: [] as string[], preferLocal: false, maxAttempts: 3, autoRefreshHours: 24, preferred: {} as Record<string, string>, defaultModel: null as string | null },
+    /** Every "Test chat" message received (model id + message), so tests can prove exactly what was sent. */
+    tried: [] as { id: number; message: string }[],
+    /** The model registry as the dashboard sees it. Tests may add or change entries. */
+    registry: [] as any[],
+    /** Tests: make the next evaluation fail with this error. */
+    registryError: null as { status: number; code: string; message: string } | null,
+    /** Every evaluation request the dashboard sent. */
+    registryRuns: [] as any[],
+    /** Models resting after a rate limit, as the routing view reports them. */
+    cooldowns: [] as { ref: string; secondsLeft: number }[],
     routingPreview: [] as { ref: string; providerId: string; displayName: string; score: number; local: boolean }[],
     status: { paused: false, freeOnly: true, limits: { ...DEFAULT_LIMITS }, defaults: { ...DEFAULT_LIMITS }, maxOutputTokensCeiling: 4096 } as LlmStatus,
     usage: options.usage ?? EMPTY_USAGE,
@@ -232,7 +259,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     audit: new Map<string, DelegationAuditEntry[]>(),
     /** Task chains by root id, oldest first. Tests can edit a chain to simulate progress. */
     trees: new Map<string, TaskTree>(),
-    limits: { maxDepth: 2, maxSubtasksPerTask: 3, maxTasksPerChain: 5, maxLlmCallsPerChain: 8, maxInstructionChars: 4000 } as Record<string, number>,
+    limits: { maxDepth: 2, maxSubtasksPerTask: 3, maxTasksPerChain: 5, maxLlmCallsPerChain: 8, maxInstructionChars: 4000, maxParallelChains: 1 } as Record<string, number>,
   };
   const DEFAULT_COLLAB_LIMITS = { ...collab.limits };
 
@@ -261,6 +288,33 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
 
   const handleLlm = (method: string, parts: string[], url: URL, body: any): Response => {
     const [, , area, id, action] = parts; // ["api","llm", area, id, action]
+    if (area === "registry") {
+      const labels: Record<string, string> = { connectivity: "Connectivity", instruction: "Follows a simple instruction", json_output: "Structured JSON output", identity_instruction: "Keeps its identity and the owner's rule (system instructions)", history: "Remembers the conversation", action_format: "Writes a valid outside-action block" };
+      const view = () => ({
+        enforced: true,
+        summary: { verified: llm.registry.filter((m) => m.chatCapable && m.status === "verified").length, unverified: llm.registry.filter((m) => m.chatCapable && m.status === "unverified").length, unavailable: llm.registry.filter((m) => m.status === "unavailable").length, notChat: llm.registry.filter((m) => !m.chatCapable).length },
+        battery: { order: ["connectivity", "json_output", "identity_instruction", "history", "action_format"], core: ["connectivity", "instruction", "json_output"], requestsPerFullRun: 5, labels },
+        models: llm.registry,
+      });
+      if (!id && method === "GET") return json(view());
+      if (id === "evaluate" && method === "POST") {
+        if (llm.registryError) return err(llm.registryError.status, llm.registryError.code, llm.registryError.message);
+        const m = llm.registry.find((x) => x.ref === body.ref);
+        if (!m) return err(404, "model_not_found", "That model is not in the catalog. Refresh the provider's models first.");
+        llm.registryRuns.push(body);
+        const results = (body.tests as string[]).flatMap((t) => (t === "connectivity" ? ["connectivity", "instruction"] : [t])).map((t) => ({ test: t, label: labels[t] ?? t, result: "pass" as const, detail: "ok", latencyMs: 500 }));
+        for (const r of results) {
+          const rec = m.tests.find((x: any) => x.test === r.test);
+          if (rec) Object.assign(rec, { result: "pass", source: "real", at: new Date().toISOString(), detail: "ok", latencyMs: 500 });
+        }
+        m.status = "verified";
+        m.routable = true;
+        m.reasons = [];
+        m.lastVerifiedAt = new Date().toISOString();
+        return json({ result: { ref: body.ref, requestsUsed: body.tests.length, budget: body.approvedRequests, stoppedBecause: null, results, status: "verified" } });
+      }
+      return err(404, "not_found", "Not found");
+    }
     if (area === "routing") {
       const view = () => ({
         config: llm.routing,
@@ -271,7 +325,8 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
           { id: "light", label: "Quick, lightweight tasks" },
         ],
         preview: { general: llm.routingPreview, coding: [], research: [], light: [] },
-        providers: [...llm.providers.values()].map((p) => ({ id: p.id, displayName: p.displayName, kind: p.kind, enabled: p.enabled, keyConfigured: p.keyConfigured, status: p.status, statusMessage: null, lastCheckedAt: null, requestsToday: 0, dailyRequestCap: p.dailyRequestCap, pausedForSeconds: 0, modelCount: p.modelCount, usableModels: p.enabledModelCount })),
+        providers: [...llm.providers.values()].map((p) => ({ id: p.id, displayName: p.displayName, kind: p.kind, simulated: p.simulated === true, enabled: p.enabled, keyConfigured: p.keyConfigured, status: p.status, statusMessage: null, lastCheckedAt: null, requestsToday: 0, dailyRequestCap: p.dailyRequestCap, pausedForSeconds: 0, modelCount: p.modelCount, usableModels: p.enabledModelCount })),
+        cooldowns: llm.cooldowns,
         lastRefreshAt: null,
       });
       if (!id && method === "GET") return json(view());
@@ -332,6 +387,10 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
           }
           next.enabled = true;
         } else if (body.enabled === false) next.enabled = false;
+        if (body.appAutomation === true) {
+          if (!next.enabled) return err(409, "provider_off", `Switch ${p.displayName} on first.`);
+          next.appAutomation = true;
+        } else if (body.appAutomation === false || !next.enabled) next.appAutomation = false;
         llm.providers.set(p.id, next);
         return json({ provider: providerView(next) });
       }
@@ -355,6 +414,14 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       if (!id && method === "GET") return json({ models: llm.models });
       const m = llm.models.find((x) => String(x.id) === id);
       if (!m) return err(404, "model_not_found", "Model not found");
+      if (parts[4] === "try" && method === "POST") {
+        if (llm.status.paused) return err(409, "llm_paused", "All AI calls are paused.");
+        if (!m.callable) return err(409, "llm_blocked_by_policy", "This model is switched off or its provider is not ready.");
+        const message = String(body?.message ?? "").trim();
+        if (!message || message.length > 500) return validation("message", "Between 1 and 500 characters");
+        llm.tried.push({ id: m.id, message });
+        return json({ reply: `Hello from ${m.modelId}.`, providerId: m.providerId, modelId: m.modelId, latencyMs: 1200, inputTokens: 8, outputTokens: 5 });
+      }
       if (parts[4] === "owner-verified" && method === "PUT") {
         if (body.verified && !m.ownerOverridable) return err(409, "not_overridable", "This model cannot be confirmed by hand.");
         m.ownerVerified = !!body.verified;
@@ -384,6 +451,8 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     }
     if (sub === "chat" && method === "POST") {
       if (bot.archived) return err(409, "bot_archived", "This bot is archived. Unarchive it to chat.");
+      // Like the real server since 2026-11-04: only a switched-on bot answers.
+      if (bot.status !== "active") return err(409, "bot_not_active", `${bot.name} is ${bot.status === "paused" ? "paused" : "switched off"}. Set it to Active to let it run.`);
       if (!bot.model) return err(409, "llm_no_model_selected", "Choose a model for this bot on the Details tab first.");
       const queued = llm.chatQueue.shift();
       if (queued) return queued(bot.id, body);
@@ -626,6 +695,57 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
   };
 
 
+  // ---- recommended settings (a small stand-in for src/recommendations; tests can read and change it) ----
+  const mkRec = (id: string, area: string, title: string, level: string, current: string, recommended: string | null, extra: Record<string, unknown> = {}) => ({
+    id, area, title, level, kind: "setting", status: recommended === null ? "requires_connection" : current === recommended ? "current" : "recommended",
+    label: recommended === null ? "Requires connection" : current === recommended ? "Current" : "Recommended", current, recommended,
+    why: "Because it fits this PC.", benefits: ["Faster"], tradeoffs: ["Less choice"], compatibility: ["8 GB memory checked"],
+    note: null, canApply: recommended !== null && current !== recommended, cost: "free", customizeAt: "/settings/ai-models", lastChange: null, ...extra,
+  });
+  const rec = {
+    mode: "intermediate" as string,
+    /** Tests: make apply/restore refuse like a phone (owner-only), or fail. */
+    forbidApply: false,
+    items: [
+      mkRec("routing.strategy", "Model routing", "Automatic model choice", "beginner", "Off", "On"),
+      mkRec("limits.retries", "Usage limits", "Retries after a failure", "advanced", "1", "2"),
+      mkRec("desktop.local", "Desktop", "Local model for screen text", "beginner", "None", null, { note: "Connect a local model first." }),
+    ] as any[],
+    history: [] as any[],
+  };
+  const recView = (results?: unknown[]) => {
+    const shown = rec.items.filter((i) => rec.mode === "advanced" || (rec.mode === "intermediate" ? i.level !== "advanced" : i.level === "beginner"));
+    return { mode: rec.mode, modes: ["beginner", "intermediate", "advanced"], items: shown, hidden: rec.items.length - shown.length, history: [...rec.history].reverse(), environment: { ramGb: 8, cores: 4, realProvidersConnected: 0, guardian: false }, ...(results ? { results } : {}) };
+  };
+  const handleRec = (method: string, parts: string[], body: any): Response | null => {
+    const sub = parts[2];
+    if (!sub && method === "GET") return json(recView());
+    if (sub === "mode" && method === "PUT") { rec.mode = body.mode; return json(recView()); }
+    if ((sub === "apply" || sub === "restore") && method === "POST" && rec.forbidApply) return err(403, "owner_only", "This can only be done from the PC itself.");
+    if (sub === "apply" && method === "POST") {
+      const results: any[] = [];
+      for (const id of body.ids as string[]) {
+        const it = rec.items.find((i) => i.id === id);
+        if (!it) { results.push({ id, title: id, result: "refused", reason: "No such recommendation." }); continue; }
+        if (!it.canApply) { results.push({ id, title: it.title, result: it.recommended === it.current ? "unchanged" : "refused", reason: "Nothing verified to recommend." }); continue; }
+        const hid = "h" + (rec.history.length + 1);
+        rec.history.push({ id: hid, at: new Date().toISOString(), recId: id, title: it.title, beforeText: it.current, afterText: it.recommended, restoredAt: null });
+        results.push({ id, title: it.title, result: "applied", before: it.current, after: it.recommended });
+        Object.assign(it, { current: it.recommended, status: "current", label: "Current", canApply: false, lastChange: { historyId: hid, at: new Date().toISOString() } });
+      }
+      return json(recView(results));
+    }
+    if (sub === "restore" && method === "POST") {
+      const h = rec.history.find((x) => x.id === body.historyId);
+      if (!h) return err(404, "not_found", "That change is not in the history.");
+      const it = rec.items.find((i) => i.id === h.recId)!;
+      h.restoredAt = new Date().toISOString();
+      Object.assign(it, { current: h.beforeText, status: "recommended", label: "Recommended", canApply: true, lastChange: null });
+      return json(recView([{ id: it.id, title: it.title, result: "applied", before: h.afterText, after: h.beforeText }]));
+    }
+    return null;
+  };
+
   // ---- approvals, outside actions, secrets vault (tests can read and change it) ----
   const ext = {
     paused: false,
@@ -689,6 +809,21 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
         { key: 'site_auditor', name: 'Site Auditor', role: 'Checks websites', webRead: true, skills: ['Website audit checklist'], instructions: 'Use audit_batch.' },
         { key: 'proposal_writer', name: 'Proposal Writer', role: 'Writes drafts', webRead: false, skills: ['English proposal structure'], instructions: 'Never state a price.' },
       ],
+    },
+    // A pretend Guardian (the separate stop/pause program). Off by default, like the real app without GUARDIAN_URL.
+    guardian: { configured: false, reachable: true, state: "RUN" as string, reason: "owner_resumed", url: "http://127.0.0.1:3100", pass: "correct horse battery staple", issued: null as string | null, calls: [] as any[] },
+    studio: { drafted: 0, calls: [] as any[], assignments: {} as Record<string, string>, templates: [{ id: "researcher", category: "Research and business", name: "Researcher", role: "Finds and verifies information", personality: "Curious.", instructions: "Research.", responsibilities: ["Gather"], suggestedMode: "research", suggests: ["Browser (read)"] }, { id: "developer", category: "Technical", name: "Developer", role: "Writes and reviews code", personality: "Pragmatic.", instructions: "Code.", responsibilities: ["Code"], suggestedMode: "workflow_execution", suggests: [] }], modes: [{ id: "chat_only", label: "Chat Only", description: "Conversation only." }, { id: "research", label: "Research", description: "Reads information sources." }, { id: "workflow_execution", label: "Workflow Execution", description: "Internal work." }, { id: "desktop_operator", label: "Desktop Operator", description: "Approved applications." }] },
+    desktop: { cloudScreenText: false, log: [{ id: 1, createdAt: new Date().toISOString(), kind: "desktop.launch", actor: "desktop-engine", botId: null, detail: { name: "Notes" } }] as any[], calls: [] as any[] },
+    // Pretend application scan and folder approvals (the access module). Nothing is real.
+    access: {
+      scanned: false,
+      apps: [
+        { id: "a1", name: "Notes Pro", version: "2.1", publisher: "Acme", installLocation: "C:/Apps/Notes", exePath: "C:/Apps/Notes/notes.exe", signer: "Acme", signed: true, system: false, running: { pids: [5], count: 1 }, services: [], startup: [], tasks: [], integrations: [], protectedBy: null, riskNotes: [], sources: ["installed", "running"], level: "unknown", approval: null as any, session: null as any },
+        { id: "a2", name: "UltraViewer", version: "6.6", publisher: "DucFabulous", installLocation: null, exePath: "C:/Apps/UV/uv.exe", signer: null, signed: false, system: false, running: { pids: [], count: 0 }, services: [{ name: "UltraViewer_Service", state: "Running", startMode: "Auto" }], startup: [{ name: "UltraViewer", location: "HKLM Run" }], tasks: [], integrations: [], protectedBy: { category: "remote access", why: "it can give another person or device control of this PC" }, riskNotes: [], sources: ["installed", "service"], level: "protected", approval: null as any, session: null as any },
+      ] as any[],
+      grants: [] as any[],
+      log: [] as any[],
+      calls: [] as any[],
     },
     checks: {} as Record<string, { ok: boolean; text: string; at: string }>,
     verifyOutcome: {} as Record<string, { result: string; summary?: string; message?: string }>,
@@ -817,6 +952,29 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       if (!parts[2] && method === 'GET') return json({ tools: ext.tools });
       if (parts[2] === 'refresh' && method === 'POST') return json({ tools: ext.tools });
     }
+    if (parts[1] === 'demo') {
+      const names = ['Researcher', 'Writer', 'Reviewer', 'Failing agent'].map((n) => 'Demo: ' + n);
+      const wfNames = ['Demo: Research, write, review', 'Demo: Where did it fail?'];
+      const view = () => {
+        const demo = llm.providers.get('demo');
+        const mine = [...bots.values()];
+        return {
+          provider: { enabled: !!demo?.enabled, status: demo?.status ?? null, statusMessage: null, modelCount: demo ? 2 : 0, enabledModelCount: demo?.enabled ? 2 : 0 },
+          ready: !!demo?.enabled,
+          bots: names.map((n, i) => { const b = mine.find((x) => x.name === n); return { key: 'k' + i, name: n, id: b?.id ?? null, status: b?.status ?? null }; }),
+          workflows: wfNames.map((n) => ({ name: n, id: ext.workflows.find((w: any) => w.name === n)?.id ?? null, summary: 'Summary of ' + n })),
+          capabilities: [{ needs: 'nothing', title: 'Works now, with no AI at all', items: ['Draw and save workflows'] }, { needs: 'real_ai', title: 'Needs a real AI provider', items: ['Real answers'] }],
+        };
+      };
+      if (!parts[2] && method === 'GET') return json(view());
+      if (parts[2] === 'setup' && method === 'POST') {
+        const p = llm.providers.get('demo');
+        if (p) llm.providers.set('demo', { ...p, enabled: true, status: 'connected', modelCount: 2, enabledModelCount: 2 });
+        for (const n of names) if (![...bots.values()].some((b) => b.name === n)) { const b = makeBot({ name: n, model: 'demo/simulated-echo', status: 'active' }); bots.set(b.id, b); }
+        for (const n of wfNames) if (!ext.workflows.some((w: any) => w.name === n)) ext.workflows.push({ id: 'wf-' + n.length, name: n, enabled: false, archived: false, version: 1, graph: { nodes: [{ id: 'start', type: 'trigger', label: '', kind: 'manual', x: 0, y: 0 }], edges: [] }, updatedAt: new Date().toISOString() });
+        return json(view());
+      }
+    }
     if (parts[1] === 'workflows') {
       const wfView = (w: any) => ({ ...w, problems: [], lastRun: null });
       const checkGraph = (g: any) => (g.nodes.some((n: any) => n.type === 'trigger') ? [] : [{ message: 'A workflow needs one Start box.' }]);
@@ -837,7 +995,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
         if (parts[4] === 'cancel') r.status = 'cancelled';
         if (parts[4] === 'steps') {
           const st = r.steps.find((x: any) => x.nodeId === parts[5]);
-          if (parts[6] === 'approve') { st.status = 'done'; r.status = 'done'; }
+          if (parts[6] === 'approve') { st.status = 'completed'; r.status = 'completed'; }
           if (parts[6] === 'reject') { st.status = 'failed'; r.status = 'failed'; }
         }
         return json({ run: r });
@@ -851,8 +1009,8 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       if (parts[3] === 'unarchive') w.archived = false;
       if (parts[3] === 'duplicate') { const c = { ...w, id: 'wf' + (ext.workflows.length + 1), name: 'Copy of ' + w.name, enabled: false, version: 1 }; ext.workflows.push(c); return json({ workflow: wfView(c) }, 201); }
       if (parts[3] === 'run') {
-        const r = { id: 'run' + (ext.wfRuns.length + 1), workflowId: w.id, workflowName: w.name, workflowVersion: w.version, status: w.graph.nodes.some((n: any) => n.type === 'checkpoint') ? 'waiting' : 'done', trigger: 'manual', input: body.input ?? '', error: null, createdAt: new Date().toISOString(), finishedAt: null,
-          steps: w.graph.nodes.map((n: any) => ({ nodeId: n.id, label: n.label, type: n.type, status: n.type === 'checkpoint' ? 'waiting' : 'done', output: null, error: null, attempts: 1, refKind: null, refId: null, decidedBy: null })) };
+        const r = { id: 'run' + (ext.wfRuns.length + 1), workflowId: w.id, workflowName: w.name, workflowVersion: w.version, status: w.graph.nodes.some((n: any) => n.type === 'checkpoint') ? 'waiting' : 'completed', trigger: 'manual', input: body.input ?? '', error: null, createdAt: new Date().toISOString(), finishedAt: null,
+          steps: w.graph.nodes.map((n: any) => ({ nodeId: n.id, label: n.label, type: n.type, status: n.type === 'checkpoint' ? 'waiting' : 'completed', output: null, error: null, attempts: 1, refKind: null, refId: null, decidedBy: null })) };
         ext.wfRuns.unshift(r);
         return json({ run: r }, 202);
       }
@@ -970,7 +1128,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       }
       const hasClient = !!ext.secrets.find((s) => s.name === 'GOOGLE_CLIENT_ID')?.inVault && !!ext.secrets.find((s) => s.name === 'GOOGLE_CLIENT_SECRET')?.inVault;
       if (parts[2] === 'status' && method === 'GET')
-        return json({ hasClient, connected: ext.gmail.connected, redirectUri: 'http://127.0.0.1:3000/api/gmail/oauth/callback', scopes: ['read', 'send'] });
+        return json({ hasClient, connected: ext.gmail.connected, redirectUri: 'http://127.0.0.1:3000/api/gmail/oauth/callback', scopes: ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send'] });
       if (parts[2] === 'oauth' && parts[3] === 'start' && method === 'POST') {
         if (!hasClient) return err(409, 'gmail_no_client', 'Save the Google client ID and client secret first.');
         ext.gmail.startedUrl = 'https://accounts.example.test/auth?state=abc';
@@ -1004,7 +1162,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     }
     if (parts[1] === 'gworkspace') {
       const hasClient = !!ext.secrets.find((x) => x.name === 'GOOGLE_CLIENT_ID')?.inVault && !!ext.secrets.find((x) => x.name === 'GOOGLE_CLIENT_SECRET')?.inVault;
-      if (parts[2] === 'status' && method === 'GET') return json({ hasClient, connected: ext.gws.connected, redirectUri: 'http://127.0.0.1:3000/api/gworkspace/oauth/callback', scopes: [] });
+      if (parts[2] === 'status' && method === 'GET') return json({ hasClient, connected: ext.gws.connected, redirectUri: 'http://127.0.0.1:3000/api/gworkspace/oauth/callback', scopes: ['https://www.googleapis.com/auth/drive.readonly', 'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/tasks'] });
       if (parts[2] === 'oauth' && parts[3] === 'start' && method === 'POST') {
         if (!hasClient) return err(409, 'gmail_no_client', 'Save the Google client ID and client secret first.');
         return json({ url: 'https://accounts.example.test/auth?state=gws' });
@@ -1034,6 +1192,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
         ext.stored.delete(s.name);
         s.inVault = false;
         s.updatedAt = null;
+        for (const pr of llm.providers.values()) if (pr.keyEnv === s.name) llm.providers.set(pr.id, { ...pr, keyConfigured: false });
         extLog('vault.delete', 'owner', { name: s.name });
         return json({ secrets: ext.secrets });
       }
@@ -1071,18 +1230,122 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     return null;
   };
 
+  const guardianView = () => {
+    const g = ext.guardian;
+    if (!g.configured) return { configured: false, url: null, reachable: false, state: null, reason: null, held: null, tier: null, passphraseSet: null, presence: null, protectsOwnerActions: false };
+    const held = !g.reachable ? "The Guardian is not responding." : g.state === "RUN" ? null : "The AI Workforce is " + g.state.toLowerCase() + ". Nothing new starts until the owner resumes it at the Guardian page.";
+    return { configured: true, url: g.url, reachable: g.reachable, state: g.reachable ? g.state : null, reason: g.reason, held, tier: "A", passphraseSet: true, presence: { monitoring: true, healthy: true, locked: false, idleMinutes: 2, idleLimitMinutes: 15 }, protectsOwnerActions: true };
+  };
+
   const handle = (method: string, path: string, body: any): Response => {
     const url = new URL(path, "http://localhost");
     const parts = url.pathname.split("/").filter(Boolean); // ["api","bots",id,...]
+    if (parts[0] === "v1" && parts[1] === "command" && method === "POST") {
+      // the pretend Guardian itself (the dashboard talks to it directly, not through the app)
+      ext.guardian.calls.push({ cmd: body?.cmd });
+      if (body?.cmd !== "proof") return err(400, "unknown_command", "Not a command the Guardian accepts.");
+      if (ext.guardian.state !== "RUN") return new Response(JSON.stringify({ ok: false, code: "not_running", message: "Resume first: the AI Workforce is " + ext.guardian.state + "." }), { status: 409 });
+      if (body.passphrase !== ext.guardian.pass) return new Response(JSON.stringify({ ok: false, code: "wrong_passphrase", message: "That passphrase is not correct." }), { status: 401 });
+      ext.guardian.issued = "proof-" + "x".repeat(30);
+      return new Response(JSON.stringify({ ok: true, token: ext.guardian.issued, expiresAt: new Date(Date.now() + 600_000).toISOString() }), { status: 200 });
+    }
+    if (parts[0] === "api" && parts[1] === "guardian" && parts[2] === "status") return json(guardianView());
+    if (parts[0] === "api" && parts[1] === "bot-studio") {
+      const st = ext.studio;
+      st.calls.push({ method, path: url.pathname, body });
+      if (parts[2] === "templates" && !parts[3]) return json({ templates: st.templates });
+      if (parts[2] === "templates" && parts[4] === "create") {
+        const t = st.templates.find((x: any) => x.id === parts[3]);
+        if (!t) return err(404, "template_not_found", "That template does not exist.");
+        const b = makeBot({ name: body?.name ?? t.name, role: t.role, status: "disabled", model: null });
+        bots.set(b.id, b);
+        return json({ bot: b, suggestedMode: t.suggestedMode, suggests: t.suggests }, 201);
+      }
+      if (parts[2] === "bots" && parts[4] === "export") {
+        const b = bots.get(parts[3] ?? "");
+        if (!b) return err(404, "bot_not_found", "Bot not found");
+        return json({ format: "awp-bot", version: 1, bot: { name: b.name, role: b.role, personality: b.personality, instructions: b.instructions, responsibilities: b.responsibilities, temperature: null, maxOutputTokens: null } });
+      }
+      if (parts[2] === "import") {
+        let p: any = null;
+        try { p = JSON.parse(body.text); } catch { /* not json */ }
+        const bad = !p || p.format !== "awp-bot" || JSON.stringify(p).includes("permissions");
+        const check = bad ? { ok: false, problems: ["The file contains fields that a bot file must never contain (permissions)."], warnings: [], bot: null } : { ok: true, problems: [], warnings: [], bot: p.bot };
+        if (parts[3] === "preview") return json(check);
+        if (bad) return err(400, "import_refused", check.problems.join(" "));
+        const b = makeBot({ name: p.bot.name, role: p.bot.role, status: "disabled", model: null });
+        bots.set(b.id, b);
+        return json({ bot: b, warnings: [] }, 201);
+      }
+      if (parts[2] === "draft") {
+        st.drafted += 1;
+        return json({ draft: { name: "Drafted Helper", role: "Helps with drafts", personality: "Friendly.", instructions: "Help with drafts.", responsibilities: ["Draft", "Explain"], temperature: null, maxOutputTokens: null }, warnings: ["This is a draft. Nothing is saved."], saved: false, model: "gemini/fake" });
+      }
+      if (parts[2] === "modes" && method === "GET") return json({ modes: st.modes, assignments: st.assignments, note: "A mode only limits what a bot may ask for. It never grants a permission." });
+      if (parts[2] === "bots" && parts[4] === "mode" && method === "PUT") {
+        if (body.mode) st.assignments[parts[3] as string] = body.mode;
+        else delete st.assignments[parts[3] as string];
+        return json({ botId: parts[3], mode: body.mode });
+      }
+      return err(404, "not_found", "Not found");
+    }
+    if (parts[0] === "api" && parts[1] === "desktop") {
+      const dk = ext.desktop;
+      if (parts[2] === "status") return json({ engine: { uia: true, ocr: true, ocrLanguage: "en-US", powershell: "5.1" }, problem: null, sessions: [], cloudScreenText: dk.cloudScreenText });
+      if (parts[2] === "log") return json({ events: dk.log });
+      if (parts[2] === "settings" && method === "PUT") { dk.cloudScreenText = body.cloudScreenText; dk.calls.push(body); return json({ cloudScreenText: dk.cloudScreenText }); }
+      return err(404, "not_found", "Not found");
+    }
+    if (parts[0] === "api" && parts[1] === "access") {
+      const ac = ext.access;
+      ac.calls.push({ method, path: url.pathname, body });
+      const logIt = (kind: string, detail: any) => ac.log.unshift({ id: ac.log.length + 1, createdAt: new Date().toISOString(), kind, actor: "owner", botId: null, detail });
+      const view = () => ({ tampered: null, generation: 1, scannedAt: ac.scanned ? new Date().toISOString() : null, notes: ["Read-only: nothing was started, stopped, changed or removed."], capabilities: [{ id: "open", label: "start the program" }, { id: "view", label: "see what the program shows on screen" }, { id: "control", label: "operate the program with the keyboard and mouse" }, { id: "close", label: "close the program" }], apps: ac.scanned ? ac.apps : [] });
+      const sub = parts[2];
+      if (sub === "applications") {
+        if (!parts[3] && method === "GET") return json(view());
+        if (parts[3] === "scan") { ac.scanned = true; return json(view()); }
+        if (parts[3] === "revoke-all") { ac.apps.forEach((a) => { if (a.level !== "protected") { a.level = "unknown"; a.approval = null; a.session = null; } }); return json({ revoked: 1 }); }
+        const app = ac.apps.find((a) => a.id === parts[3]);
+        if (!app) return err(404, "app_not_found", "That program is not in the last scan.");
+        if (parts[4] === "revoke") { if (app.level !== "protected") { app.level = "unknown"; app.approval = null; app.session = null; } return json(view()); }
+        if (app.level === "protected") return err(403, "protected_application", "This is a protected program.");
+        if (parts[4] === "session") { app.session = { capabilities: body.capabilities, until: new Date(Date.now() + 3_600_000).toISOString() }; logIt("access.app.session_approve", { name: app.name }); return json({ until: app.session.until }); }
+        if (method === "PUT") { app.level = body.level; app.approval = { capabilities: body.capabilities, reviewBy: body.reviewInDays ? new Date(Date.now() + body.reviewInDays * 86_400_000).toISOString() : null, expiresAt: null, updatedAt: new Date().toISOString() }; logIt("access.app.set", { name: app.name }); return json(app.approval); }
+      }
+      if (sub === "folders") {
+        if (!parts[3] && method === "GET") return json({ tampered: null, generation: 1, grants: ac.grants, operations: ["read", "create", "edit", "rename", "delete"] });
+        if (parts[3] === "preview") {
+          if (!/^[a-zA-Z]:[\\/]/.test(body.path)) return json({ ok: false, problem: "Use the full path starting with a drive letter, for example C:/Users/you/Projects.", path: null, sensitive: null, allows: [], doesNotAllow: [], warnings: [] });
+          const secret = /[\\/]\.ssh/i.test(body.path);
+          return json({ ok: true, problem: null, path: body.path, sensitive: secret ? { category: "ssh_keys", label: "SSH or encryption keys" } : null, allows: ["The AI Workforce may " + body.ops.join(", ") + " in " + body.path], doesNotAllow: ["Nothing outside " + body.path + ": not the parent folder, not neighbouring folders, not other drives."], warnings: secret ? ["This folder looks like SSH or encryption keys."] : [] });
+        }
+        if (parts[3] === "revoke-all") { ac.grants.forEach((g) => { if (g.status === "active") { g.status = "revoked"; } }); return json({ revoked: 1 }); }
+        if (!parts[3] && method === "POST") {
+          if (/[\\/]\.ssh/i.test(body.path) && body.acknowledgeSensitive !== "ssh_keys") return err(400, "sensitive_needs_ack", "Confirm the kind.");
+          const g = { id: "g" + (ac.grants.length + 1), subject: body.subject, path: body.path, ops: body.ops, inherit: body.inherit, sensitive: body.acknowledgeSensitive ?? null, createdAt: new Date().toISOString(), expiresAt: body.expiresInMinutes ? new Date(Date.now() + body.expiresInMinutes * 60_000).toISOString() : null, revokedAt: null, status: "active", note: "" };
+          ac.grants.push(g); logIt("access.folder.grant", { path: g.path }); return json(g);
+        }
+        const g = ac.grants.find((x) => x.id === parts[3]);
+        if (g && parts[4] === "revoke") { g.status = "revoked"; logIt("access.folder.revoke", { path: g.path }); return json(g); }
+      }
+      if (sub === "check" && method === "POST") {
+        const ok = ac.grants.some((g) => g.status === "active" && body.path.toLowerCase().startsWith(g.path.toLowerCase()) && g.ops.includes(body.op));
+        return json(ok ? { allowed: true } : { allowed: false, reason: "No folder has been approved for this." });
+      }
+      if (sub === "log") return json({ events: ac.log });
+      return err(404, "not_found", "Not found");
+    }
     const id = parts[2];
     const bot = id ? bots.get(id) : undefined;
 
-    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc", "workflows", "gworkspace", "memory", "integrations", "business"].includes(parts[1] ?? "")) {
+    if (parts[0] === "api" && ["external", "approvals", "audit", "vault", "gmail", "session", "devices", "monitor", "inbound", "manager", "tools", "skills", "pc", "workflows", "demo", "gworkspace", "memory", "integrations", "business"].includes(parts[1] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
     if (parts[0] === "api" && parts[1] === "bots" && ["capabilities", "skills", "tools", "pc", "integrations", "memory"].includes(parts[3] ?? "")) {
       return handleExternal(method, parts, url, body) ?? err(404, "not_found", "Not found");
     }
+    if (parts[0] === "api" && parts[1] === "recommendations") return handleRec(method, parts, body) ?? err(404, "not_found", "Not found");
     if (parts[0] === "api" && parts[1] === "llm") return handleLlm(method, parts, url, body);
     if (parts[0] === "api" && (parts[1] === "tasks" || parts[1] === "delegation")) {
       return handleCollab(method, parts, body) ?? err(404, "not_found", "Not found");
@@ -1121,7 +1384,9 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
       }
       if (method === "PATCH") {
         if (bot.archived) return err(409, "bot_archived", "This bot is archived. Unarchive it first.");
-        if (body.status === "active") return err(409, "activation_not_available", "Bots cannot be activated yet.");
+        // Like the real server: a bot can be switched on only with a model; removing the model switches it off.
+        const nextModel = body.model !== undefined ? body.model : bot.model;
+        if (body.status === "active" && !nextModel) return err(409, "model_required", "Choose a model for this bot first (Automatic is fine), then switch it on.");
         const { status, changeNote, ...content } = body;
         const before = JSON.stringify(contentOf(bot));
         Object.assign(bot, content);
@@ -1130,6 +1395,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
           addVersion(bot, changeNote ?? null);
         }
         if (status) bot.status = status;
+        if (!bot.model && bot.status === "active") bot.status = "disabled";
         return json({ bot });
       }
     }
@@ -1187,6 +1453,10 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     const headers = (init.headers ?? {}) as Record<string, string>;
     const body = init.body ? JSON.parse(String(init.body)) : undefined;
     requests.push({ method, path, headers, body });
+    // The real server asks for the owner proof on owner acts (only when a Guardian is configured).
+    if (ext.guardian.configured && method !== "GET" && /^\/api\/(vault|approvals\/[^/]+\/approve)/.test(path) && (!ext.guardian.issued || headers["x-awp-proof"] !== ext.guardian.issued)) {
+      return err(403, "proof_required", "Enter your owner passphrase to do this. It is checked by the Guardian, not by the app.");
+    }
     return handle(method, path, body);
   };
 
@@ -1198,6 +1468,7 @@ export function createFakeApi(initial: Bot[] = [], options: FakeApiOptions = {})
     collab,
     auto,
     ext,
+    rec,
     /** Requests that are not plain reads. */
     writes: () => requests.filter((r) => r.method !== "GET"),
   };

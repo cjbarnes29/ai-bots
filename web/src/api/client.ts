@@ -1,3 +1,4 @@
+import { askForProof, currentProof, PROOF_HEADER } from "../lib/ownerProof";
 /** The backend rejects any request that changes data unless it carries this header. */
 export const CLIENT_HEADER = "x-awp-client";
 export const CLIENT_HEADER_VALUE = "dashboard";
@@ -19,8 +20,23 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Sends a request. If the server says an owner proof is needed (the Guardian is configured and this change is an owner act), the passphrase
+ * dialog opens once, and the request is sent again with the proof if the owner entered it.
+ */
 export async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
+  try {
+    return await send<T>(method, path, body);
+  } catch (e) {
+    if (e instanceof ApiError && e.code === "proof_required" && (await askForProof())) return send<T>(method, path, body);
+    throw e;
+  }
+}
+
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { [CLIENT_HEADER]: CLIENT_HEADER_VALUE };
+  const proof = currentProof();
+  if (proof) headers[PROOF_HEADER] = proof;
   if (body !== undefined) headers["content-type"] = "application/json";
 
   let res: Response;

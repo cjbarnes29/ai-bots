@@ -28,7 +28,9 @@ export function ChatTab({ bot, hasUnsavedEdits }: Props) {
         ? "This bot uses the OpenClaw runtime, which is not installed. Switch it to the built-in engine on the Details tab."
         : bot.model === null
           ? "Choose a model for this bot on the Details tab first."
-          : null;
+          : bot.status !== "active"
+            ? `This bot is ${bot.status === "paused" ? "paused" : "switched off"}. Set its Status (top right) to Active to chat with it.`
+            : null;
 
   const submit = () => {
     const message = text.trim();
@@ -112,6 +114,7 @@ export function ChatTab({ bot, hasUnsavedEdits }: Props) {
             </p>
             {m.role === "assistant" && m.inputTokens !== null && (
               <p className="mt-1 text-xs text-slate-500">
+                {m.providerId === "demo" && <span className="mr-1 rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200">Simulated</span>}
                 {m.providerId}/{m.modelId} · {m.inputTokens} tokens in, {m.outputTokens} out
                 {m.tokensEstimated ? " (estimated)" : ""} · version {m.botVersion}
               </p>

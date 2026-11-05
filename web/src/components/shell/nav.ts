@@ -14,12 +14,17 @@ export interface NavEntry {
 export const NAV: NavEntry[] = [
   { to: "/", label: "Dashboard", icon: "dashboard", match: [], primary: true },
   { to: "/agents", label: "Agents & Teams", icon: "agents", match: ["/agents", "/bots", "/knowledge"], primary: true },
+  { to: "/inbox", label: "Inbox", icon: "approvals", match: ["/inbox"], primary: false },
+  { to: "/projects", label: "Projects", icon: "briefcase", match: ["/projects"], primary: false },
+  { to: "/decisions", label: "Decisions", icon: "workflow", match: ["/decisions"], primary: false },
+  { to: "/studio", label: "Bot Studio", icon: "agents", match: ["/studio"], primary: false },
   { to: "/workflows", label: "Workflow Studio", icon: "workflow", match: ["/workflows"], primary: true },
   { to: "/approvals", label: "Approvals", icon: "approvals", match: ["/approvals"], primary: true },
   { to: "/business", label: "Business Workforce", icon: "briefcase", match: ["/business"], primary: false },
   { to: "/integrations", label: "Integrations Center", icon: "plug", match: ["/integrations"], primary: false },
   { to: "/automation", label: "Schedules", icon: "clock", match: ["/automation"], primary: false },
   { to: "/pc", label: "PC Control Center", icon: "pc", match: ["/pc"], primary: false },
+  { to: "/access", label: "Access", icon: "shield", match: ["/access"], primary: false },
   { to: "/monitor", label: "Activity & Logs", icon: "activity", match: ["/monitor", "/tasks"], primary: false },
   { to: "/settings", label: "Settings", icon: "settings", match: ["/settings", "/usage"], primary: false },
 ];

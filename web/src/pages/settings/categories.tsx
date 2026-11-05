@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AlertsSection } from "../../components/AlertsSection";
 import { ManagerSettings } from "../../components/ManagerSettings";
+import { RecommendedSettings } from "../../components/RecommendedSettings";
+import { ModelRegistry } from "../../components/ModelRegistry";
 import { RoutingSection } from "../../components/RoutingSection";
 import { SkillsSection } from "../../components/SkillsSection";
 import { ToolsSection } from "../../components/ToolsSection";
@@ -40,6 +42,12 @@ export const CATEGORIES: SettingsCategory[] = [
     content: () => <ThemeSection />,
   },
   {
+    id: "recommended",
+    label: "Recommended Settings",
+    description: "Suggestions based on this PC and what really works right now. Nothing changes until you press Apply.",
+    content: () => <RecommendedSettings />,
+  },
+  {
     id: "ai-models",
     label: "AI Models",
     description: "Which AI providers and models are connected, the automatic model choice, and what has been used.",
@@ -47,15 +55,20 @@ export const CATEGORIES: SettingsCategory[] = [
       <>
         <SafetySection />
         <p className="rounded-md bg-slate-100 p-3 text-sm dark:bg-slate-800">
-          API keys are saved under Keys and tokens in the{" "}
+          Easiest way to connect a provider: press Connect on its card in the{" "}
           <Link to="/integrations" className="underline">
             Integrations Center
+          </Link>{" "}
+          and follow the steps. Then use the{" "}
+          <Link to="/integrations/ai-setup" className="underline">
+            AI setup assistant
           </Link>
           . A provider only shows as Connected after a test call really succeeds.
         </p>
         <ProviderSetupGuide />
         <ProvidersSection />
         <ModelsSection />
+        <ModelRegistry />
         <RoutingSection />
         <Usage />
       </>
@@ -166,13 +179,17 @@ export interface SettingEntry {
   words: string;
 }
 export const SETTING_INDEX: SettingEntry[] = [
+  { label: "Recommended settings (suggestions, apply, restore, history)", to: "/settings/recommended", where: "Recommended Settings", words: "recommend suggest best beginner intermediate advanced mode apply restore undo history assistant" },
   { label: "Light or dark theme", to: "/settings/general", where: "General", words: "appearance dark mode light theme colour" },
   { label: "Pause all AI calls", to: "/settings/ai-models", where: "AI Models", words: "stop emergency kill switch free only" },
-  { label: "Connect an AI provider", to: "/settings/ai-models", where: "AI Models", words: "gemini groq openrouter ollama test connection models default" },
+  { label: "Connect an AI provider (step-by-step wizard)", to: "/integrations", where: "Integrations Center", words: "gemini groq openrouter ollama connect wizard api key setup tutorial install" },
+  { label: "Set up automatic AI (default model, per task, fallback)", to: "/integrations/ai-setup", where: "Integrations Center", words: "default model routing fallback recommended assign bots" },
+  { label: "AI providers and models", to: "/settings/ai-models", where: "AI Models", words: "gemini groq openrouter ollama test connection models default" },
   { label: "Turn models on or off", to: "/settings/ai-models", where: "AI Models", words: "enable disable refresh models" },
   { label: "Automatic model choice (routing)", to: "/settings/ai-models", where: "AI Models", words: "routing fallback auto assign" },
   { label: "Usage and free limits used", to: "/settings/ai-models", where: "AI Models", words: "tokens calls cost meter" },
-  { label: "Keys and tokens", to: "/integrations", where: "Integrations Center", words: "api key secret vault password token" },
+  { label: "Connect a service step by step (Telegram, Gmail, GitHub, Notion, n8n, MCP)", to: "/integrations", where: "Integrations Center", words: "connect wizard setup telegram gmail google github notion n8n webhook mcp oauth token" },
+  { label: "Keys and tokens (full list, under Advanced)", to: "/integrations", where: "Integrations Center", words: "api key secret vault password token" },
   { label: "Gmail", to: "/integrations", where: "Integrations Center", words: "email mail google sign in send test" },
   { label: "Google Workspace (Drive, Calendar, Tasks)", to: "/integrations", where: "Integrations Center", words: "drive docs sheets calendar tasks google" },
   { label: "Manager AI", to: "/settings/agents", where: "Agents & Permissions", words: "coordinator delegate plan" },

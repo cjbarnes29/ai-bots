@@ -20,6 +20,7 @@ import {
 import type { ModelView, ProviderView } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FreeBadge } from "../components/FreeBadge";
+import { ProviderProfilePanel } from "../components/ProviderProfilePanel";
 
 const errorText = (e: unknown): string | null =>
   e === null || e === undefined ? null : e instanceof ApiError ? e.friendly : "That did not work.";
@@ -128,7 +129,7 @@ function ProviderCard({ provider: p }: { provider: ProviderView }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-base font-semibold">{p.displayName}</h3>
-          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs dark:bg-slate-800">{p.kind === "cloud" ? "Cloud" : "Local"}</span>
+          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs dark:bg-slate-800">{p.simulated ? "Simulated" : p.kind === "cloud" ? "Cloud" : "Local"}</span>
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${chip.tone}`}>{chip.label}</span>
         </div>
         <Switch
@@ -233,6 +234,7 @@ function ProviderCard({ provider: p }: { provider: ProviderView }) {
           {p.lastCheckedAt && <span className="text-xs"> (checked {new Date(p.lastCheckedAt).toLocaleString()})</span>}
         </p>
       )}
+      <ProviderProfilePanel provider={p} />
       <ErrorLine error={error} />
     </li>
   );
@@ -278,6 +280,11 @@ function ModelRow({ model: m }: { model: ModelView }) {
           <FreeBadge status={m.freeStatus} />
           {m.isLlama && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/40 dark:text-violet-300">Llama</span>}
           <span className="text-xs text-slate-500">{AVAILABILITY[m.availability]}</span>
+          {Object.entries(m.capabilities ?? {}).filter(([k, v]) => v === "yes" && k !== "text" && k !== "vision").map(([k]) => (
+            <span key={k} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800" title="A rule of thumb from the model name and size, not a guarantee. This app cannot send pictures, audio or tool calls yet.">
+              {k.replace(/_/g, " ")}
+            </span>
+          ))}
         </div>
         <p className="break-all text-xs text-slate-500">
           {m.ref}
@@ -466,6 +473,7 @@ const DELEGATION_FIELDS: { key: string; label: string; hint: string }[] = [
   { key: "maxTasksPerChain", label: "Tasks in one chain", hint: "The most allowed is 15." },
   { key: "maxLlmCallsPerChain", label: "Model calls in one chain", hint: "Counts against your free-tier limits. The most allowed is 30." },
   { key: "maxInstructionChars", label: "Longest instruction (characters)", hint: "The most allowed is 20,000." },
+  { key: "maxParallelChains", label: "Separate jobs that may run at the same time", hint: "1 means one after another. Work inside one job always stays in order. It is also limited by \"Simultaneous cloud requests\" minus one (Advanced). The most allowed is 6." },
 ];
 
 export function DelegationLimitsSection() {

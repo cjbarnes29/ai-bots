@@ -78,6 +78,8 @@ export interface ProviderView {
   id: string;
   displayName: string;
   kind: "cloud" | "local";
+  /** The built-in demonstration provider: its answers are made up by this app, not by a real AI. */
+  simulated?: boolean;
   connectable: boolean;
   enabled: boolean;
   freeConfirmed: boolean;
@@ -95,6 +97,25 @@ export interface ProviderView {
   modelCount: number;
   enabledModelCount: number;
   requestsToday: number;
+  profile: ProviderProfile | null;
+  appAutomation: boolean;
+  quota: { dailyCap: number | null; requestsToday: number; exhausted: boolean };
+}
+
+type Fit = "yes" | "partly" | "no" | "untested";
+export interface ProviderProfile {
+  costClass: "permanently_free" | "free_with_limits" | "trial_credits" | "paid" | "local_free" | "unverified";
+  freeSummary: string;
+  cardRequired: boolean | null;
+  limits: string;
+  commercialUse: string;
+  privacy: string;
+  provider: { vision: Fit; toolCalling: Fit };
+  inThisApp: { vision: boolean; toolCalling: boolean };
+  suitability: { planning: Fit; workerSteps: Fit; screenshots: Fit; visualNavigation: Fit; toolCalls: Fit; errorRecovery: Fit; multiStep: Fit };
+  recommendation: string;
+  verifiedOn: string;
+  sources: string[];
 }
 
 export interface ModelView {
@@ -112,10 +133,19 @@ export interface ModelView {
   enabled: boolean;
   availability: "available" | "not_installed" | "removed" | "unknown";
   isLlama: boolean;
+  /** yes / no / unknown facts from the name and context size; "unknown" is never treated as yes. */
+  capabilities: Record<string, "yes" | "no" | "unknown">;
   ownerVerified: boolean;
   ownerOverridable: boolean;
   callable: boolean;
   blockedReason: string | null;
+  /** From the model registry (absent in older data). */
+  kind?: string;
+  verification?: "verified" | "unverified" | "unavailable";
+  verificationReasons?: string[];
+  /** Automatic routing may use it and a bot may be given it. */
+  routable?: boolean;
+  retired?: boolean;
 }
 
 export type LimitsMap = Record<string, number>;
@@ -576,20 +606,36 @@ export interface RoutingConfig {
   enabled: boolean;
   autoAssignNewBots: boolean;
   autoEnableEligible: boolean;
+  spreadLoad: boolean;
   providerOrder: string[];
   allowedProviders: string[];
   excludedModels: string[];
   preferLocal: boolean;
   maxAttempts: number;
   autoRefreshHours: number;
+  /** The owner's first choice per kind of task ("provider/model"); the automatic order follows as fallbacks. */
+  preferred: Partial<Record<"general" | "coding" | "research" | "light", string>>;
+  /** The model new bots get. null = Automatic (general). */
+  defaultModel: string | null;
+}
+
+export interface TryModelResult {
+  reply: string;
+  providerId: string;
+  modelId: string;
+  latencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
 }
 
 export interface RoutingView {
   config: RoutingConfig;
   classes: { id: "general" | "coding" | "research" | "light"; label: string }[];
-  preview: Record<"general" | "coding" | "research" | "light", { ref: string; providerId: string; displayName: string; score: number; local: boolean }[]>;
-  providers: { id: string; displayName: string; kind: "cloud" | "local"; enabled: boolean; keyConfigured: boolean; status: string | null; statusMessage: string | null; lastCheckedAt: string | null; requestsToday: number; dailyRequestCap: number | null; pausedForSeconds: number; modelCount: number; usableModels: number }[];
+  preview: Record<"general" | "coding" | "research" | "light", { ref: string; providerId: string; displayName: string; score: number; local: boolean; simulated?: boolean }[]>;
+  providers: { id: string; displayName: string; kind: "cloud" | "local"; simulated?: boolean; enabled: boolean; keyConfigured: boolean; status: string | null; statusMessage: string | null; lastCheckedAt: string | null; requestsToday: number; dailyRequestCap: number | null; pausedForSeconds: number; modelCount: number; usableModels: number }[];
   lastRefreshAt: string | null;
+  /** Models resting after a free-tier rate limit (they are skipped until the time is up). */
+  cooldowns?: { ref: string; secondsLeft: number }[];
 }
 
 export interface ManagerStep {
@@ -771,4 +817,206 @@ export interface MemoryNote {
 export interface BotMemorySettings {
   usePrivate: boolean;
   useShared: boolean;
+}
+
+/** What the Guardian (the separate stop/pause program) reports. See docs/GUARDIAN.md. */
+export interface GuardianView {
+  configured: boolean;
+  url: string | null;
+  reachable: boolean;
+  state: "RUN" | "PAUSED" | "STOPPED" | "LOCKED" | null;
+  reason: string | null;
+  held: string | null;
+  tier: string | null;
+  passphraseSet: boolean | null;
+  presence: { monitoring: boolean; healthy: boolean; locked: boolean | null; idleMinutes: number | null; idleLimitMinutes: number } | null;
+  protectsOwnerActions: boolean;
+}
+
+// ---- Application and folder access (docs/ACCESS-CONTROL.md) ----
+export type AppLevel = "unknown" | "approved" | "trusted" | "protected";
+export type FolderOp = "read" | "create" | "edit" | "rename" | "delete";
+export interface AccessApp {
+  id: string;
+  name: string;
+  version: string | null;
+  publisher: string | null;
+  installLocation: string | null;
+  exePath: string | null;
+  signer: string | null;
+  signed: boolean;
+  system: boolean;
+  running: { pids: number[]; count: number };
+  services: { name: string; state: string; startMode: string }[];
+  startup: { name: string; location: string }[];
+  tasks: { name: string; state: string }[];
+  integrations: string[];
+  protectedBy: { category: string; why: string } | null;
+  riskNotes: string[];
+  sources: string[];
+  level: AppLevel;
+  approval: { capabilities: string[]; reviewBy: string | null; expiresAt: string | null; updatedAt: string } | null;
+  session: { capabilities: string[]; until: string } | null;
+}
+export interface AccessApps {
+  tampered: string | null;
+  generation: number;
+  scannedAt: string | null;
+  notes: string[];
+  capabilities: { id: string; label: string }[];
+  apps: AccessApp[];
+  scanError?: string;
+}
+export interface FolderGrantInfo {
+  id: string;
+  subject: string;
+  path: string;
+  ops: FolderOp[];
+  inherit: boolean;
+  sensitive: string | null;
+  createdAt: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  status: "active" | "expired" | "revoked";
+  note: string;
+}
+export interface AccessFolders {
+  tampered: string | null;
+  generation: number;
+  grants: FolderGrantInfo[];
+}
+export interface GrantRequest {
+  subject: string;
+  path: string;
+  ops: string[];
+  inherit: boolean;
+  expiresInMinutes: number | null;
+  acknowledgeSensitive?: string;
+}
+export interface GrantPreviewInfo {
+  ok: boolean;
+  problem: string | null;
+  path: string | null;
+  sensitive: { category: string; label: string } | null;
+  allows: string[];
+  doesNotAllow: string[];
+  warnings: string[];
+}
+
+/** GET /api/demo: the built-in demonstration environment (simulated AI, sample agents and workflows) and an honest map of what needs what. */
+export interface DemoStatus {
+  provider: { enabled: boolean; status: string | null; statusMessage: string | null; modelCount: number; enabledModelCount: number };
+  ready: boolean;
+  bots: { key: string; name: string; id: string | null; status: string | null }[];
+  workflows: { name: string; id: string | null; summary: string }[];
+  capabilities: { needs: "nothing" | "demo" | "real_ai" | "credentials"; title: string; items: string[] }[];
+}
+
+// ---- Recommended settings (src/recommendations)
+export type RecMode = "beginner" | "intermediate" | "advanced";
+export type RecStatus = "recommended" | "current" | "custom" | "not_configured" | "requires_connection" | "requires_attention";
+export interface RecItem {
+  id: string;
+  area: string;
+  title: string;
+  level: RecMode;
+  kind: "setting" | "advice";
+  status: RecStatus;
+  label: string;
+  current: string;
+  recommended: string | null;
+  why: string;
+  benefits: string[];
+  tradeoffs: string[];
+  compatibility: string[];
+  note: string | null;
+  canApply: boolean;
+  cost: "free" | "paid";
+  customizeAt: string;
+  lastChange: { historyId: string; at: string } | null;
+}
+export interface RecHistoryEntry {
+  id: string;
+  at: string;
+  recId: string;
+  title: string;
+  beforeText: string;
+  afterText: string;
+  restoredAt: string | null;
+}
+export interface RecApplyResult {
+  id: string;
+  title: string;
+  result: "applied" | "unchanged" | "refused";
+  reason?: string;
+  before?: string;
+  after?: string;
+}
+export interface RecView {
+  mode: RecMode;
+  modes: RecMode[];
+  items: RecItem[];
+  hidden: number;
+  history: RecHistoryEntry[];
+  environment: Record<string, string | number | boolean>;
+  results?: RecApplyResult[];
+}
+
+// ---- Model registry (src/llm/registry)
+export type Eligibility = "verified" | "unverified" | "unavailable";
+export interface RegistryTest {
+  test: string;
+  label: string;
+  core: boolean;
+  result: "pass" | "fail" | "untested";
+  source: "real" | "simulated" | null;
+  at: string | null;
+  detail: string;
+  latencyMs: number | null;
+}
+export interface RegistryModel {
+  ref: string;
+  providerId: string;
+  providerName: string;
+  modelId: string;
+  displayName: string;
+  kind: string;
+  kindLabel: string;
+  chatCapable: boolean;
+  modalities: { input: string[]; output: string[] };
+  basis: string;
+  status: Eligibility;
+  reasons: string[];
+  routable: boolean;
+  inCatalog: boolean;
+  enabled: boolean;
+  availability: string;
+  contextWindow: number | null;
+  maxOutputTokens: number | null;
+  providerOperations: string[] | null;
+  tests: RegistryTest[];
+  missingTests: string[];
+  suitability: { task: string; ok: boolean; basis: string }[];
+  lastVerifiedAt: string | null;
+  retired: { at: string; reason: string } | null;
+  suggestedReplacement: string | null;
+  limitations: string[];
+  failures: Record<string, number>;
+  usage: { requests: number; ok: number; errors: number; avgLatencyMs: number | null; lastAt: string | null };
+  cooldownSeconds: number;
+  lastSeenAt: string | null;
+}
+export interface RegistryView {
+  enforced: boolean;
+  summary: { verified: number; unverified: number; unavailable: number; notChat: number };
+  battery: { order: string[]; core: string[]; requestsPerFullRun: number; labels: Record<string, string> };
+  models: RegistryModel[];
+}
+export interface EvaluationResult {
+  ref: string;
+  requestsUsed: number;
+  budget: number;
+  stoppedBecause: string | null;
+  results: { test: string; label: string; result: "pass" | "fail" | "not_run"; detail: string; latencyMs: number | null }[];
+  status: string;
 }

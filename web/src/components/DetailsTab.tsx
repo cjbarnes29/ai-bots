@@ -253,7 +253,7 @@ export function DetailsTab({ bot, hidden, onDirtyChange }: Props) {
               <option value="builtin">Built-in engine</option>
               <option value="openclaw">OpenClaw (optional, not installed)</option>
             </select>
-            <p className="hint">Only saves your preference for now. Nothing runs until Phase 2.</p>
+            <p className="hint">The built-in engine runs bots today. OpenClaw is not installed, so a bot set to it cannot run.</p>
           </div>
           <div>
             <label htmlFor="bot-model" className="label">

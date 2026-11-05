@@ -89,7 +89,7 @@ describe("Automation: Workflows", () => {
     await userEvent.click(await sec.findByRole("button", { name: "Run Daily report" }));
     const waiting = within(await sec.findByLabelText("Waiting for you"));
     await userEvent.click(waiting.getByRole("button", { name: "Approve Daily report" }));
-    await waitFor(() => expect(api.ext.wfRuns[0].status).toBe("done"));
+    await waitFor(() => expect(api.ext.wfRuns[0].status).toBe("completed"));
   });
 
   it("switch on / off, duplicate and archive", async () => {

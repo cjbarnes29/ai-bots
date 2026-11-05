@@ -18,7 +18,7 @@ function renderApp(path: string) {
   return router;
 }
 
-const CATEGORIES = ["General", "AI Models", "Integrations", "Agents & Permissions", "Workflow Settings", "PC & Remote Access", "Security", "Notifications", "Advanced"];
+const CATEGORIES = ["General", "Recommended Settings", "AI Models", "Integrations", "Agents & Permissions", "Workflow Settings", "PC & Remote Access", "Security", "Notifications", "Advanced"];
 
 beforeEach(() => localStorage.clear());
 afterEach(() => {
@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe("Settings categories", () => {
-  it("lists the nine categories and opens one at its own address", async () => {
+  it("lists the ten categories and opens one at its own address", async () => {
     const user = userEvent.setup();
     const router = renderApp("/settings");
     const nav = within(await screen.findByRole("navigation", { name: "Settings categories" }));
@@ -90,10 +90,10 @@ describe("Settings search", () => {
   it("every search result points at a real page", async () => {
     const { SETTING_INDEX } = await import("./pages/settings/categories");
     const settingsIds = CATEGORIES.map((c) => c);
-    expect(settingsIds).toHaveLength(9);
-    const fixed = new Set(["/integrations", "/pc", "/automation", "/approvals"]);
+    expect(settingsIds).toHaveLength(10);
+    const fixed = new Set(["/integrations", "/integrations/ai-setup", "/pc", "/automation", "/approvals"]);
     for (const e of SETTING_INDEX) {
-      const ok = fixed.has(e.to) || /^\/settings\/(general|ai-models|agents|workflows|notifications|advanced|security|integrations|pc)$/.test(e.to);
+      const ok = fixed.has(e.to) || /^\/settings\/(general|recommended|ai-models|agents|workflows|notifications|advanced|security|integrations|pc)$/.test(e.to);
       expect(ok, `${e.label} -> ${e.to}`).toBe(true);
     }
   });
