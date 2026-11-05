@@ -30,7 +30,7 @@ try {
   check("Demo provider is listed, simulated, off by default", p0?.simulated === true && p0.enabled === false);
 
   r = await call("POST", "/api/demo/setup");
-  check("Setup succeeds", r.status === 200 && r.body.ready === true, `status ${r.status}`);
+  check("Setup succeeds", r.status === 200 && r.body.ready === true, `status ${r.status} ${JSON.stringify(r.body).slice(0, 200)}`);
   const again = await call("POST", "/api/demo/setup");
   check("Setup twice creates no duplicates", (await call("GET", "/api/bots")).body.bots.length === 4 && (await call("GET", "/api/workflows")).body.workflows.length === 2 && again.status === 200);
 

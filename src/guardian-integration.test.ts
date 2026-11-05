@@ -334,4 +334,35 @@ describe("PAUSE blocks new work and stops running work at a safe point", () => {
       await g.close();
     }
   });
+  it("Decisions: with a Guardian, choosing, approving, rejecting and starting work from THIS PC need the owner proof; asking for options does not (the phone rule is separate, D-063)", async () => {
+    const g = await startGuardian(dir);
+    await g.resume();
+    const t = await createTestApp({ guardian: g.link });
+    try {
+      const proof = await g.resume();
+      const id = "00000000-0000-4000-8000-000000000001"; // no such decision: the owner-proof check comes BEFORE the lookup
+      const call = (method: any, url: string, body?: unknown, headers: Record<string, string> = {}) => t.app.inject({ method, url, payload: body as object, headers: { "x-awp-client": "dashboard", ...headers } });
+      const acts: [string, string, unknown][] = [
+        ["PUT", `/api/decisions/${id}/choice`, { optionId: null }],
+        ["POST", `/api/decisions/${id}/approve`, {}],
+        ["POST", `/api/decisions/${id}/reject`, {}],
+        ["POST", `/api/decisions/${id}/assignments/some-bot/start`, undefined],
+        ["POST", `/api/decisions/${id}/assignments/some-bot/repair`, undefined],
+      ];
+      for (const [m, u, b] of acts) {
+        const without = await call(m, u, b);
+        expect([m, u, without.statusCode, without.json().error]).toEqual([m, u, 403, "proof_required"]);
+        const withProof = await call(m, u, b, { [PROOF]: proof });
+        expect(withProof.statusCode, `${m} ${u} with the proof must get past the guard`).not.toBe(403);
+      }
+      // Asking the agents for options and listing are not owner-proof acts (they only read or draft).
+      const inquire = await call("POST", "/api/decisions/inquire", { question: "short" });
+      expect(inquire.statusCode).toBe(400);
+      expect(inquire.json().error).toBe("question_too_short");
+      expect((await call("GET", "/api/decisions")).statusCode).toBe(200);
+    } finally {
+      await t.app.close();
+      await g.close();
+    }
+  });
 });

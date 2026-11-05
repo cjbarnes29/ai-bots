@@ -350,6 +350,26 @@ describe("what a phone may do", () => {
   });
 });
 
+describe("decisions from a paired phone (D-063: intentional)", () => {
+  it("a paired phone may choose, approve, reject and start decision work: these routes are not owner-only; an unpaired phone gets nothing", async () => {
+    const { cookie } = await pairPhone("Pixel");
+    const id = "00000000-0000-4000-8000-000000000001"; // no such decision: we only test the ACCESS rule, which runs before the lookup
+    for (const [m, u, b] of [
+      ["PUT", `/api/decisions/${id}/choice`, { optionId: null }],
+      ["POST", `/api/decisions/${id}/approve`, {}],
+      ["POST", `/api/decisions/${id}/reject`, {}],
+      ["POST", `/api/decisions/${id}/assignments/some-bot/start`, undefined],
+    ] as const) {
+      const r = await remote(m, u, { cookie, ...(b !== undefined ? { body: b } : {}) });
+      expect([m, u, r.status, r.body.error]).toEqual([m, u, 404, "decision_not_found"]); // got past the access rules
+      const unpaired = await remote(m, u, { ...(b !== undefined ? { body: b } : {}) });
+      expect(unpaired.status).toBe(401);
+    }
+    // what stays owner-only on a phone is unchanged
+    expect((await remote("PUT", "/api/inbox/preferences", { cookie, body: { notify: "none" } })).body.error).toBe("owner_only");
+  });
+});
+
 describe("serving the dashboard", () => {
   it("serves the page, its build files and the app manifest files with safe headers", async () => {
     const page = await remote("GET", "/approvals");

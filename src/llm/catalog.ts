@@ -392,7 +392,9 @@ export class ModelCatalogService {
     const reg = this.registry?.ensure(model.providerId, model.modelId) ?? null;
     const ctx = { callable: policyBlock === null, blockedReason: policyBlock?.message ?? null, availability: model.availability, contextWindow: model.contextWindow };
     const judged = reg && this.registry ? this.registry.judge(reg, ctx) : null;
-    const routable = this.registry ? this.registry.eligibility(model.providerId, model.modelId, ctx).ok : block === null;
+    // The built-in demonstration provider is simulated (no network, no real AI): it cannot be verified with real requests, so the registry does not apply to it.
+    // It is still never used by automatic routing unless the owner ticks it by name (router.ts), and its answers are marked as simulated.
+    const routable = this.registry && plugin.simulated !== true ? this.registry.eligibility(model.providerId, model.modelId, ctx).ok : block === null;
     return {
       id: model.id,
       providerId: model.providerId,

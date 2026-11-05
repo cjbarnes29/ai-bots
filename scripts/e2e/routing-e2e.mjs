@@ -32,7 +32,9 @@ function fake({ needKey, models }) {
           if (st.mode === "500") return send(500, { error: { message: "boom" } });
           if (st.mode === "404") return send(404, { error: { message: "model not found" } });
           if (st.mode === "destroy") return req.socket.destroy();
-          send(200, { model: body.model, choices: [{ message: { role: "assistant", content: `reply from ${st.name} (${body.model}); saw ${body.messages.length} messages` }, finish_reason: "stop" }], usage: { prompt_tokens: 10, completion_tokens: 5 } });
+          const lastUser = String(body.messages[body.messages.length - 1].content);
+          const probe = lastUser === "Reply with the single word OK." ? "OK" : lastUser.startsWith("Reply with only this JSON") ? "{\"ok\": true, \"word\": \"hello\"}" : lastUser.startsWith("Who are you") ? "I am Evaluator, a test assistant. ZETA-7" : null;
+          send(200, { model: body.model, choices: [{ message: { role: "assistant", content: probe ?? `reply from ${st.name} (${body.model}); saw ${body.messages.length} messages` }, finish_reason: "stop" }], usage: { prompt_tokens: 10, completion_tokens: 5 } });
         };
         st.delayMs ? setTimeout(go, st.delayMs) : go();
         return;
@@ -94,6 +96,13 @@ try {
   r = await call("PATCH", `/api/llm/models/${free.id}`, { enabled: true });
   check("Free gateway model switched on", r.status === 200, `status ${r.status}`);
   if (cloud) { r = await call("PATCH", `/api/llm/models/${cloud.id}`, { enabled: true }); check("Cannot switch ON a billed Ollama cloud model", r.status >= 400, `status ${r.status}`); }
+
+  // ---- the app only routes to VERIFIED models: run the registry's own core tests against the FAKE servers
+  for (const m of [...oll, free]) {
+    if (!m || /cloud/.test(m.modelId) || m.modelId === "llama3.2:3b") continue; // llama3.2:3b is a built-in entry the fake does not serve
+    const ev = await call("POST", "/api/llm/registry/evaluate", { ref: m.ref, tests: ["connectivity", "json_output", "identity_instruction"], approvedRequests: 3 });
+    check(`Fake model verified through the registry: ${m.modelId}`, ev.status === 200 && ev.body.result.results.every((x) => x.result === "pass"), ev.status === 200 ? ev.body.result.results.map((x) => x.test + ":" + x.result).join(",") : JSON.stringify(ev.body).slice(0, 120));
+  }
 
   // ---- routing config: allow the fake providers; gateway first
   r = await call("PUT", "/api/llm/routing", { allowedProviders: ["gemini", "groq", "openrouter", "omniroute", "ollama"], providerOrder: ["omniroute", "ollama", "gemini", "groq", "openrouter"], maxAttempts: 3, enabled: true });

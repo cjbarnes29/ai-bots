@@ -147,3 +147,28 @@ describe("the sample workflows", () => {
     expect(steps.find((s) => (s.nodeId ?? s.node ?? s.id) === "first")?.status).toBe("completed");
   }, 30000);
 });
+
+describe("demo mode with the model-verification rule ENFORCED (as in production)", () => {
+  it("sets up and answers although the simulated model can never be verified with real requests; automatic routing still needs the owner to tick it", async () => {
+    await app.close();
+    app = await buildApp({ dbPath: ":memory:", verification: "enforced", routingDefaults: { autoAssignNewBots: false }, managerPollMs: 5, connectors: [] });
+    call = makeCaller(app);
+    const status = await setup();
+    expect(status.ready).toBe(true);
+    const writer = await botByName("Demo: Writer");
+    expect(writer.status).toBe("active");
+    const chat = await call("POST", `/api/bots/${writer.id}/chat`, { message: "Explain tides" });
+    expect(chat.status).toBe(200);
+    expect(chat.body.assistantMessage.content.startsWith(SIMULATED_MARK)).toBe(true);
+    // a bot on automatic routing does NOT fall back to the simulated provider by itself
+    const auto = (await call("POST", "/api/bots", { name: "Auto", model: "auto/general" })).body.bot;
+    await call("PATCH", `/api/bots/${auto.id}`, { status: "active" });
+    const refused = await call("POST", `/api/bots/${auto.id}/chat`, { message: "hi" });
+    expect(refused.status).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(refused.body)).toMatch(/No eligible free model/);
+    // a REAL model that was never tested is still refused for a bot
+    const real = await call("POST", "/api/bots", { name: "Real", model: "gemini/gemini-3.5-flash" });
+    expect(real.status).toBeGreaterThanOrEqual(400);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
