@@ -61,7 +61,7 @@ A personal AI workforce: agents, a Manager, workflows, integrations behind an ap
 - An operating mode is a **ceiling**: it may only remove what a bot can do. Never let a mode, a template or an import add a permission.
 - AI drafts are never saved by code; the owner reviews and saves. Treat descriptions and model output as untrusted.
 - Migration `017_groups` revision 2 is approved and applied (D-047); `src/db/migrations/017_groups.sql` must stay byte-identical to `docs/proposals/017_groups.sql` (a test pins it). Do not apply any other migration without the owner's explicit approval.
-- Group messaging is NOT enabled (NV-15). Do not use the group tables from application code until authorization, message visibility, participation limits, loop prevention and Guardian integration are built and tested and the owner approves switching groups on.
+- Group messaging is BUILT and TESTED with fake providers but stays OFF until the owner switches it on (NV-15, `docs/WORKFORCE.md`). Never switch it on in the owner's real database yourself. Only `src/groups/service.ts` may touch the group tables (a test pins that). Groups run ordinary tasks, grant nothing, bots never post themselves, and a handoff needs the delegation allow-list entry. Keep authorization, visibility, participation limits, loop prevention and Guardian hold intact.
 
 ## 6. Reporting
 Report faithfully: say what ran, what passed, what failed and what was NOT verified. If something is done and verified, say so plainly. Update the decision board and `docs/PROGRESS.md` when a decision, milestone or verification changes.

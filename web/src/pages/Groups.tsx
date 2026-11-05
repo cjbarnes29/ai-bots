@@ -101,7 +101,7 @@ function Detail({ id }: { id: string }) {
       <p className="hint">Joining a group gives a bot no permission, folder, program or secret, and no right to delegate.</p>
 
       <h3 className="font-semibold">Conversation</h3>
-      <ul className="max-h-72 space-y-2 overflow-y-auto" aria-label="Group messages">
+      <ul className="max-h-72 space-y-2 overflow-y-auto" aria-label="Conversation so far">
         {(msgs.data ?? []).length === 0 && <li className="hint">No messages yet.</li>}
         {(msgs.data ?? []).map((m) => (
           <li key={m.id} className={`rounded-md p-2 text-sm ${m.senderKind === "user" ? "bg-sky-50 dark:bg-sky-950" : m.senderKind === "system" ? "bg-amber-50 dark:bg-amber-950" : "bg-slate-100 dark:bg-slate-800"}`}>

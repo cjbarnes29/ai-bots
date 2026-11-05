@@ -73,6 +73,9 @@ While it is not running (RUN), nothing new starts and running tasks stop at thei
 input. Approving things and changing safety settings need your passphrase (10-minute window). Without `GUARDIAN_URL` the app behaves as before and the
 dashboard says "Guardian not set up". Full details, limits and recovery: [docs/GUARDIAN.md](docs/GUARDIAN.md).
 
+## Workforce, groups and the Workforce Board
+Open **Workforce** to place bots in the four divisions (dedicated, shared specialist or a temporary agent) and to see the board: the Central Manager, divisions, groups, bots, projects, tasks, decisions and approvals, read from the real records (nothing is invented). Open **Groups** to switch groups on (off by default), make teams of bots, write to them and hand work over (a handoff needs the delegation allow-list). In **Decisions** the Manager can run the discussion between bots, you edit the wording as versions, approve an exact version and see what each bot was told. Details: `docs/WORKFORCE.md`.
+
 ## Bot Studio
 Open **Bot Studio** to start a bot from one of 20 templates, describe a bot and review the AI's draft before saving, export/import a bot file (content only, never permissions or secrets), or set an operating mode (Chat Only, Research, Workflow Execution, Desktop Operator) that can only *limit* what a bot may ask for. Every new bot starts switched off with every permission off. Group chats are not available yet: their database tables exist (migration 017, applied 2026-11-04), but the group features are still to be built and tested before they are switched on: [docs/MIGRATION-PROPOSAL-GROUPS.md](docs/MIGRATION-PROPOSAL-GROUPS.md).
 

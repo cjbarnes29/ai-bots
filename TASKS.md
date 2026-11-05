@@ -54,7 +54,7 @@ Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-C
 - [x] Desktop: open/read and edit of existing files verified on real disposable windows; S-25 listing leak fixed
 - [owner] Create a free Gemini key and connect it with the wizard, then approve ONE real Test connection (no tokens) and ONE test message
 - [owner] Give "carlo" a model and set it Active if you want it to run
-- [ ] Groups service, NOT enabled (NV-15): application-level authorization, message visibility, participation limits, loop prevention, Guardian integration; each built and tested before activation
+- [x] Groups service built and tested with fake providers (`src/groups`, `docs/WORKFORCE.md`): authorization, visibility, participation limits, loop prevention, Guardian hold. [owner] Switch groups on in the Groups page when you want them (NV-15). Not run against a real provider.
 - [ ] Avatars, per-bot folder grants, new workflow nodes (approval/quality/parallel/merge), workspace regrouping of the navigation, mobile group chat: not started
 - [x] Migration 017 committed (d2cded6, P-20); groups stay OFF. [owner] later, approval to switch groups on once the service is tested
 
@@ -63,7 +63,8 @@ Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-C
 - [x] Model switching (output contracts, truthful task record) and model registry (verification, retirement, parallel chains)
 - [x] Demo mode works under enforced verification; routing/failover e2e 40/40 and demo e2e 16/16 (fake services)
 - [~] Known flaky dashboard test: `web/src/ai.test.tsx` OpenClaw chat test under default parallelism (passes alone / `--maxWorkers=4`)
-- [ ] Decisions UI: own options, assignee choice at approval; Projects: item picker instead of raw ids
+- [x] Decisions UI: own options, edit wording as versions, assignees and duties at approval, agreement panel, Manager loop, execution record
+- [ ] Projects: item picker instead of raw ids; reassigning an already assigned decision duty (assignments are immutable by database rule)
 
 ## Security plan (D-040)
 - [owner] 0. Tier A manual checks: lock, 15-minute idle, STOP during a task (`docs/GUARDIAN.md` section 11)
@@ -87,3 +88,12 @@ Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-C
 
 ## Later (deferred or not started)
 - [ ] Phases 5-6, 8-9 of the UI roadmap; YouTube Studio; local GPU generation (deferred, D-025)
+
+## Workforce, groups, collaboration, Workforce Board (committed; `docs/WORKFORCE.md`, D-065)
+- [x] One Central Manager, four divisions; shared / dedicated / temporary bots (temporary agents archived reversibly at expiry)
+- [x] Groups: create/edit/archive, members, responsibilities, division and project groups, modes, handoffs through the delegation allow-list, activity, recommendations and escalation into Decisions
+- [x] Collaborate first, escalate to the owner: Manager loop (<= 2 rounds), consensus only from recorded views, outcome recorded
+- [x] Instruction versions, approval of an exact version, execution record, comments never change instructions
+- [x] Workforce Board from the real records (filters, inspector, history, saved layouts, phone list); browser e2e 44/44 with fake providers incl. automatic provider switching inside a group
+- [ ] A group's own `model_ref` is stored but not applied to tasks; bots do not hand work to each other by themselves (owner/Manager starts every handoff)
+- [owner] Switch groups on; real-provider checks of group answers and of the Manager loop (P-29-style approved requests)
