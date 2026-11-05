@@ -551,3 +551,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ### Third real attempt and a budget overrun (2026-11-06; D-068; `docs/REAL-TASK.md` section 0b)
 - 15 real Groq requests, **2 real map requests where 1 was approved (overrun by one)**, 0 website requests, no files, nothing sent. Both map searches timed out after 40 s. Cause of the overrun: the approved counts were not actually enforced (only daily limits); fixed with a platform-enforced allowance and tests (`src/business/allowance.test.ts`, 3 tests). Milestone NOT complete; next step needs a new exact approval (P-36).
+
+### P-36 map service diagnosis (2026-11-05; D-069; `docs/REAL-TASK.md` section 0c)
+- One read-only GET to the Overpass status page, 0 provider requests: no answer within 40 s (TimeoutError, no error code); no proxy configured. Groq and Google answered from the same runtime, so the cause is that overpass-api.de does not answer this PC, not query size. Next: owner browser check and an owner-approved mirror (P-37). Milestone NOT complete.

@@ -103,6 +103,7 @@ Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-C
 - [x] Local email draft with real attachments (`documents.create_email_draft`); rehearsal of the whole task with simulated parts (passes)
 - [x] Real run approved (P-34) and attempted twice: real Groq requests, real map request; NO files produced (see docs/REAL-TASK.md section 0)
 - [x] Third real attempt (P-35): both map searches timed out; ONE map request more than approved was sent (platform now enforces approved counts; D-068)
-- [ ] [owner] Approve P-36 (one read-only request to the map service's status page) before any further search; no file was produced yet
+- [x] P-36: the map service status page did not answer within 40 s (one request); the host is not reachable from this PC, query size is not the cause
+- [ ] [owner] P-37: check the status page in your browser; approve one public mirror address; no file was produced yet
 - [ ] Desktop application control (Excel, Word, Outlook): not tried, not claimed (NV-14)
 - [ ] Gmail drafts/attachments (Google sign-in unverified, NV-4)

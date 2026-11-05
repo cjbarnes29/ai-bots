@@ -30,6 +30,30 @@ Goal: prove the workforce can do a real task with real AI providers and real too
 - **Fix, with tests (`src/business/allowance.test.ts`):** the owner's approved NUMBER of outside requests is now enforced by the platform (`PUT /api/business/external {enabled, allowance: {map, website}}`): counted down at the moment each request starts (so parallel checks cannot overshoot), the next request is refused with a plain reason BEFORE anything is sent, and `scripts/e2e/real-task.mjs` sets it from the approved numbers.
 - What this says about the map service: two real searches of different size never answered within 40 seconds from this PC. Either overpass-api.de is slow or unreachable from this network, or the queries are still too heavy. It cannot be separated without another real request (proposed as P-36: ONE request to `https://overpass-api.de/api/status`, a tiny read-only call that shows whether the service is reachable at all, before any further search).
 
+## 0c. P-36 diagnosis: is the map service reachable from this PC? (2026-11-05 12:10 UTC, owner-approved)
+**Exactly one** read-only request was sent: `GET https://overpass-api.de/api/status` (script `scripts/e2e/overpass-status-check.mjs`, 40-second limit, no retry). **0 provider requests** were used (limit 6). No search, no website, no configuration change. Evidence: `docs/evidence/p36-overpass-status.json`.
+
+| Recorded | Value |
+|---|---|
+| HTTP status | **none**: no response at all |
+| Response time | **40,007 ms**, then aborted by our own 40-second limit |
+| Error | `TimeoutError` ("The operation was aborted due to timeout"); no network error code (no DNS failure, no refusal, no reset) |
+| Endpoint response | none |
+| Local checks (read-only, no network) | no proxy in the environment; Windows proxy off (`ProxyEnable = 0`, no auto-config script); Node v24.22.0 |
+
+**Conclusion**
+- **Not query complexity or service limits.** The status page is the lightest call the service has and needs no query, yet it timed out exactly like the two searches. The "all categories" and "food" searches were not the cause.
+- **Not general network trouble.** In the same session the app reached Groq and Google over HTTPS from the same Node runtime (28 real provider requests, answered). No proxy is configured that Node would be ignoring.
+- **Not a DNS failure or a refused connection.** Those fail within a second with an error code; here there was none, only silence until the limit.
+- **Cause:** the endpoint `overpass-api.de` did not answer this PC at all within 40 seconds, at three different times today. Either the public service was unavailable or overloaded from here, or the network path to that one host is blocked or filtered (internet provider, firewall or security software). One request cannot tell these two apart, and I did not send more.
+
+**Smallest appropriate fix (recommended, not done)**
+1. **Owner check, no code:** open `https://overpass-api.de/api/status` once in your own browser on this PC. If it answers, the service is reachable by a browser but not by Node, which points to security software filtering Node. If it does not answer, the host is unreachable from this network.
+2. **Code (small, needs approval of the address):** make the map endpoint a fixed, owner-approved choice between the main Overpass service and one public mirror (for example `overpass.kumi.systems`), keeping all current guards (one address at a time, same query builder, same allowance and daily limits). Then one approved status request to the mirror, then one approved search.
+3. Keep the 40-second limit; do not raise it until a status request has been answered.
+
+No further search and no new real task will be run without approval.
+
 ### Still open
 - A third attempt needs the owner's approval of one more map request (P-35). Until a real run produces the Excel, the PDF and the draft, **this milestone is not complete**.
 - The Manager still marks a step "completed" when the bot's tool call failed but the bot wrote an honest explanation (the platform adds a "What the platform recorded" note). A reviewer can catch this; a stricter step status is a possible improvement.
