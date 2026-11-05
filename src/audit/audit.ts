@@ -61,6 +61,21 @@ export class AuditLog {
     };
   }
 
+  /** Newest events whose kind starts with a prefix (for example "access."). */
+  listPrefix(prefix: string, limit: number): AuditEvent[] {
+    return this.db
+      .prepare("SELECT * FROM audit_events WHERE kind LIKE ? ESCAPE '!' ORDER BY id DESC LIMIT ?")
+      .all(prefix.replace(/[!%_]/g, (c) => `!${c}`) + "%", limit)
+      .map((r) => ({
+        id: Number(r["id"]),
+        createdAt: String(r["created_at"]),
+        kind: String(r["kind"]),
+        actor: String(r["actor"]),
+        botId: r["bot_id"] === null ? null : String(r["bot_id"]),
+        detail: JSON.parse(String(r["detail"])) as Record<string, unknown>,
+      }));
+  }
+
   list(limit: number): AuditEvent[] {
     return this.db
       .prepare("SELECT * FROM audit_events ORDER BY id DESC LIMIT ?")
