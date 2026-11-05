@@ -16,6 +16,19 @@ export interface RouterHost {
   modelCooldownMs(ref: string): number;
 }
 
+/** One automatic-routing decision, kept so the owner can see which model answered and when it had to switch. */
+export interface RoutedRecord {
+  at: string;
+  class: RouteClass;
+  botId: string | null;
+  /** In the order they were tried. "answered" marks the model that produced the reply. */
+  attempts: RouteAttempt[];
+  answeredBy: string | null;
+  /** True when the first model tried did not answer and another one did (or none did). */
+  switched: boolean;
+}
+export const ROUTING_HISTORY_MAX = 50;
+
 export interface RankedModel {
   ref: string;
   providerId: string;
@@ -51,6 +64,29 @@ export class ModelRouter {
   /** When each model last answered (a counter, in memory): the one that answered longest ago goes first among equals when spreadLoad is on. */
   private readonly lastAnswered = new Map<string, number>();
   private answers = 0;
+  private readonly recent: RoutedRecord[] = [];
+  /** Called for every routing decision that switched model or failed (the app writes it to the audit log, so it survives a restart). */
+  onSwitch?: (r: RoutedRecord) => void;
+  /** The clock used for the history (the app passes its own). */
+  clock: () => number = Date.now;
+
+  /** The newest routing decisions first (memory only, at most ROUTING_HISTORY_MAX). */
+  history(): RoutedRecord[] {
+    return [...this.recent].reverse();
+  }
+  private remember(cls: RouteClass, input: CompleteInput, attempts: RouteAttempt[]): void {
+    const answeredBy = attempts.find((a) => a.outcome === "answered")?.ref ?? null;
+    const r: RoutedRecord = { at: new Date(this.clock()).toISOString(), class: cls, botId: input.botId ?? null, attempts: [...attempts], answeredBy, switched: attempts.length > 1 || answeredBy === null };
+    this.recent.push(r);
+    if (this.recent.length > ROUTING_HISTORY_MAX) this.recent.shift();
+    if (r.switched) {
+      try {
+        this.onSwitch?.(r);
+      } catch {
+        /* a history problem never breaks a reply */
+      }
+    }
+  }
 
   constructor(
     private readonly catalog: ModelCatalogService,
@@ -141,11 +177,15 @@ export class ModelRouter {
         }
         attempts.push({ ref: pick.ref, outcome: "answered" });
         this.lastAnswered.set(pick.ref, ++this.answers);
+        this.remember(cls, input, attempts);
         return { ...out, route: { class: cls, attempts } };
       } catch (err) {
         if (!(err instanceof LlmError)) throw err;
         const kind = failoverKind(err);
-        if (kind === "stop") throw err; // the same refusal would happen with any model
+        if (kind === "stop") {
+          if (attempts.length > 0) this.remember(cls, input, attempts);
+          throw err; // the same refusal would happen with any model
+        }
         attempts.push({ ref: pick.ref, outcome: err.llmCode });
         last = err;
         if (kind === "provider") skipProviders.add(pick.providerId);
@@ -172,6 +212,7 @@ export class ModelRouter {
         `No eligible free model is available for "${CLASS_LABELS[cls]}".${needs} Connect a provider, refresh its models and switch a free model on in Settings, or start Ollama for a local backup.`,
       );
     }
+    if (attempts.length > 0) this.remember(cls, input, attempts);
     const tried = attempts.map((a) => `${a.ref} (${a.outcome})`).join(", ");
     throw new LlmError(last?.llmCode ?? "provider_unavailable", `No model could answer. Tried: ${tried}. ${last?.message ?? ""}`.trim(), {
       retryable: false,

@@ -55,6 +55,8 @@ export interface RoutingRoutesDeps {
   /** Gives every bot that has no model "auto/general". Returns how many were changed. */
   assignUnassigned: () => number;
   audit: { record(kind: string, detail?: Record<string, unknown>, options?: { actor?: string }): void };
+  /** Switches recorded in the audit log (they survive a restart). */
+  switchLog?: (limit: number) => { createdAt: string; detail: Record<string, unknown> }[];
 }
 
 /** Everything here is under /api/llm/, so a phone cannot change it (see src/remote/access.ts). */
@@ -87,6 +89,13 @@ export async function registerRoutingRoutes(app: FastifyInstance, d: RoutingRout
   };
 
   app.get("/api/llm/routing", async () => view());
+  // Which model is answering now, and every recent switch (memory: the latest decisions; audit log: switches since the database began).
+  app.get("/api/llm/routing/history", async () => {
+    const recent = d.router.history();
+    const current: Record<string, { ref: string; at: string }> = {};
+    for (const r of recent) if (r.answeredBy && !current[r.class]) current[r.class] = { ref: r.answeredBy, at: r.at };
+    return { current, recent, switches: d.switchLog?.(30) ?? [], note: "Recorded from real routing decisions only. Nothing here is estimated." };
+  });
 
   app.put("/api/llm/routing", async (req) => {
     const patch = routingPatchSchema.parse(req.body);

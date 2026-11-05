@@ -2,6 +2,7 @@ import { ApiError } from "../api/client";
 import { useAssignRouting, useRefreshAllProviders, useRouting, useUpdateRouting } from "../api/hooks";
 import type { RoutingConfig } from "../api/types";
 import { RoutingControls } from "./RoutingControls";
+import { RoutingHistory } from "./RoutingHistory";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 
@@ -128,6 +129,8 @@ export function RoutingSection() {
       )}
 
       <RoutingControls r={r} />
+
+      <RoutingHistory />
 
       <div className="space-y-2">
         <h3 className="font-semibold">Provider health</h3>

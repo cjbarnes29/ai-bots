@@ -98,3 +98,22 @@ Physical upstream calls: 6 for 5 sent requests (Gemini 4, Groq 2). Request 5 bec
 
 ## 9. Superseded in part (2026-11-05)
 The follow-ups listed in section 8 are built; see `docs/MODEL-REGISTRY.md` (reasoning protection, retirement handling, evidence-based instruction role, registry, evaluation).
+
+## P-40 / P-41: switching, failover, recovery and the dashboard record (2026-11-05)
+
+**Audit before the change.** Already built and tested with fakes: failover on rate limit, key rejection, outage, timeout and unusable replies; provider cool-down and recovery; per-model rest after a rate limit; capability filtering (`require`); every attempt in the usage log. **Missing:** a record of *which* model answered and *why* the router switched, a dashboard view of it, and explicit tests for timeout, context across a switch and recovery to the preferred model.
+
+**Added (one routing system, nothing duplicated):**
+- `ModelRouter` keeps the last 50 routing decisions in memory (`at, class, botId, attempts[{ref, outcome}], answeredBy, switched`) and writes every switch or total failure to the audit log as `routing.switched` (survives a restart).
+- `GET /api/llm/routing/history`: `current` (the model answering now, per kind of task), `recent`, `switches` (from the audit log).
+- Dashboard: Settings > AI Models > Model routing now shows **Answering now** and **Recent model switches** with plain reasons ("rate-limited", "timed out", "unavailable", ...), `web/src/components/RoutingHistory.tsx`.
+
+**Simulated tests (scripted fake providers behind the real router, model service and usage log):** `src/routing/switching.test.ts` (9): healthy preferred model, switch on rate limit / timeout / outage with the switch recorded, conversation context identical for the failed and the answering model, return to the preferred model after its rest, a fallback lacking a required capability is never used, no switching around global limits, history capped at 50. Dashboard: `web/src/routingHistory.test.tsx` (3). Real browser (Edge, scratch app, fake local providers only): the panel showed "ollama/alpha:1b (unavailable) → omniroute/free/beta-70b (answered)" and "Answering now: omniroute/free/beta-70b".
+
+**REAL-provider check (P-41, owner-approved: at most 8 Groq requests, 0 Google; `scripts/e2e/real-switching.mjs`; evidence `docs/evidence/p41-switching.json`): 11/11 passed, 2 real Groq requests used.**
+- The preferred model was a local stand-in on 127.0.0.1 whose failures were injected by the script (**simulated part**). The fallback was **real Groq**, chosen by the app's own routing (`groq/qwen/qwen3.8-27b`).
+- A: a real task ("three practical tips for a clear business email, in three bullet points") failed on the stand-in and was **answered by real Groq** with three correct bullet points.
+- B: turn 1 answered by the stand-in ("noted" for code word AMBER-42); turn 2 failed on the stand-in and **real Groq answered "AMBER-42"**: the conversation context survived the switch.
+- C: with the stand-in healthy again, the next request went back to it (recovery).
+- History/dashboard data: two switches recorded with reasons; "answering now" back on the preferred model. Google was switched off in the scratch copy and was never called.
+**Not shown with real providers:** a switch between two REAL providers (Gemini has no verified model, so Groq is the only real provider routing may use), a real rate limit or real outage (failures were injected locally), and Groq-to-Groq model switching under a real error.

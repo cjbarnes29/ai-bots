@@ -1,0 +1,317 @@
+{
+  "simulatedPart": "the preferred provider is a local stand-in on 127.0.0.1 whose failures are injected by this script",
+  "realPart": "Groq answers as the fallback, chosen by the app's automatic routing",
+  "steps": [
+    {
+      "step": "A real task after a switch",
+      "status": 200,
+      "providerId": "groq",
+      "modelId": "qwen/qwen3.8-27b",
+      "reply": "*   Use a concise subject line that clearly states the email's purpose.\n*   Start with a direct opening sentence that establishes the context or ask.\n*   Use short paragraphs and bullet points to improve readability and highlight key actions."
+    },
+    {
+      "step": "B context across a switch",
+      "turn1By": "ollama",
+      "turn2By": "groq/qwen/qwen3.8-27b",
+      "reply": "AMBER-42"
+    },
+    {
+      "step": "C recovery",
+      "providerId": "ollama"
+    }
+  ],
+  "groqRequestsBefore": 15,
+  "routingOrder": [
+    "ollama/stand-in:1b",
+    "groq/qwen/qwen3.8-27b",
+    "groq/openai/gpt-oss-120b"
+  ],
+  "routingHistory": [
+    {
+      "at": "2026-11-05T13:00:55.245Z",
+      "class": "general",
+      "botId": "4270cdb2-af10-49f4-a357-105d1fb5dd5e",
+      "attempts": [
+        {
+          "ref": "ollama/stand-in:1b",
+          "outcome": "answered"
+        }
+      ],
+      "answeredBy": "ollama/stand-in:1b",
+      "switched": false
+    },
+    {
+      "at": "2026-11-05T13:00:55.231Z",
+      "class": "general",
+      "botId": "4270cdb2-af10-49f4-a357-105d1fb5dd5e",
+      "attempts": [
+        {
+          "ref": "ollama/stand-in:1b",
+          "outcome": "provider_unavailable"
+        },
+        {
+          "ref": "groq/qwen/qwen3.8-27b",
+          "outcome": "answered"
+        }
+      ],
+      "answeredBy": "groq/qwen/qwen3.8-27b",
+      "switched": true
+    },
+    {
+      "at": "2026-11-05T13:00:55.126Z",
+      "class": "general",
+      "botId": "4270cdb2-af10-49f4-a357-105d1fb5dd5e",
+      "attempts": [
+        {
+          "ref": "ollama/stand-in:1b",
+          "outcome": "answered"
+        }
+      ],
+      "answeredBy": "ollama/stand-in:1b",
+      "switched": false
+    },
+    {
+      "at": "2026-11-05T13:00:55.108Z",
+      "class": "general",
+      "botId": "4270cdb2-af10-49f4-a357-105d1fb5dd5e",
+      "attempts": [
+        {
+          "ref": "ollama/stand-in:1b",
+          "outcome": "provider_unavailable"
+        },
+        {
+          "ref": "groq/qwen/qwen3.8-27b",
+          "outcome": "answered"
+        }
+      ],
+      "answeredBy": "groq/qwen/qwen3.8-27b",
+      "switched": true
+    }
+  ],
+  "switchesInAudit": [
+    {
+      "createdAt": "2026-11-05T13:00:55.231Z",
+      "detail": {
+        "class": "general",
+        "botId": "4270cdb2-af10-49f4-a357-105d1fb5dd5e",
+        "answeredBy": "groq/qwen/qwen3.8-27b",
+        "attempts": [
+          {
+            "ref": "ollama/stand-in:1b",
+            "outcome": "provider_unavailable"
+          },
+          {
+            "ref": "groq/qwen/qwen3.8-27b",
+            "outcome": "answered"
+          }
+        ]
+      }
+    },
+    {
+      "createdAt": "2026-11-05T13:00:55.108Z",
+      "detail": {
+        "class": "general",
+        "botId": "4270cdb2-af10-49f4-a357-105d1fb5dd5e",
+        "answeredBy": "groq/qwen/qwen3.8-27b",
+        "attempts": [
+          {
+            "ref": "ollama/stand-in:1b",
+            "outcome": "provider_unavailable"
+          },
+          {
+            "ref": "groq/qwen/qwen3.8-27b",
+            "outcome": "answered"
+          }
+        ]
+      }
+    }
+  ],
+  "groqRequestsUsed": 2,
+  "googleRequestsUsed": 0,
+  "usage": [
+    {
+      "createdAt": "2026-11-05T13:00:55.135Z",
+      "status": "error",
+      "errorCode": "provider_unavailable",
+      "providerId": "ollama",
+      "modelId": "stand-in:1b",
+      "botName": "P41 Tester",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-05T13:00:54.874Z",
+      "status": "error",
+      "errorCode": "provider_unavailable",
+      "providerId": "ollama",
+      "modelId": "stand-in:1b",
+      "botName": "P41 Tester",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-05T08:27:24.081Z",
+      "status": "error",
+      "errorCode": "provider_unavailable",
+      "providerId": "gemini",
+      "modelId": "gemini-3.8-flash",
+      "botName": "",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-05T08:27:17.291Z",
+      "status": "error",
+      "errorCode": "provider_unavailable",
+      "providerId": "gemini",
+      "modelId": "gemini-3.8-flash",
+      "botName": "",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-05T08:25:04.641Z",
+      "status": "blocked",
+      "errorCode": "limit_exceeded",
+      "providerId": "groq",
+      "modelId": "openai/gpt-oss-20b",
+      "botName": "",
+      "note": "providerRequestsPerMinute"
+    },
+    {
+      "createdAt": "2026-11-05T08:25:03.363Z",
+      "status": "error",
+      "errorCode": "bad_response",
+      "providerId": "groq",
+      "modelId": "openai/gpt-oss-120b",
+      "botName": "",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-05T08:25:01.123Z",
+      "status": "error",
+      "errorCode": "provider_unavailable",
+      "providerId": "gemini",
+      "modelId": "gemini-3.8-flash",
+      "botName": "",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-05T08:24:10.506Z",
+      "status": "error",
+      "errorCode": "timeout",
+      "providerId": "gemini",
+      "modelId": "gemini-3.8-flash",
+      "botName": "",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-04T22:48:13.809Z",
+      "status": "error",
+      "errorCode": "provider_unavailable",
+      "providerId": "gemini",
+      "modelId": "gemma-4-26b-a4b-it",
+      "botName": "ZZ Temporary Gemma Test",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-04T22:47:33.572Z",
+      "status": "error",
+      "errorCode": "model_not_found",
+      "providerId": "gemini",
+      "modelId": "gemini-2.5-flash",
+      "botName": "",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-04T21:11:00.415Z",
+      "status": "error",
+      "errorCode": "bad_request",
+      "providerId": "gemini",
+      "modelId": "gemini-3.5-transcribe",
+      "botName": "Site Auditor",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-04T20:53:43.742Z",
+      "status": "error",
+      "errorCode": "bad_request",
+      "providerId": "gemini",
+      "modelId": "gemini-3.5-transcribe",
+      "botName": "",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-04T20:35:21.305Z",
+      "status": "error",
+      "errorCode": "rate_limited",
+      "providerId": "gemini",
+      "modelId": "gemini-2.5-computer-use-preview-10-2025",
+      "botName": "",
+      "note": null
+    },
+    {
+      "createdAt": "2026-11-04T20:35:19.023Z",
+      "status": "error",
+      "errorCode": "rate_limited",
+      "providerId": "gemini",
+      "modelId": "gemini-2.5-computer-use-preview-10-2025",
+      "botName": "",
+      "note": null
+    }
+  ],
+  "results": [
+    {
+      "name": "local stand-in verified (local probes only)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "routing order: stand-in first, real Groq models behind it",
+      "ok": true,
+      "detail": "ollama/stand-in:1b > groq/qwen/qwen3.8-27b > groq/openai/gpt-oss-120b"
+    },
+    {
+      "name": "A: the preferred (stand-in) model failed and real Groq answered",
+      "ok": true,
+      "detail": "groq/qwen/qwen3.8-27b"
+    },
+    {
+      "name": "A: the real answer does the task (three bullet points)",
+      "ok": true,
+      "detail": "\"*   Use a concise subject line that clearly states the email's purpose.\\n*   Start with a direct opening sentence that establishes the context or ask.\\n*   Use sh\""
+    },
+    {
+      "name": "B1: turn 1 answered by the preferred stand-in (simulated)",
+      "ok": true,
+      "detail": "noted"
+    },
+    {
+      "name": "B2: after the switch, real Groq recalled the code word from turn 1",
+      "ok": true,
+      "detail": "\"AMBER-42\""
+    },
+    {
+      "name": "C: back on the preferred model once it is healthy",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dashboard data: two switches recorded with their reasons",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dashboard data: 'answering now' shows the preferred model again",
+      "ok": true,
+      "detail": "ollama/stand-in:1b"
+    },
+    {
+      "name": "real Groq requests within the approved 8",
+      "ok": true,
+      "detail": "2"
+    },
+    {
+      "name": "Google was never called (switched off in the copy)",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "finishedAt": "2026-11-05T13:00:55.261Z"
+}

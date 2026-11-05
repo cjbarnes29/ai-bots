@@ -279,6 +279,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   // Stage 1: universal model routing. "auto/<kind of task>" bots get an explicit free model chosen per call, with failover.
   if (options.routingDefaults) saveRouting(llmRepo, options.routingDefaults, new Date(now()).toISOString());
   const router = new ModelRouter(catalog, llmRepo, llm);
+  router.clock = now;
+  router.onSwitch = (r) => audit.record("routing.switched", { class: r.class, botId: r.botId, answeredBy: r.answeredBy, attempts: r.attempts });
   llm.setRouter(router);
   llm.setRegistry(modelRegistry);
   app.decorate("modelRegistry", modelRegistry);
@@ -317,6 +319,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     breakerWaitMs: (id) => llm.breakerWaitMs(id),
     cooldowns: () => llm.modelCooldowns(),
     audit,
+    switchLog: (limit) => audit.listPrefix("routing.switched", limit).map((e) => ({ createdAt: e.createdAt, detail: e.detail })),
     assignUnassigned: () => {
       let changed = 0;
       for (const bot of agentService.listBots(false)) {

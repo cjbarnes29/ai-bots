@@ -560,3 +560,7 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ### P-38 Kumi mirror check (2026-11-05; D-071; `docs/REAL-TASK.md` section 0e)
 - One read-only GET to `https://overpass.kumi.systems/api/status`: no response within 15 s (TimeoutError, no error code); 0 provider requests; no search; active map service unchanged. Both Overpass hosts are silent from this PC; likely network or security-software filtering. Mirror not suitable from here. Next: owner browser check (P-39). Milestone NOT complete.
+
+### P-40 / P-41 model switching (2026-11-05; D-072; `docs/MODEL-SWITCHING.md` last section)
+- Routing history and switch record (memory + audit log), `GET /api/llm/routing/history`, dashboard panel. Tests: routing switching 9, dashboard 3, real-browser panel check (fakes). REAL: 2 Groq requests (of 8 approved), 0 Google: real task answered by Groq after an injected local failure, context kept across the switch, recovery to the preferred model; 11/11. Not shown for real: switching between two real providers (Gemini unverified, P-42).
+- Full backend runs on 2026-11-05: 1,724 tests; one run fully green, two runs each had ONE different load-dependent failure (`manager.test.ts` "daily limit on runs and at most two at once", `desktop/real-windows.test.ts` "EDITS an existing file"), both pass alone and in the next full run; not touched by P-40. Recorded as known flaky under load, alongside `web/src/ai.test.tsx`.

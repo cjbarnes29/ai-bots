@@ -109,3 +109,8 @@ Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-C
 - [ ] [owner] P-39: open both Overpass status pages in your browser and report whether either answers; no file was produced yet
 - [ ] Desktop application control (Excel, Word, Outlook): not tried, not claimed (NV-14)
 - [ ] Gmail drafts/attachments (Google sign-in unverified, NV-4)
+
+## Model switching and failover (P-40 / P-41, D-072)
+- [x] Switching record and dashboard panel ("Answering now", "Recent model switches"); simulated tests for rate limit, timeout, outage, context, capabilities, recovery
+- [x] Real check: real Groq answered a real task and recalled conversation context after an injected failure; recovery to the preferred model (2 real requests)
+- [ ] [owner] P-42: verify one Gemini model (up to 6 Google requests) to allow real provider-to-provider switching
