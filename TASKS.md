@@ -105,6 +105,7 @@ Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-C
 - [x] Third real attempt (P-35): both map searches timed out; ONE map request more than approved was sent (platform now enforces approved counts; D-068)
 - [x] P-36: the map service status page did not answer within 40 s (one request); the host is not reachable from this PC, query size is not the cause
 - [x] P-37: configurable map service (default unchanged; mirror overpass.kumi.systems added, not contacted), status check counted against the allowance, health, tests
-- [ ] [owner] Check https://overpass-api.de/api/status in your browser; approve P-38 (one status request to the mirror); no file was produced yet
+- [x] P-38: the Kumi mirror's status page did not answer within 15 s (one request)
+- [ ] [owner] P-39: open both Overpass status pages in your browser and report whether either answers; no file was produced yet
 - [ ] Desktop application control (Excel, Word, Outlook): not tried, not claimed (NV-14)
 - [ ] Gmail drafts/attachments (Google sign-in unverified, NV-4)

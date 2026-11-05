@@ -68,6 +68,28 @@ No further search and no new real task will be run without approval.
 
 **Proposed next diagnostic (P-38, NOT run):** exactly ONE read-only `GET https://overpass.kumi.systems/api/status`, 15-second limit, no retry, 0 provider requests, no search, no configuration change (the mirror is not selected). Command for the owner or for me after approval: `$env:AWP_APPROVED_STATUS_REQUESTS = "1"; node scripts/e2e/overpass-status-check.mjs kumi`. The script refuses without that approval and names only addresses from the fixed list.
 
+## 0e. P-38: is the Kumi mirror reachable? (2026-11-05 12:33 UTC, owner-approved)
+**Exactly one** read-only request: `GET https://overpass.kumi.systems/api/status` (`scripts/e2e/overpass-status-check.mjs kumi`), 15-second limit, no retry, 0 provider requests. No search, no endpoint switch, no setting changed (the active map service is still `main`). Evidence: `docs/evidence/p38-kumi-status.json`.
+
+| Recorded | Value |
+|---|---|
+| Endpoint | `overpass.kumi.systems` (`/api/status`) |
+| Responded | **no** |
+| HTTP status | none |
+| Response time | **15,023 ms**, then aborted by our own 15-second limit |
+| Error | `TimeoutError`; no network error code (no DNS failure, no refusal, no reset) |
+
+**What this means**
+- Two **independent** Overpass services (`overpass-api.de` in P-36, `overpass.kumi.systems` here) both stayed completely silent from this PC, on their lightest page, while Groq and Google answered HTTPS requests from the same Node runtime the same day. Query size is ruled out, and "one service was down" is now unlikely.
+- The pattern (name lookup apparently fine, then no answer at all, no error code) fits a **network path that silently drops traffic to these hosts**: filtering by the internet provider or network, or by security software on this PC that blocks Node for these addresses. One more request from Node cannot separate those; I sent none.
+- **The mirror is NOT suitable for further testing from this PC as things stand.** No real search is recommended.
+
+**Next diagnostic, without sending anything from the app (recommended)**
+1. **Owner, in a browser on this PC** (not the app): open `https://overpass-api.de/api/status` and `https://overpass.kumi.systems/api/status`.
+   - Both answer in the browser: the network is fine and something blocks Node specifically (security software or a per-program firewall rule). Next would be the owner checking that software, then ONE approved status request again.
+   - Neither answers: these hosts are unreachable from this network. Options then are another network (for example a phone hotspot, owner's choice) or a different map-data source, each a new decision.
+2. Optional, read-only and local: the prepared elevated firewall audit (`scripts/security/firewall-audit.ps1`, P-12, owner runs it) would show outbound rules that affect `node.exe`.
+
 ### Still open
 - A third attempt needs the owner's approval of one more map request (P-35). Until a real run produces the Excel, the PDF and the draft, **this milestone is not complete**.
 - The Manager still marks a step "completed" when the bot's tool call failed but the bot wrote an honest explanation (the platform adds a "What the platform recorded" note). A reviewer can catch this; a stricter step status is a possible improvement.

@@ -1,0 +1,14 @@
+﻿{
+  "endpoint": "kumi",
+  "url": "https://overpass.kumi.systems/api/status",
+  "startedAt": "2026-11-05T12:33:40.649Z",
+  "requests": 1,
+  "providerRequests": 0,
+  "timeoutMs": 15000,
+  "totalMs": 15023,
+  "error": {
+    "name": "TimeoutError",
+    "message": "The operation was aborted due to timeout",
+    "causeCode": null
+  }
+}

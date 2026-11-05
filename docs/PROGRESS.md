@@ -557,3 +557,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ### P-37 configurable map service (2026-11-05; D-070; `docs/REAL-TASK.md` section 0d)
 - Fixed list of map services (default overpass-api.de; mirror overpass.kumi.systems, not contacted). Owner-only choice, no automatic switching, health record, one-request status check that counts against the approved allowance, timeout reasons. 12 tests with fakes; no network request made. Next: P-38 (one status request to the mirror) needs the owner's approval.
+
+### P-38 Kumi mirror check (2026-11-05; D-071; `docs/REAL-TASK.md` section 0e)
+- One read-only GET to `https://overpass.kumi.systems/api/status`: no response within 15 s (TimeoutError, no error code); 0 provider requests; no search; active map service unchanged. Both Overpass hosts are silent from this PC; likely network or security-software filtering. Mirror not suitable from here. Next: owner browser check (P-39). Milestone NOT complete.
