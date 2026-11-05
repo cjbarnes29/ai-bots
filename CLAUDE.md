@@ -33,6 +33,36 @@ A personal AI workforce: agents, a Manager, workflows, integrations behind an ap
 - Every outside write (send, publish, create, save for the Business leads) goes through the approval gate. Do not weaken it.
 - Do not mutation-test code that sends network requests by removing its guard (a test could then really send). Mutate with fake network pieces only.
 
+## 5b. Guardian and security programme (D-023 to D-040)
+- Read `docs/GUARDIAN.md`, `docs/SECURITY-AUDIT.md`, `docs/HANDOVER.md` and `TASKS.md` before touching security-related code. Keep them in step with the code in the same change.
+- **Restricted without the owner's separate explicit approval** (prepare the instructions or scripts for review, do not run them): administrator/elevated operations, creating Windows accounts, creating or configuring VMware VMs or networks, installing system-level services or software, changing security permissions or boundaries, purchases and paid APIs, external communications and deployments, destructive operations, consequential Git commits.
+- Guardian Tier A = development and supervised testing only. Tier B is mandatory before unattended operation. The Guardian has a closed command list: never add a command that takes a path, program name, command line or script. The Manager must never get a way to resume, unlock, stop or reconfigure it.
+- Never weaken a check to make a test pass. Tests that stop or kill anything use fake process tables, or harmless programs the test started itself. Never mutation-test a stop/kill/network guard against the real system.
+- Never mark something verified without evidence: the elevated firewall audit A0-A13 is **NOT RUN** until the owner runs it and shares the output. Tier B, the VM, the dedicated account and the firewall design are **NOT BUILT**.
+- Supervised = the owner is physically present and able to stop it. Anything that continues while the owner is away is autonomous and not allowed yet. PAUSE: session lock = immediately; 15 minutes without genuine input = pause; only the owner resumes.
+
+## 5c. Access control (folders and applications)
+- Read `docs/ACCESS-CONTROL.md` before touching `src/access/`, the PC agent's file actions, the document writer or the Access page. Keep it in step with the code in the same change.
+- Folder permissions are **default deny** and independent of application approval. Approving a program never grants a file, account, credential or personal datum; there is no such capability and there must never be one.
+- Any new code that reads, writes, renames or deletes a file for an agent must call the `FolderGate` (`src/access/gate.ts`) right before acting. Do not add a path-taking command to the Guardian.
+- Creating or changing approvals is owner-only and needs the owner proof; revoking must stay available without it. Never let the Manager or an agent create a grant.
+- Protected programs cannot be approved until a separate policy exists. Do not remove a protected rule to make something work.
+- Application discovery stays read-only: the scan script may contain only reading commands (a test enforces this). It must not make network requests.
+- Tier B scripts in `scripts/security/tier-b/` are review-only: never run them, even with `-Apply`; only parse-check them.
+
+## 5d. Desktop engine (safety regression history: read before touching `src/desktop/`)
+- 2026-11-04: a probe overwrote the owner's unsaved Notepad tab. Never again: **never call the Windows host or any UI Automation/OCR code on a window you did not start through the engine**, never launch a program by path as a way of proving ownership, never read, write, screenshot or close the owner's windows, never print screen or field text.
+- Real desktop tests use only disposable windows (the compiled test program in `src/desktop/testapp/`, Winver). Do not test against Notepad, browsers, VS Code, mail, chat or anything the owner has open.
+- The host script is the last line of defence: keep the registry, redaction, no-attach, overwrite/close guards and private screenshot folder; add checks there, never remove them. Every new step goes through `DesktopEngine` so Guardian, application approval and folder permission apply.
+- Read `docs/DESKTOP-ENGINE.md` and `docs/SECURITY-AUDIT.md` 1c first.
+
+## 5e. Bot Studio
+- Bots are created ONLY through the Agent Manager (disabled, no model, all permissions off). Templates, imports and drafts must never carry or grant permissions, models, applications, folders or secrets.
+- An operating mode is a **ceiling**: it may only remove what a bot can do. Never let a mode, a template or an import add a permission.
+- AI drafts are never saved by code; the owner reviews and saves. Treat descriptions and model output as untrusted.
+- Migration `017_groups` revision 2 is approved and applied (D-047); `src/db/migrations/017_groups.sql` must stay byte-identical to `docs/proposals/017_groups.sql` (a test pins it). Do not apply any other migration without the owner's explicit approval.
+- Group messaging is NOT enabled (NV-15). Do not use the group tables from application code until authorization, message visibility, participation limits, loop prevention and Guardian integration are built and tested and the owner approves switching groups on.
+
 ## 6. Reporting
 Report faithfully: say what ran, what passed, what failed and what was NOT verified. If something is done and verified, say so plainly. Update the decision board and `docs/PROGRESS.md` when a decision, milestone or verification changes.
 

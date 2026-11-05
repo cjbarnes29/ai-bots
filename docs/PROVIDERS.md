@@ -1,5 +1,9 @@
 # AI providers: architecture and configuration guide
 
+**For ordinary users:** open the Integrations Center and press **Connect** on a provider card (Gemini, Groq, OpenRouter, Ollama). The wizard does the rest: key into the encrypted vault (no `.env` editing, no restart), free-plan confirmation, connection test, automatic model discovery, model switches; then **Set up automatic AI** (default model, first choice per kind of task, fallback). Content and official links: `web/src/lib/integrationGuides.ts`. This file describes the machinery underneath.
+
+Routing settings added 2026-11-04 (same settings row, no migration): `preferred` (a first choice per kind of task, tried first while eligible; the automatic order follows as fallbacks) and `defaultModel` (what new bots get; null = Automatic). Provider status now also follows REAL calls: a provider-level failure (key, reachability, rate limit, outage) replaces "connected" and the next success restores it.
+
 ## Architecture
 ```
 bot / chat / task / schedule
@@ -48,6 +52,9 @@ What is always true, for every provider:
 4. Only models marked free (price 0) can be switched on. If every model is blocked with "did not list a price", your OmniRoute does not publish prices;
    tell me and we will decide how you want to authorise models (this needs your explicit decision).
 5. On a bot's page choose one of the enabled OmniRoute models.
+
+## Model capability flags
+Every model now carries honest yes / no / unknown facts (text, picture input, audio input/output, tool calling, structured output, long context, coding), shown as small tags on the model rows in Settings. They are a rule of thumb from the model name and the context size the provider listed, **not a guarantee**, and `unknown` is never treated as yes. Automatic routing can be asked to require capabilities (`CompleteInput.require`): only models confirmed `yes` **and** usable by this app today qualify. Pictures, audio and native tool calling are not usable yet (no provider declares them), so a task needing them is not sent anywhere; it fails with a plain explanation instead of risking a model that may not cope. Code: `src/routing/capabilities.ts`.
 
 ## Automatic model routing
 Choose **Automatic** instead of a model on a bot (Details tab) and the platform picks a free model for each task: general, coding, research or quick/light work. If a provider is down,
