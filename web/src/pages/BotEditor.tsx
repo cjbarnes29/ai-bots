@@ -3,19 +3,22 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useArchiveBot, useBot, useDuplicateBot, useUnarchiveBot, useUpdateBot } from "../api/hooks";
 import type { BotStatus } from "../api/types";
+import { BotHistory } from "../components/BotHistory";
 import { ChatTab } from "../components/ChatTab";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DetailsTab } from "../components/DetailsTab";
 import { PermissionsTab } from "../components/PermissionsTab";
 import { StatusBadge } from "../components/StatusBadge";
 import { TeamTab } from "../components/TeamTab";
+import { Tabs } from "../components/ui/Tabs";
 import { VersionsTab } from "../components/VersionsTab";
 
-type Tab = "details" | "chat" | "team" | "versions" | "permissions";
+type Tab = "details" | "chat" | "team" | "history" | "versions" | "permissions";
 const TABS: { id: Tab; label: string }[] = [
   { id: "details", label: "Details" },
   { id: "chat", label: "Chat" },
   { id: "team", label: "Team" },
+  { id: "history", label: "History" },
   { id: "versions", label: "Versions" },
   { id: "permissions", label: "Permissions" },
 ];
@@ -123,30 +126,13 @@ export function BotEditor() {
         </p>
       )}
 
-      <div role="tablist" aria-label="Bot sections" className="flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
-              tab === t.id
-                ? "border-indigo-600 text-indigo-700 dark:text-indigo-400"
-                : "border-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-            }`}
-          >
-            {t.label}
-            {t.id === "details" && dirty ? " •" : ""}
-          </button>
-        ))}
-      </div>
+      <Tabs label="Bot sections" value={tab} onChange={setTab} tabs={TABS.map((t) => ({ id: t.id, label: t.id === "details" && dirty ? `${t.label} •` : t.label }))} />
 
       {/* Details stays mounted (just hidden) so unsaved edits survive switching tabs. */}
       <DetailsTab bot={b} hidden={tab !== "details"} onDirtyChange={handleDirty} />
       {tab === "chat" && <ChatTab bot={b} hasUnsavedEdits={dirty} />}
       {tab === "team" && <TeamTab bot={b} />}
+      {tab === "history" && <BotHistory bot={b} />}
       {tab === "versions" && <VersionsTab bot={b} hasUnsavedEdits={dirty} />}
       {tab === "permissions" && <PermissionsTab bot={b} />}
 

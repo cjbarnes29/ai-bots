@@ -45,7 +45,7 @@ function Card({ e, paused, guide }: { e: IntegrationEntry; paused: boolean; guid
   const ownSaved = guide ? guide.disconnect.secrets.filter((n) => e.secrets.some((s) => s.name === n && s.saved)) : [];
 
   return (
-    <li className="card space-y-3">
+    <li className="card awp-lift space-y-3">
       <div className="flex items-start gap-3">
         <Monogram label={e.label} />
         <div className="min-w-0 flex-1">
@@ -282,12 +282,27 @@ function WhatDoINeed({ entries }: { entries: IntegrationEntry[] }) {
   );
 }
 
+const STATUS_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "connected", label: "Connected" },
+  { id: "needs", label: "Needs setup" },
+  { id: "failed", label: "Problem" },
+] as const;
+
 export function IntegrationCatalog() {
   const q = useIntegrations();
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]["id"]>("all");
   if (q.isPending) return <p role="status">Loading services…</p>;
   if (q.isError || !q.data) return <p role="alert">Could not load the list of services.</p>;
   const categoryOf = (id: string) => serviceGuide(id)?.category ?? "Other";
-  const present = [...CATEGORY_ORDER, "Other" as const].filter((c) => q.data.integrations.some((i) => categoryOf(i.id) === c));
+  const words = query.trim().toLowerCase().split(/s+/).filter(Boolean);
+  const visible = q.data.integrations.filter(
+    (i) =>
+      (filter === "all" || (filter === "connected" ? i.status === "verified" || i.status === "ready" : filter === "needs" ? i.status === "not_set_up" : i.status === "failed")) &&
+      words.every((w) => `${i.label} ${categoryOf(i.id)}`.toLowerCase().includes(w)),
+  );
+  const present = [...CATEGORY_ORDER, "Other" as const].filter((c) => visible.some((i) => categoryOf(i.id) === c));
   return (
     <section aria-labelledby="catalog-heading" className="space-y-6">
       <div>
@@ -300,11 +315,26 @@ export function IntegrationCatalog() {
         </p>
       </div>
       <WhatDoINeed entries={q.data.integrations} />
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="search" aria-label="Search services" placeholder="Search services" className="min-h-11 sm:max-w-xs" value={query} onChange={(e) => setQuery(e.target.value)} />
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            aria-pressed={filter === f.id}
+            onClick={() => setFilter(f.id)}
+            className={`awp-hover min-h-11 rounded-full border px-4 text-sm font-medium ${filter === f.id ? "border-indigo-600 bg-indigo-50 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200" : "border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"}`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      {visible.length === 0 && <p className="hint">No service matches these filters.</p>}
       {present.map((c) => (
         <section key={c} aria-label={c} className="space-y-2">
           <h2 className="text-lg font-semibold">{c}</h2>
           <ul className="grid gap-3 md:grid-cols-2">
-            {q.data.integrations
+            {visible
               .filter((i) => categoryOf(i.id) === c)
               .map((i) => (
                 <Card key={i.id} e={i} paused={q.data.paused} guide={serviceGuide(i.id)} />

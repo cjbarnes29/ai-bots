@@ -20,6 +20,7 @@ import { ProviderWizard } from "./pages/ProviderWizard";
 import { ServiceWizard } from "./pages/ServiceWizard";
 import { AiSetupAssistant } from "./pages/AiSetupAssistant";
 import { Knowledge } from "./pages/Knowledge";
+import { Models } from "./pages/Models";
 import { Monitor } from "./pages/Monitor";
 import { PcCenter } from "./pages/PcCenter";
 import { SettingsCategoryPage, SettingsHome, SettingsLayout } from "./pages/settings/SettingsLayout";
@@ -47,6 +48,7 @@ export const routes: RouteObject[] = [
       { path: "/studio", element: <BotStudio /> },
       { path: "/knowledge", element: <Knowledge /> },
       { path: "/creative", element: <Creative /> },
+      { path: "/models", element: <Models /> },
       { path: "/workflows", element: <Workflows /> },
       { path: "/business", element: <Business /> },
       { path: "/integrations", element: <Integrations /> },

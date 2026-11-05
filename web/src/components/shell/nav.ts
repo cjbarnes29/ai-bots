@@ -52,12 +52,12 @@ export const NAV: NavEntry[] = [
     ],
   },
   {
-    to: "/settings/ai-models",
+    to: "/models",
     label: "AI Models",
     icon: "cpu",
-    match: ["/settings/ai-models", "/usage"],
+    match: ["/models", "/settings/ai-models", "/usage"],
     primary: false,
-    tabs: [{ to: "/settings/ai-models", label: "Providers, models & usage", match: ["/settings/ai-models", "/usage"] }],
+    tabs: [{ to: "/models", label: "Providers & models", match: ["/models", "/settings/ai-models", "/usage"] }],
   },
   {
     to: "/integrations",

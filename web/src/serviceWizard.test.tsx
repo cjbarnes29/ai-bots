@@ -42,7 +42,8 @@ describe("the Integrations Center page", () => {
     // the long list of keys is folded away under Advanced
     const advanced = screen.getByText(/Advanced: every saved key/).closest("details")!;
     expect(advanced.open).toBe(false);
-    for (const input of document.querySelectorAll("input")) expect(advanced.contains(input)).toBe(true);
+    // (the search box is not a credential field; every other input must be inside Advanced)
+    for (const input of document.querySelectorAll("input:not([type=search])")) expect(advanced.contains(input)).toBe(true);
   });
 
   it("each service card shows what it is, what it allows, difficulty, sign-in method, Connect and a tutorial", async () => {

@@ -53,6 +53,13 @@ export const CATEGORIES: SettingsCategory[] = [
     description: "Which AI providers and models are connected, the automatic model choice, and what has been used.",
     content: () => (
       <>
+        <p className="rounded-md bg-indigo-50 p-3 text-sm dark:bg-indigo-950">
+          Prefer one area at a time? The{" "}
+          <Link to="/models" className="font-medium underline">
+            AI Models workspace
+          </Link>{" "}
+          shows these same sections in tabs: Providers, Models &amp; testing, Routing &amp; fallback, Usage, and Limits &amp; safety.
+        </p>
         <SafetySection />
         <p className="rounded-md bg-slate-100 p-3 text-sm dark:bg-slate-800">
           Easiest way to connect a provider: press Connect on its card in the{" "}

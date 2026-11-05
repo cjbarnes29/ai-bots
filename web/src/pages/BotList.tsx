@@ -1,8 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useBots, useCreateBot } from "../api/hooks";
-import { CONNECTOR_LABELS, type Bot } from "../api/types";
+import { CONNECTOR_LABELS, type Bot, type BotStatus } from "../api/types";
 import { StatusBadge } from "../components/StatusBadge";
 
 function accessSummary(bot: Bot): string {
@@ -63,6 +63,10 @@ export function BotList() {
   const [showArchived, setShowArchived] = useState(false);
   const [creating, setCreating] = useState(false);
   const bots = useBots(showArchived);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<"all" | BotStatus>("all");
+  const words = query.trim().toLowerCase().split(/s+/).filter(Boolean);
+  const shown = (bots.data ?? []).filter((b) => (status === "all" || b.status === status) && words.every((w) => `${b.name} ${b.role}`.toLowerCase().includes(w)));
 
   return (
     <div className="space-y-5">
@@ -109,10 +113,29 @@ export function BotList() {
       )}
 
       {bots.data && bots.data.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input type="search" aria-label="Search agents" placeholder="Search by name or role" className="min-h-11 sm:max-w-xs" value={query} onChange={(e) => setQuery(e.target.value)} />
+          {(["all", "active", "paused", "disabled"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              aria-pressed={status === s}
+              onClick={() => setStatus(s)}
+              className={`awp-hover min-h-11 rounded-full border px-4 text-sm font-medium ${status === s ? "border-indigo-600 bg-indigo-50 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200" : "border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"}`}
+            >
+              {{ all: "All agents", active: "Active only", paused: "Paused only", disabled: "Disabled only" }[s]}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {bots.data && bots.data.length > 0 && shown.length === 0 && <p className="hint">No agent matches these filters.</p>}
+
+      {shown.length > 0 && (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {bots.data.map((bot) => (
-            <li key={bot.id}>
-              <Link to={`/bots/${bot.id}`} className="card block h-full transition-colors hover:border-indigo-400">
+          {shown.map((bot, i) => (
+            <li key={bot.id} className="awp-stagger" style={{ "--i": i } as CSSProperties}>
+              <Link to={`/bots/${bot.id}`} className="card awp-lift block h-full hover:border-indigo-400">
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="font-semibold">{bot.name}</h2>
                   <StatusBadge status={bot.status} archived={bot.archived} />

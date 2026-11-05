@@ -1,6 +1,6 @@
 # AI Workforce Studio redesign: inspection and implementation plan
 
-Status: **APPROVED 2026-11-06 (D-075). Phase 1 committed (e56f27d); phase 2 built; phases 3-6 not built.** The owner later approved all remaining phases, commits included, within the stated approval boundaries. Written from the code in `web/src` at commit `a43b685`. Not a screenshot audit; no browser was opened for this plan. Requires the owner's approval before any build (see "Decisions needed").
+Status: **APPROVED 2026-11-06 (D-075). Phases 1 (e56f27d) and 2 (91e3100) committed; phase 3 built; phases 4-6 not built.** The owner later approved all remaining phases, commits included, within the stated approval boundaries. Written from the code in `web/src` at commit `a43b685`. Not a screenshot audit; no browser was opened for this plan. Requires the owner's approval before any build (see "Decisions needed").
 
 ## 1. What exists today (from the code)
 

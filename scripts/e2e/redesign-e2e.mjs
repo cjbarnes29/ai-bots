@@ -40,7 +40,7 @@ const SIZES = [
   { name: "desktop", width: 1440, height: 900, shape: "sidebar" },
   { name: "large desktop", width: 1920, height: 1080, shape: "sidebar" },
 ];
-const PAGES = ["/", "/agents", "/studio", "/groups", "/workforce", "/workflows", "/automation", "/decisions", "/projects", "/settings/ai-models", "/integrations", "/pc", "/access", "/business", "/creative", "/knowledge", "/monitor", "/tasks", "/approvals", "/inbox", "/settings"];
+const PAGES = ["/", "/agents", "/studio", "/groups", "/workforce", "/workflows", "/automation", "/decisions", "/projects", "/models", "/settings/ai-models", "/integrations", "/pc", "/access", "/business", "/creative", "/knowledge", "/monitor", "/tasks", "/approvals", "/inbox", "/settings"];
 
 let browser;
 try {
@@ -90,6 +90,17 @@ try {
       if (size.width < 768 && o.h < 44) tabOverflow.push(`${t} tab only ${o.h}px tall`);
     }
     check(`${size.name}: the four Monitoring tabs fit and are touch-sized`, tabOverflow.length === 0, tabOverflow.join(", "));
+    // phase 3: the AI Models workspace tabs
+    await page.goto(base + "/models", { waitUntil: "networkidle" });
+    const modelIssues = [];
+    for (const t of ["Providers", "Models & testing", "Routing & fallback", "Usage", "Limits & safety"]) {
+      await page.click(`[role=tab]:has-text("${t}")`);
+      await page.waitForTimeout(350);
+      const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth, h: document.querySelector("[role=tab][aria-selected=true]").getBoundingClientRect().height }));
+      if (o.sw > o.iw + 1) modelIssues.push(`${t} (${o.sw}>${o.iw})`);
+      if (size.width < 768 && o.h < 44) modelIssues.push(`${t} tab ${o.h}px`);
+    }
+    check(`${size.name}: the five AI Models tabs fit and are touch-sized`, modelIssues.length === 0, modelIssues.join(", "));
     await page.screenshot({ path: path.join(SHOTS, `monitor-resources-${size.width}.png`) });
     check(`${size.name}: no console errors across the pages`, errors.length === 0, errors.slice(0, 2).join(" | "));
     await page.goto(base + "/", { waitUntil: "networkidle" });
