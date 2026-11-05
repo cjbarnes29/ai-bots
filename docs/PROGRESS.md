@@ -544,3 +544,7 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 - **Finding from the rehearsal:** the Manager plan must name specialists by bot id; a name silently becomes "Manager does the step itself" (the raw action text became the step result). A real model must copy ids correctly: a risk to watch in the real run.
 - **NOT done:** the real run (needs the owner's approval of exact requests, P-34). No real provider request, map request or website request was made in this milestone. No desktop application was controlled. The email was never sent.
 - Backend: typecheck clean, 74 files / 1,697 tests.
+
+### Real run attempts (2026-11-06, owner approved P-34; D-067; `docs/REAL-TASK.md` section 0)
+- Two real attempts on a scratch COPY of the saved database (the original untouched): 13 real Groq requests, 1 real map request, 0 website requests, nothing sent. **No files were produced; the success criterion is NOT met.** Failures found and fixed with tests: model-written market "uae"; empty reply to the Manager review (4,000-token budget now; a failed review keeps the finished work and is labelled NOT REVIEWED); the map client now reports why it failed; the Researcher is told to use one category. Remaining: owner approval P-35 for another map request.
+- Evidence: `docs/evidence/real-task-attempt1/evidence.json`, `docs/evidence/real-task/evidence.json`.

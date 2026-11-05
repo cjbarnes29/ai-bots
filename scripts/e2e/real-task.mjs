@@ -20,7 +20,8 @@
 // The script plays the OWNER on the scratch app for the three FILE approvals only (Excel, PDF, email-draft file, in that order). Any other
 // approval request is DENIED and reported. Evidence (JSON, the real files, the email draft) is copied to docs/evidence/real-task/.
 import { spawn } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -34,13 +35,25 @@ const PROVIDER_BUDGET = Number(process.env.AWP_APPROVED_PROVIDER_REQUESTS ?? 0);
 const MAP_BUDGET = Number(process.env.AWP_APPROVED_MAP_REQUESTS ?? 0);
 const SITE_BUDGET = Number(process.env.AWP_APPROVED_SITE_REQUESTS ?? 0);
 const GOAL = "Research 10 businesses in Dubai, inspect their websites, organize findings in Excel, generate a PDF report and prepare an email with the files attached.";
-if (!(GROQ || GEMINI)) { console.error("Set GROQ_API_KEY and/or GEMINI_API_KEY (free tier) in this terminal first. Nothing was sent."); process.exit(2); }
+// AWP_USE_COPY_OF_REAL_DB=1: instead of typing keys, work on a COPY of the saved database and vault key (made with SQLite VACUUM INTO, read-only on the original,
+// exactly like `npm run backup`). The original is never changed; the copy lives in the temp folder of this run and is deleted at the end.
+const USE_COPY = process.env.AWP_USE_COPY_OF_REAL_DB === "1";
+if (!(GROQ || GEMINI || USE_COPY)) { console.error("Set GROQ_API_KEY and/or GEMINI_API_KEY (free tier) in this terminal first, or AWP_USE_COPY_OF_REAL_DB=1 to use the keys already saved in the app. Nothing was sent."); process.exit(2); }
 if (PROVIDER_BUDGET < 10 || MAP_BUDGET < 1 || SITE_BUDGET < 1) { console.error("Refusing to run: the owner has not approved request counts (AWP_APPROVED_PROVIDER_REQUESTS >= 10, AWP_APPROVED_MAP_REQUESTS >= 1, AWP_APPROVED_SITE_REQUESTS >= 1). Nothing was sent."); process.exit(2); }
 
 const tmp = mkdtempSync(path.join(tmpdir(), "awp-real-"));
 const ws = path.join(tmp, "workspace");
 mkdirSync(ws, { recursive: true });
-const env = { ...process.env, PORT: String(PORT), DATABASE_PATH: path.join(tmp, "scratch.db"), GUARDIAN_URL: "", ...(GROQ ? { GROQ_API_KEY: GROQ } : {}), ...(GEMINI ? { GEMINI_API_KEY: GEMINI } : {}) };
+let dbPath = path.join(tmp, "scratch.db");
+if (USE_COPY) {
+  const realDb = path.join(ROOT, "data", "app.db");
+  mkdirSync(path.join(tmp, "copy"), { recursive: true });
+  dbPath = path.join(tmp, "copy", "app.db");
+  const src = new DatabaseSync(realDb, { readOnly: true });
+  try { src.exec(`VACUUM INTO '${dbPath.replace(/'/g, "''")}'`); } finally { src.close(); }
+  copyFileSync(path.join(ROOT, "data", "vault.key"), path.join(tmp, "copy", "vault.key"));
+}
+const env = { ...process.env, PORT: String(PORT), DATABASE_PATH: dbPath, GUARDIAN_URL: "", ...(GROQ ? { GROQ_API_KEY: GROQ } : {}), ...(GEMINI ? { GEMINI_API_KEY: GEMINI } : {}) };
 const srv = spawn(process.execPath, ["--import", "tsx", "src/server.ts"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
 let log = "";
 srv.stdout.on("data", (d) => (log += d)); srv.stderr.on("data", (d) => (log += d));
@@ -56,16 +69,22 @@ const note = (what, data) => { evidence.steps.push({ at: new Date().toISOString(
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const until = async (fn, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = await fn(); if (v) return v; await sleep(1500); } return null; };
 // requests that actually reached a provider (ok + error); "blocked" ones were stopped by the platform before any request
-const providerRequests = async () => ((await call("GET", "/api/llm/usage?days=1")).body?.usage?.byDay ?? []).reduce((n, d) => n + Number(d.ok ?? 0) + Number(d.errors ?? 0), 0);
+let baseline = 0;
+const rawProviderRequests = async () => ((await call("GET", "/api/llm/usage?days=1")).body?.usage?.byDay ?? []).reduce((n, d) => n + Number(d.ok ?? 0) + Number(d.errors ?? 0), 0);
+const providerRequests = async () => (await rawProviderRequests()) - baseline;
 
 let exitCode = 0;
 try {
   for (let i = 0; i < 80; i++) { try { if ((await fetch(base + "/api/llm/status")).ok) break; } catch {} await sleep(500); }
   // providers: enable what the owner gave a key for; the platform's own daily cap enforces the approved count
+  baseline = await rawProviderRequests();
   const active = [];
+  const views = (await call("GET", "/api/llm/providers")).body?.providers ?? [];
   for (const [id, key] of [["groq", GROQ], ["gemini", GEMINI]]) {
-    if (!key) continue;
-    await call("PATCH", `/api/llm/providers/${id}`, { enabled: true, dailyRequestCap: PROVIDER_BUDGET });
+    const view = views.find((p) => p.id === id);
+    if (!key && !(USE_COPY && view?.keyConfigured)) continue;
+    const already = Number(view?.requestsToday ?? 0);
+    await call("PATCH", `/api/llm/providers/${id}`, { enabled: true, dailyRequestCap: already + PROVIDER_BUDGET });
     const t = await call("POST", `/api/llm/providers/${id}/test`);
     note(`connection test ${id}`, { status: t.body?.provider?.status, message: secret(t.body?.provider?.statusMessage ?? "") });
     const r = await call("POST", `/api/llm/providers/${id}/refresh-models`);
@@ -83,7 +102,7 @@ try {
 
   await call("PUT", "/api/llm/limits", { botRequestsPerMinute: 30, providerRequestsPerMinute: 30 });
   const mk = async (name, role, instructions) => { const r = await call("POST", "/api/bots", { name, role, model: "auto/general", instructions }); await call("PATCH", `/api/bots/${r.body.bot.id}`, { status: "active" }); return r.body.bot; };
-  const researcher = await mk("Researcher", "Finds and checks businesses", "Use the business tools. Report only what the tool results say. Never invent a business, a website or a fact.");
+  const researcher = await mk("Researcher", "Finds and checks businesses", "Use the business tools. For find_businesses use market \"AE\", region \"Dubai\", limit 10 and ONE category (for example \"fitness\"): never \"all\", it is too heavy for the free map service. Then run audit_batch on that batch. Report only what the tool results say. Never invent a business, a website or a fact.");
   const writer = await mk("Writer", "Produces Excel, PDF and email drafts", "Use the documents tools to create files exactly as asked. Put real values from the research in the files. Never invent data.");
   await call("PUT", `/api/bots/${researcher.id}/permissions/browser`, { readEnabled: true });
   await call("POST", "/api/pc/workspaces", { path: ws });
@@ -148,5 +167,7 @@ try {
   for (const f of existsSync(ws) ? readdirSync(ws) : []) if (statSync(path.join(ws, f)).isFile()) cpSync(path.join(ws, f), path.join(out, f));
   console.log(`Evidence and the real files were copied to ${out}`);
   srv.kill();
+  await sleep(800);
+  try { rmSync(tmp, { recursive: true, force: true }); } catch { /* the copy of the saved keys may still be locked: remove it by hand */ }
   process.exit(exitCode);
 }

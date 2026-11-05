@@ -185,6 +185,20 @@ describe("asking the map service (switched off, limited, cached)", () => {
     await expect(c.find(search())).rejects.toSatisfy((e) => e instanceof (type as ErrorConstructor) && (message as RegExp).test((e as Error).message));
   });
 
+  it("says WHY the map service was not reached, from a fixed vocabulary only (the first real run just said 'could not reach')", async () => {
+    const reasons: [unknown, RegExp][] = [
+      [Object.assign(new Error("x"), { name: "TimeoutError" }), /\(no answer within 40 seconds\)/],
+      [Object.assign(new Error("fetch failed"), { cause: { code: "ENOTFOUND" } }), /\(the address could not be looked up \(DNS\)\)/],
+      [Object.assign(new Error("fetch failed"), { cause: { code: "ECONNRESET" } }), /\(the connection failed \(ECONNRESET\)\)/],
+    ];
+    for (const [err, re] of reasons) {
+      const { c } = client({ post: async () => { throw err; } });
+      const msg = await c.find(search()).then(() => "", (e: Error) => e.message);
+      expect(msg).toMatch(re);
+      expect(msg).not.toMatch(/secret|overpass-api/);
+    }
+  });
+
   it("a network failure never leaks the technical reason", async () => {
     const { c } = client({
       post: async () => {

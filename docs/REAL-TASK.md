@@ -3,7 +3,30 @@
 Goal: prove the workforce can do a real task with real AI providers and real tools:
 *"Research 10 businesses in Dubai, inspect their websites, organize findings in Excel, generate a PDF report and prepare an email with the files attached."*
 
-**Status (2026-11-06): PREPARED and REHEARSED with simulated parts. The REAL run has NOT been done**, because it needs the owner's approval of the exact outside requests (CLAUDE.md section 5). Nothing below claims a real execution.
+**Status (2026-11-06): two REAL attempts were made after the owner approved the budget (P-34); neither delivered the files. The end-to-end success criterion is NOT met yet.** What was really executed, and what failed, is recorded below and in `docs/evidence/real-task-attempt1/` and `docs/evidence/real-task/` (JSON). The email was never sent (there is no send path in the run).
+
+## 0. Real attempts (free-tier Groq models through automatic routing; scratch app on a COPY of the saved database)
+| | Attempt 1 | Attempt 2 |
+|---|---|---|
+| Real provider requests | 6 | 7 (13 of the approved 60 in total) |
+| Map requests / website requests | 0 / 0 | 1 / 0 (the approved map request is used up) |
+| Manager plan by a real model | **worked**: 2 specialist steps, specialists named by id | **worked**: 3 steps (research, files, email draft) |
+| What failed | The Researcher called `find_businesses` with market "uae" (valid code is "AE") and the platform refused it; no request left the PC. Then the Manager's final review got an **empty reply** from `groq/openai/gpt-oss-120b` (a reasoning model spent its 1,500-token budget thinking) and the whole run was marked **failed** although the steps had finished. | The map request was sent but **"Could not reach the map service"**: the real cause is unknown because the code swallowed it. Most likely the search was too heavy: the bot asked for category "all" (about 20 tag lines over Dubai) and the 40-second client limit expired. The review again produced unreadable output and the run completed as **NOT REVIEWED** (the fallback below). |
+| Files made | none | none (no data to put in them) |
+| Honest bot behaviour | the bots reported the failure and refused to invent data | the same; the Writer would not fabricate rows (good) |
+| Model switching / usage | recorded (Groq qwen3.8-27b and gpt-oss-120b, failover on errors) | recorded |
+
+### Fixed because of the real attempts (each with a test)
+1. Market names a model writes ("uae", "United Arab Emirates") now mean market AE.
+2. The Manager's plan and review calls get 4,000 output tokens (room for a reasoning model to think and answer).
+3. A failed final review no longer destroys finished work: the run completes with the step results and says plainly **"NOT REVIEWED: ..."**.
+4. The map client now says WHY it failed from a fixed vocabulary (timeout / DNS / connection reset...), never raw error text.
+5. The connector description and the run script tell the Researcher to use ONE category (for example "fitness") instead of "all".
+
+### Still open
+- A third attempt needs the owner's approval of one more map request (P-35). Until a real run produces the Excel, the PDF and the draft, **this milestone is not complete**.
+- The Manager still marks a step "completed" when the bot's tool call failed but the bot wrote an honest explanation (the platform adds a "What the platform recorded" note). A reviewer can catch this; a stricter step status is a possible improvement.
+- Gemini has no verified model, so only Groq was usable.
 
 ## 1. Audit: what is operational, partial, missing
 | Capability | State | Evidence / limit |

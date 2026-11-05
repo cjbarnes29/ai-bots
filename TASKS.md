@@ -101,6 +101,7 @@ Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-C
 ## Real-world task (docs/REAL-TASK.md, D-066, P-34)
 - [x] Audit of what is operational / partial / missing
 - [x] Local email draft with real attachments (`documents.create_email_draft`); rehearsal of the whole task with simulated parts (passes)
-- [ ] [owner] Approve the exact real requests (P-34) and run `scripts/e2e/real-task.mjs` with your own free key; then record the evidence
+- [x] Real run approved (P-34) and attempted twice: real Groq requests, real map request; NO files produced (see docs/REAL-TASK.md section 0)
+- [ ] [owner] Approve one more map request and the rest of the budget (P-35) so a third real run can finish the task
 - [ ] Desktop application control (Excel, Word, Outlook): not tried, not claimed (NV-14)
 - [ ] Gmail drafts/attachments (Google sign-in unverified, NV-4)

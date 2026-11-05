@@ -49,8 +49,12 @@ export const UAE: Market = {
 
 export const MARKETS: Record<string, Market> = { [UAE.code]: UAE };
 
+/** Names a model naturally writes for the country code (seen in the first real run: "uae"). They mean the same market. */
+const MARKET_ALIASES: Record<string, string> = { UAE: "AE", "UNITED ARAB EMIRATES": "AE", EMIRATES: "AE", "U.A.E.": "AE" };
+
 export function getMarket(code: string): Market {
-  const m = MARKETS[code.toUpperCase()];
+  const key = code.trim().toUpperCase();
+  const m = MARKETS[MARKET_ALIASES[key] ?? key];
   if (!m) throw new Error(`Unknown market "${code}". Known markets: ${Object.keys(MARKETS).join(", ")}.`);
   return m;
 }

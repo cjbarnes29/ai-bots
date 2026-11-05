@@ -34,6 +34,8 @@ describe("markets and categories (data, not code)", () => {
     expect(resolveRegion(ae, "UAE")).toBeNull();
     expect(() => resolveRegion(ae, "Atlantis")).toThrow(/Unknown region "Atlantis".*Dubai/);
     expect(() => getMarket("XX")).toThrow(/Unknown market/);
+    // names a model naturally writes for the country (seen in the first real run) mean the same market
+    for (const n of ["uae", "UAE", "United Arab Emirates", " ae "]) expect(getMarket(n).code).toBe("AE");
   });
 
   it("categories are a fixed table whose tags are plain words, so nothing typed can reach a search query", () => {

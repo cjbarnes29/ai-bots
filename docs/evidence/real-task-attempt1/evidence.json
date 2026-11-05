@@ -1,0 +1,713 @@
+{
+  "startedAt": "2026-11-05T11:49:37.837Z",
+  "simulated": false,
+  "budgets": {
+    "PROVIDER_BUDGET": 60,
+    "MAP_BUDGET": 1,
+    "SITE_BUDGET": 10
+  },
+  "steps": [
+    {
+      "at": "2026-11-05T11:49:39.821Z",
+      "what": "connection test groq",
+      "data": {
+        "status": "connected",
+        "message": "Connected. The provider lists 4 models."
+      }
+    },
+    {
+      "at": "2026-11-05T11:49:40.141Z",
+      "what": "models listed by groq",
+      "data": {
+        "total": 4,
+        "usable": [
+          "groq/openai/gpt-oss-120b",
+          "groq/qwen/qwen3.8-27b"
+        ]
+      }
+    },
+    {
+      "at": "2026-11-05T11:49:41.146Z",
+      "what": "connection test gemini",
+      "data": {
+        "status": "connected",
+        "message": "Connected. The provider lists 21 models."
+      }
+    },
+    {
+      "at": "2026-11-05T11:49:41.983Z",
+      "what": "models listed by gemini",
+      "data": {
+        "total": 24,
+        "usable": []
+      }
+    },
+    {
+      "at": "2026-11-05T11:49:42.042Z",
+      "what": "models automatic routing may use (verified, free)",
+      "data": [
+        "groq/qwen/qwen3.8-27b",
+        "groq/openai/gpt-oss-120b"
+      ]
+    },
+    {
+      "at": "2026-11-05T11:49:42.129Z",
+      "what": "workforce set up (scratch)",
+      "data": {
+        "researcher": "351efc31-df64-491b-bd3a-799cc15b70e2",
+        "writer": "c76ab8b3-3080-4d45-b61b-1575a8af6bc3",
+        "workspace": "C:\\Users\\carlou\\AppData\\Local\\Temp\\awp-real-MH35A7\\workspace"
+      }
+    },
+    {
+      "at": "2026-11-05T11:49:42.282Z",
+      "what": "Manager run started",
+      "data": {
+        "runId": "f9b4ccfb-d973-4e4f-b4a9-bc2ffee531fd"
+      }
+    },
+    {
+      "at": "2026-11-05T11:49:48.421Z",
+      "what": "Manager run finished",
+      "data": {
+        "status": "failed",
+        "steps": [
+          {
+            "id": "s1",
+            "specialist": "Researcher",
+            "status": "completed",
+            "error": null
+          },
+          {
+            "id": "s2",
+            "specialist": "Writer",
+            "status": "completed",
+            "error": null
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-05T11:49:48.444Z",
+      "what": "budget check",
+      "data": {
+        "providerRequests": 6,
+        "mapRequests": 0,
+        "siteRequests": 0,
+        "overBudget": false
+      }
+    }
+  ],
+  "errors": [],
+  "run": {
+    "id": "f9b4ccfb-d973-4e4f-b4a9-bc2ffee531fd",
+    "goal": "Research 10 businesses in Dubai, inspect their websites, organize findings in Excel, generate a PDF report and prepare an email with the files attached.",
+    "status": "failed",
+    "mode": "plan",
+    "result": "## Research 10 Dubai businesses\nI’m sorry, but I don’t have any business data or website information to share. I wasn’t able to retrieve the list of Dubai businesses or inspect their sites, so I can’t provide the requested details.\n\n--- What the platform recorded (not written by the AI) ---\n- business.find_businesses: FAILED. Unknown market \"uae\". Known markets: AE.\n\n## Create Excel, PDF, and email\nI’m unable to create the Excel file, PDF report, or email draft because there are no research findings available to work from—​the previous step to collect the Dubai business data did not succeed, and I have no data to include.\n\nIf you can provide the research results (e.g., a list of the businesses and any details you’d like summarized), I’ll be able to:\n\n1. Organize that data into an Excel spreadsheet.  \n2. Generate a PDF report that summarizes the findings.  \n3. Draft an email with both files attached.\n\nPlease share the data you’d like used, and I’ll proceed from there.",
+    "error": "No model could answer. Tried: groq/openai/gpt-oss-120b (bad_response). The model returned an empty reply.",
+    "modelCalls": 4,
+    "inputTokens": 3926,
+    "outputTokens": 842,
+    "budget": {
+      "maxModelCalls": 20,
+      "maxTokens": 120000,
+      "maxSteps": 5
+    },
+    "revisions": 0,
+    "createdAt": "2026-11-05T11:49:42.133Z",
+    "finishedAt": "2026-11-05T11:49:47.204Z",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Research 10 Dubai businesses",
+        "specialistId": "351efc31-df64-491b-bd3a-799cc15b70e2",
+        "specialistName": "Researcher",
+        "dependsOn": [],
+        "status": "completed",
+        "taskId": "2633b1a5-eecf-4a5b-9276-262ff3188828",
+        "output": "I’m sorry, but I don’t have any business data or website information to share. I wasn’t able to retrieve the list of Dubai businesses or inspect their sites, so I can’t provide the requested details.\n\n--- What the platform recorded (not written by the AI) ---\n- business.find_businesses: FAILED. Unknown market \"uae\". Known markets: AE.",
+        "error": null,
+        "attempts": 1
+      },
+      {
+        "id": "s2",
+        "title": "Create Excel, PDF, and email",
+        "specialistId": "c76ab8b3-3080-4d45-b61b-1575a8af6bc3",
+        "specialistName": "Writer",
+        "dependsOn": [
+          "s1"
+        ],
+        "status": "completed",
+        "taskId": "677e94e5-2822-415b-a51e-25f1609b3702",
+        "output": "I’m unable to create the Excel file, PDF report, or email draft because there are no research findings available to work from—​the previous step to collect the Dubai business data did not succeed, and I have no data to include.\n\nIf you can provide the research results (e.g., a list of the businesses and any details you’d like summarized), I’ll be able to:\n\n1. Organize that data into an Excel spreadsheet.  \n2. Generate a PDF report that summarizes the findings.  \n3. Draft an email with both files attached.\n\nPlease share the data you’d like used, and I’ll proceed from there.",
+        "error": null,
+        "attempts": 1
+      }
+    ]
+  },
+  "usage": {
+    "usage": {
+      "today": {
+        "requests": 39,
+        "tokens": 10434
+      },
+      "month": {
+        "requests": 39,
+        "tokens": 10434
+      },
+      "todayCloud": {
+        "requests": 39,
+        "tokens": 10434
+      },
+      "monthCloud": {
+        "requests": 39,
+        "tokens": 10434
+      },
+      "reportedCostMicroThisMonth": 0,
+      "byDay": [
+        {
+          "day": "2026-11-05",
+          "ok": 26,
+          "errors": 13,
+          "blocked": 1,
+          "tokens": 10434
+        }
+      ],
+      "byBot": [
+        {
+          "botId": null,
+          "botName": "(deleted)",
+          "requests": 31,
+          "tokens": 5119
+        },
+        {
+          "botId": "351efc31-df64-491b-bd3a-799cc15b70e2",
+          "botName": "Researcher",
+          "requests": 3,
+          "tokens": 2531
+        },
+        {
+          "botId": "c76ab8b3-3080-4d45-b61b-1575a8af6bc3",
+          "botName": "Writer",
+          "requests": 1,
+          "tokens": 1544
+        },
+        {
+          "botId": "27371164-1dcd-455a-b90c-2a7496a27a31",
+          "botName": "ZZ Temporary Gemma Test",
+          "requests": 3,
+          "tokens": 1240
+        },
+        {
+          "botId": "0bf8cc57-9566-43a3-aef7-3d1e639baa5c",
+          "botName": "Site Auditor",
+          "requests": 1,
+          "tokens": 0
+        }
+      ],
+      "byModel": [
+        {
+          "providerId": "groq",
+          "modelId": "openai/gpt-oss-120b",
+          "requests": 8,
+          "tokens": 3827,
+          "errors": 2
+        },
+        {
+          "providerId": "groq",
+          "modelId": "qwen/qwen3.8-27b",
+          "requests": 8,
+          "tokens": 2775,
+          "errors": 1
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemma-4-26b-a4b-it",
+          "requests": 4,
+          "tokens": 1539,
+          "errors": 1
+        },
+        {
+          "providerId": "groq",
+          "modelId": "openai/gpt-oss-20b",
+          "requests": 5,
+          "tokens": 1488,
+          "errors": 0
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemini-3.5-flash-lite",
+          "requests": 5,
+          "tokens": 805,
+          "errors": 0
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemini-2.5-computer-use-preview-10-2025",
+          "requests": 2,
+          "tokens": 0,
+          "errors": 2
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemini-2.5-flash",
+          "requests": 1,
+          "tokens": 0,
+          "errors": 1
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemini-3.5-transcribe",
+          "requests": 2,
+          "tokens": 0,
+          "errors": 2
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemini-3.8-flash",
+          "requests": 4,
+          "tokens": 0,
+          "errors": 4
+        }
+      ],
+      "recentProblems": [
+        {
+          "createdAt": "2026-11-05T11:49:47.184Z",
+          "status": "error",
+          "errorCode": "bad_response",
+          "providerId": "groq",
+          "modelId": "openai/gpt-oss-120b",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-05T11:49:43.874Z",
+          "status": "error",
+          "errorCode": "rate_limited",
+          "providerId": "groq",
+          "modelId": "qwen/qwen3.8-27b",
+          "botName": "Researcher",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-05T08:27:24.081Z",
+          "status": "error",
+          "errorCode": "provider_unavailable",
+          "providerId": "gemini",
+          "modelId": "gemini-3.8-flash",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-05T08:27:17.291Z",
+          "status": "error",
+          "errorCode": "provider_unavailable",
+          "providerId": "gemini",
+          "modelId": "gemini-3.8-flash",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-05T08:25:04.641Z",
+          "status": "blocked",
+          "errorCode": "limit_exceeded",
+          "providerId": "groq",
+          "modelId": "openai/gpt-oss-20b",
+          "botName": "",
+          "note": "providerRequestsPerMinute"
+        },
+        {
+          "createdAt": "2026-11-05T08:25:03.363Z",
+          "status": "error",
+          "errorCode": "bad_response",
+          "providerId": "groq",
+          "modelId": "openai/gpt-oss-120b",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-05T08:25:01.123Z",
+          "status": "error",
+          "errorCode": "provider_unavailable",
+          "providerId": "gemini",
+          "modelId": "gemini-3.8-flash",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-05T08:24:10.506Z",
+          "status": "error",
+          "errorCode": "timeout",
+          "providerId": "gemini",
+          "modelId": "gemini-3.8-flash",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T22:48:13.809Z",
+          "status": "error",
+          "errorCode": "provider_unavailable",
+          "providerId": "gemini",
+          "modelId": "gemma-4-26b-a4b-it",
+          "botName": "ZZ Temporary Gemma Test",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T22:47:33.572Z",
+          "status": "error",
+          "errorCode": "model_not_found",
+          "providerId": "gemini",
+          "modelId": "gemini-2.5-flash",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T21:11:00.415Z",
+          "status": "error",
+          "errorCode": "bad_request",
+          "providerId": "gemini",
+          "modelId": "gemini-3.5-transcribe",
+          "botName": "Site Auditor",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T20:53:43.742Z",
+          "status": "error",
+          "errorCode": "bad_request",
+          "providerId": "gemini",
+          "modelId": "gemini-3.5-transcribe",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T20:35:21.305Z",
+          "status": "error",
+          "errorCode": "rate_limited",
+          "providerId": "gemini",
+          "modelId": "gemini-2.5-computer-use-preview-10-2025",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T20:35:19.023Z",
+          "status": "error",
+          "errorCode": "rate_limited",
+          "providerId": "gemini",
+          "modelId": "gemini-2.5-computer-use-preview-10-2025",
+          "botName": "",
+          "note": null
+        }
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "677e94e5-2822-415b-a51e-25f1609b3702",
+      "rootId": "677e94e5-2822-415b-a51e-25f1609b3702",
+      "parentId": null,
+      "assigneeBotId": "c76ab8b3-3080-4d45-b61b-1575a8af6bc3",
+      "assigneeName": "Writer",
+      "requestedBy": "user",
+      "requestedByName": "You",
+      "origin": "user",
+      "originId": "f9b4ccfb-d973-4e4f-b4a9-bc2ffee531fd",
+      "originLabel": "Manager: Research 10 businesses in Dubai, inspect their websites, org...",
+      "originDepth": 0,
+      "instruction": "Using the research findings from s1, organize the data into an Excel file, generate a PDF report summarizing the findings, and draft an email with both files attached.\n\nResults of earlier steps:\n[Research 10 Dubai businesses]\nI’m sorry, but I don’t have any business data or website information to share. I wasn’t able to retrieve the list of Dubai businesses or inspect their sites, so I can’t provide the requested details.\n\n--- What the platform recorded (not written by the AI) ---\n- business.find_businesses: FAILED. Unknown market \"uae\". Known markets: AE.",
+      "depth": 0,
+      "status": "completed",
+      "result": "I’m unable to create the Excel file, PDF report, or email draft because there are no research findings available to work from—​the previous step to collect the Dubai business data did not succeed, and I have no data to include.\n\nIf you can provide the research results (e.g., a list of the businesses and any details you’d like summarized), I’ll be able to:\n\n1. Organize that data into an Excel spreadsheet.  \n2. Generate a PDF report that summarizes the findings.  \n3. Draft an email with both files attached.\n\nPlease share the data you’d like used, and I’ll proceed from there.",
+      "errorCode": null,
+      "errorMessage": null,
+      "llmCalls": 1,
+      "inputTokens": 1275,
+      "outputTokens": 269,
+      "createdAt": "2026-11-05T11:49:44.848Z",
+      "startedAt": "2026-11-05T11:49:44.854Z",
+      "finishedAt": "2026-11-05T11:49:45.805Z",
+      "chainTasks": 1,
+      "chainLlmCalls": 1
+    },
+    {
+      "id": "2633b1a5-eecf-4a5b-9276-262ff3188828",
+      "rootId": "2633b1a5-eecf-4a5b-9276-262ff3188828",
+      "parentId": null,
+      "assigneeBotId": "351efc31-df64-491b-bd3a-799cc15b70e2",
+      "assigneeName": "Researcher",
+      "requestedBy": "user",
+      "requestedByName": "You",
+      "origin": "user",
+      "originId": "f9b4ccfb-d973-4e4f-b4a9-bc2ffee531fd",
+      "originLabel": "Manager: Research 10 businesses in Dubai, inspect their websites, org...",
+      "originDepth": 0,
+      "instruction": "Identify 10 businesses in Dubai and inspect their websites to gather relevant details (e.g., name, industry, website URL, key services, contact info).",
+      "depth": 0,
+      "status": "completed",
+      "result": "I’m sorry, but I don’t have any business data or website information to share. I wasn’t able to retrieve the list of Dubai businesses or inspect their sites, so I can’t provide the requested details.\n\n--- What the platform recorded (not written by the AI) ---\n- business.find_businesses: FAILED. Unknown market \"uae\". Known markets: AE.",
+      "errorCode": null,
+      "errorMessage": null,
+      "llmCalls": 2,
+      "inputTokens": 2219,
+      "outputTokens": 312,
+      "createdAt": "2026-11-05T11:49:43.300Z",
+      "startedAt": "2026-11-05T11:49:43.306Z",
+      "finishedAt": "2026-11-05T11:49:44.676Z",
+      "chainTasks": 1,
+      "chainLlmCalls": 2
+    }
+  ],
+  "audit": [
+    {
+      "kind": "manager.run_finished",
+      "detail": {
+        "id": "f9b4ccfb-d973-4e4f-b4a9-bc2ffee531fd",
+        "status": "failed"
+      }
+    },
+    {
+      "kind": "manager.run_started",
+      "detail": {
+        "id": "f9b4ccfb-d973-4e4f-b4a9-bc2ffee531fd",
+        "budget": {
+          "maxModelCalls": 20,
+          "maxTokens": 120000,
+          "maxSteps": 5
+        }
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots",
+          "defaultBudget"
+        ]
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "groq/openai/gpt-oss-20b",
+        "tests": [
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 2,
+        "used": 2,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "groq/openai/gpt-oss-120b",
+        "tests": [
+          "history"
+        ],
+        "approvedRequests": 1,
+        "used": 1,
+        "status": "verified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "gemini/gemini-3.5-flash-lite",
+        "tests": [
+          "connectivity",
+          "json_output",
+          "identity_instruction",
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 5,
+        "used": 5,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "gemini/gemma-4-26b-a4b-it",
+        "tests": [
+          "native_system_role"
+        ],
+        "approvedRequests": 1,
+        "used": 1,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "gemini/gemini-3.8-flash",
+        "tests": [
+          "connectivity",
+          "json_output",
+          "identity_instruction",
+          "action_format"
+        ],
+        "approvedRequests": 4,
+        "used": 1,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "groq/openai/gpt-oss-20b",
+        "tests": [
+          "identity_instruction",
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 3,
+        "used": 2,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "groq/qwen/qwen3.8-27b",
+        "tests": [
+          "connectivity",
+          "json_output",
+          "identity_instruction",
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 5,
+        "used": 5,
+        "status": "verified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "groq/openai/gpt-oss-120b",
+        "tests": [
+          "connectivity",
+          "json_output",
+          "identity_instruction",
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 5,
+        "used": 4,
+        "status": "verified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "gemini/gemini-3.8-flash",
+        "tests": [
+          "connectivity",
+          "json_output",
+          "identity_instruction",
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 5,
+        "used": 1,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.run_finished",
+      "detail": {
+        "id": "4704c5e5-f9f5-40e5-8168-8ff9750cd95c",
+        "status": "failed"
+      }
+    },
+    {
+      "kind": "manager.run_started",
+      "detail": {
+        "id": "4704c5e5-f9f5-40e5-8168-8ff9750cd95c",
+        "budget": {
+          "maxModelCalls": 12,
+          "maxTokens": 40000,
+          "maxSteps": 6
+        }
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.run_finished",
+      "detail": {
+        "id": "2b912835-5303-459a-8dc1-d1e6ee256bb2",
+        "status": "failed"
+      }
+    },
+    {
+      "kind": "manager.run_started",
+      "detail": {
+        "id": "2b912835-5303-459a-8dc1-d1e6ee256bb2",
+        "budget": {
+          "maxModelCalls": 12,
+          "maxTokens": 40000,
+          "maxSteps": 6
+        }
+      }
+    }
+  ],
+  "providerRequests": 6,
+  "mapRequests": 0,
+  "siteRequests": 0,
+  "files": [],
+  "emailDraft": {
+    "attachments": [],
+    "sent": false
+  },
+  "gmailApprovals": 0,
+  "finishedAt": "2026-11-05T11:49:48.444Z"
+}

@@ -114,6 +114,27 @@ describe("plans", () => {
     expect(calls("review")).toBe(1);
   });
 
+  it("when the final review cannot be done the finished work is kept and plainly marked NOT REVIEWED (first real run: the review got an empty reply)", async () => {
+    respond = (req, kind) => {
+      if (kind === "plan") return plan([step("s1"), step("s2", { dependsOn: ["s1"] })]);
+      if (kind === "step") return text(req.messages[1]!.content.includes("Do s1") ? "RESULT-ONE" : "RESULT-TWO");
+      if (kind === "review") return text("");
+      return null;
+    };
+    const run = await start("Two things");
+    expect(run.status).toBe("completed");
+    expect(run.result).toMatch(/^NOT REVIEWED: the Manager's final check could not be done/);
+    expect(run.result).toContain("RESULT-ONE");
+    expect(run.result).toContain("RESULT-TWO");
+    expect(run.steps.map((s: any) => s.status)).toEqual(["completed", "completed"]);
+  });
+
+  it("the plan and review calls leave room for a reasoning model to think and answer", async () => {
+    respond = (_r, kind) => (kind === "plan" ? json({ mode: "direct", answer: "ok" }) : null);
+    await start("Say ok");
+    expect(seen[0]!.req.maxOutputTokens).toBeGreaterThanOrEqual(4000);
+  });
+
   it("uses a specialist bot only when you allowed it, as a normal task, and the Manager's own call count stays low", async () => {
     const bot = await mkBot("Coder", "Programmer");
     await allow([bot.id]);

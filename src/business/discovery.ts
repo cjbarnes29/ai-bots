@@ -153,8 +153,12 @@ export class DiscoveryClient {
     let res: { status: number; text: string };
     try {
       res = await this.d.post(OVERPASS_URL, `data=${encodeURIComponent(query)}`);
-    } catch {
-      throw new Error("Could not reach the map service. Check the internet connection and try again.");
+    } catch (e) {
+      // Say WHY when it is known (the first real run only said "could not reach"). Only a fixed vocabulary is shown, never raw error text.
+      const err = e as { name?: string; code?: string; cause?: { code?: string } } | null;
+      const code = String(err?.cause?.code ?? err?.code ?? "");
+      const why = err?.name === "TimeoutError" || err?.name === "AbortError" ? "no answer within 40 seconds" : /^(ENOTFOUND|EAI_AGAIN)$/.test(code) ? "the address could not be looked up (DNS)" : /^(ECONNREFUSED|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|UND_ERR_CONNECT_TIMEOUT)$/.test(code) ? `the connection failed (${code})` : /CERT|TLS|SSL/i.test(code) ? "the secure connection failed" : "";
+      throw new Error(`Could not reach the map service${why ? ` (${why})` : ""}. Check the internet connection and try again.`);
     }
     if (res.status === 429) throw new DiscoveryLimitError("The map service is busy and asked us to slow down. Try again later.");
     if (res.status < 200 || res.status >= 300) throw new Error(`The map service did not answer properly (status ${res.status}).`);

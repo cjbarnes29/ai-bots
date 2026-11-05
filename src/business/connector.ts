@@ -41,7 +41,7 @@ export function createBusinessConnector(svc: BusinessService): ConnectorDefiniti
   const actions: Record<string, ActionSpec> = {
     find_businesses: {
       kind: "read",
-      description: `Look up small businesses in public map data (country, optional emirate, category, up to ${DISCOVERY_LIMITS.maxResults}). Results are staged, not saved. Categories: ${CATEGORY_IDS.join(", ")}, all`,
+      description: `Look up small businesses in public map data (country, optional emirate, category, up to ${DISCOVERY_LIMITS.maxResults}). Prefer ONE category per search: "all" asks the free map service for everything at once and may time out. Results are staged, not saved. Categories: ${CATEGORY_IDS.join(", ")}, all`,
       args: z.strictObject({
         market: z.string().max(4).default("AE"),
         region: z.string().max(40).optional(),
