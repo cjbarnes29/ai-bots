@@ -5,6 +5,7 @@ import { ApiError } from "../api/client";
 import { ManagerPanel } from "../components/ManagerPanel";
 import { useBots, useCancelTask, useSubmitTask, useTaskTree, useTasks } from "../api/hooks";
 import { FINAL_TASK_STATUSES, type TaskNode, type TaskStatus } from "../api/types";
+import { useProjects } from "../api/workHooks";
 
 const STATUS: Record<TaskStatus, { label: string; tone: string }> = {
   pending: { label: "Waiting", tone: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
@@ -27,6 +28,9 @@ function NewTaskForm() {
   const navigate = useNavigate();
   const [botId, setBotId] = useState("");
   const [text, setText] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [mustSave, setMustSave] = useState(true);
+  const projects = useProjects(false, "");
   const usable = (bots.data ?? []).filter((b) => b.model !== null && b.runtime === "builtin");
   const chosen = botId || usable[0]?.id || "";
   const error = errorText(submit.error);
@@ -38,7 +42,7 @@ function NewTaskForm() {
       onSubmit={(e) => {
         e.preventDefault();
         if (!chosen || !text.trim()) return;
-        submit.mutate({ botId: chosen, instruction: text.trim() }, { onSuccess: (task) => navigate(`/tasks/${task.id}`) });
+        submit.mutate({ botId: chosen, instruction: text.trim(), ...(projectId ? { projectId, saveToWorkspace: mustSave } : {}) }, { onSuccess: (task) => navigate(`/tasks/${task.id}`) });
       }}
     >
       <h2 className="text-lg font-semibold">Give a bot a task</h2>
@@ -67,6 +71,25 @@ function NewTaskForm() {
             </label>
             <textarea id="task-text" rows={4} maxLength={4000} value={text} onChange={(e) => setText(e.target.value)} />
             <p className="hint">{text.length.toLocaleString()} / 4,000 characters. The bot may ask teammates you have allowed for help.</p>
+          </div>
+          <div>
+            <label htmlFor="task-project" className="label">
+              Project (optional)
+            </label>
+            <select id="task-project" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              <option value="">No project</option>
+              {(projects.data ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <p className="hint">In a project, the bot first sees what other bots on it already found and the files they made, and shares its own results there.</p>
+            {projectId && (
+              <label className="mt-1 block text-sm">
+                <input type="checkbox" checked={mustSave} onChange={(e) => setMustSave(e.target.checked)} /> The bot must save its result to the project workspace (a task that saves nothing is then not finished)
+              </label>
+            )}
           </div>
         </>
       )}

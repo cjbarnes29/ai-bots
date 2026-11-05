@@ -19,12 +19,12 @@ export interface TestApp {
 
 export const FAKE_GEMINI_KEY = "AIzaSyFAKEKEYFORTESTSONLY0123456789";
 
-export async function createTestApp(options: { connectors?: ConnectorDefinition[]; googleUrls?: GoogleUrls; remoteHosts?: string[]; dashboardDir?: string; includePc?: boolean; includeMemory?: boolean; includeBusiness?: boolean; guardian?: import("./guardian-link.js").GuardianGate; enforceFolderGrants?: boolean; includeDesktop?: boolean; hardware?: { ramGb: number; cores: number }; desktop?: import("./app.js").BuildAppOptions["desktop"]; accessTesting?: import("./app.js").BuildAppOptions["accessTesting"]; businessDir?: string; businessNet?: import("./app.js").BuildAppOptions["businessNet"]; pcStart?: (spec: import("./connectors/pc/runner.js").RunSpec) => import("./connectors/pc/runner.js").PcProcess; pushAllowHost?: (host: string) => boolean; verification?: "enforced" | "off" } = {}): Promise<TestApp> {
+export async function createTestApp(options: { connectors?: ConnectorDefinition[]; googleUrls?: GoogleUrls; remoteHosts?: string[]; dashboardDir?: string; includePc?: boolean; includeMemory?: boolean; includeWorkspace?: boolean; includeBusiness?: boolean; guardian?: import("./guardian-link.js").GuardianGate; enforceFolderGrants?: boolean; includeDesktop?: boolean; hardware?: { ramGb: number; cores: number }; desktop?: import("./app.js").BuildAppOptions["desktop"]; accessTesting?: import("./app.js").BuildAppOptions["accessTesting"]; businessDir?: string; businessNet?: import("./app.js").BuildAppOptions["businessNet"]; pcStart?: (spec: import("./connectors/pc/runner.js").RunSpec) => import("./connectors/pc/runner.js").PcProcess; pushAllowHost?: (host: string) => boolean; verification?: "enforced" | "off"; /** A database FILE instead of memory (restart tests). */ dbPath?: string } = {}): Promise<TestApp> {
   const provider = new ScriptedProvider();
   const clock = { t: new Date(2026, 5, 15, 12, 0, 0).getTime() };
   const sleeps: number[] = [];
   const app = await buildApp({
-    dbPath: ":memory:",
+    dbPath: options.dbPath ?? ":memory:",
     verification: options.verification ?? "off",
     // Older tests expect a new bot to have NO model until one is chosen; routing tests switch automatic assignment back on.
     routingDefaults: { autoAssignNewBots: false },
@@ -37,6 +37,7 @@ export async function createTestApp(options: { connectors?: ConnectorDefinition[
     ...(options.pushAllowHost ? { pushAllowHost: options.pushAllowHost } : {}),
     ...(options.includePc ? { includePc: true } : {}),
     ...(options.includeMemory ? { includeMemory: true } : {}),
+    ...(options.includeWorkspace ? { includeWorkspace: true } : {}),
     ...(options.includeBusiness ? { includeBusiness: true } : {}),
     ...(options.guardian ? { guardian: options.guardian } : {}),
     ...(options.enforceFolderGrants ? { enforceFolderGrants: true } : {}),

@@ -17,6 +17,7 @@ import {
 import { buildActionAddendum, parseActions, stripActions, type ActionOffer } from "../approvals/protocol.js";
 import type { ActionOutcome } from "../approvals/service.js";
 import { buildDelegationAddendum, parseDelegations, stripDelegations } from "./protocol.js";
+import { stripWorkspaceBlocks } from "../project-workspace/protocol.js";
 import type { TaskOrigin, TaskRecord, TaskRepository, TeamMember } from "./repository.js";
 
 /** Who is starting a task. Schedules and triggers use this, so their tasks are labelled and counted. */
@@ -40,9 +41,33 @@ class TaskFailure extends Error {
   constructor(
     public readonly code: string,
     message: string,
+    /** What the agent wrote before the task failed (kept on the failed task, so finished work is never lost). */
+    public readonly partial?: string,
   ) {
     super(message);
   }
+}
+
+/** Rate limits: at most this many waits per task, each at most RATE_LIMIT_WAIT_MAX_MS, together at most RATE_LIMIT_WAIT_TOTAL_MS. Longer waits fail clearly instead. */
+const RATE_LIMIT_WAITS = 2;
+const RATE_LIMIT_WAIT_MAX_MS = 60_000;
+const RATE_LIMIT_WAIT_TOTAL_MS = 90_000;
+/** The connector of the project workspace: offered only to tasks that belong to a project. */
+const WORKSPACE_CONNECTOR = "workspace";
+
+/** What the project workspace adds to a task before its first model call. */
+export interface TaskContext {
+  system: string;
+  user: string;
+  /** Facts the platform itself established while preparing the task (e.g. a required file could not be read), added to the result in its own words. */
+  notes?: string[];
+  /** Offer the workspace's read actions: only when the context left something out (condensed or cut entries), so they never cost tokens for nothing. */
+  offerReads?: boolean;
+}
+/** What the project workspace says once the task has answered: what it recorded, and what the task still had to save (with the prompt that asks for it). */
+export interface TaskOutcome {
+  missing: { prompt: string; problem: string } | null;
+  notes: string[];
 }
 
 /** At most this many outside actions may be asked for in one task. */
@@ -81,6 +106,18 @@ export interface EngineDeps {
   onRootFinished?: (task: TaskRecord) => void;
   /** The Guardian: a reason in plain words while nothing new may start or continue (paused, stopped, locked), otherwise null. */
   startGuard?: () => string | null;
+  /**
+   * Context for one task, read right before its first model call (the project's shared workspace): `system` is added to the instructions,
+   * `user` to the task message as information. Null when there is none. A problem here never stops a task.
+   */
+  taskContext?: (task: TaskRecord) => Promise<TaskContext | null> | TaskContext | null;
+  /**
+   * Called with every reply of a task once it has written its answer, BEFORE the task is marked finished: records what it published to its project's
+   * workspace and checks what it had to save. A problem inside never breaks the engine.
+   */
+  taskOutcome?: (task: TaskRecord, replies: string[]) => TaskOutcome | null;
+  /** Waiting (rate limits). Tests pass a fake clock. */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 interface Feedback {
@@ -99,6 +136,10 @@ export class TaskEngine {
   private running = 0;
   private queued = 0;
   private idleWaiters: (() => void)[] = [];
+  /** Every model reply of a running task (its first reply can hold publications even when the stored result is its second one). */
+  private readonly replies = new Map<string, string[]>();
+  /** Per task: how long it already waited for rate limits, and the platform's notes about those waits. */
+  private readonly waits = new Map<string, { count: number; ms: number; notes: string[] }>();
 
   constructor(private readonly deps: EngineDeps) {
     this.now = deps.now ?? Date.now;
@@ -291,9 +332,13 @@ export class TaskEngine {
     } catch (err) {
       if (err instanceof Cancelled) return;
       const info = this.describe(err);
-      this.deps.tasks.finish(taskId, "failed", this.iso(), { errorCode: info.code, errorMessage: info.message });
+      const partial = err instanceof TaskFailure && err.partial ? err.partial.slice(0, MAX_RESULT_CHARS) : null;
+      this.deps.tasks.finish(taskId, "failed", this.iso(), { errorCode: info.code, errorMessage: info.message, ...(partial ? { result: partial } : {}) });
       this.event(task.rootId, taskId, "failed", info);
       this.notifyRootFinished(taskId);
+    } finally {
+      this.replies.delete(taskId);
+      this.waits.delete(taskId);
     }
   }
 
@@ -306,6 +351,35 @@ export class TaskEngine {
     } catch {
       /* automation problems must never stop a task from finishing */
     }
+  }
+
+  private outcome(task: TaskRecord): TaskOutcome | null {
+    if (!this.deps.taskOutcome) return null;
+    try {
+      return this.deps.taskOutcome(task, this.replies.get(task.id) ?? []);
+    } catch {
+      return null; // recording a publication must never break a task
+    }
+  }
+
+  /**
+   * The last step of every task that produced an answer: the workspace records what the task published and says what it still had to save.
+   * If something required is missing, the agent gets ONE more call (counted against the chain's budget) that asks only for it. Still missing:
+   * the task FAILS with the reason and keeps its text, so it is never presented as done. The platform's own notes are added in its own words.
+   */
+  private async settle(task: TaskRecord, bot: BotRecord, convo: ChatMessage[], text: string, notes: string[]): Promise<string> {
+    let outcome = this.outcome(task);
+    if (outcome?.missing) {
+      this.event(task.rootId, task.id, "workspace_missing", { missing: outcome.missing.problem });
+      if (this.deps.tasks.callsInChain(task.rootId) < this.limits().maxLlmCallsPerChain) {
+        await this.call(task, bot, [...convo, { role: "user", content: outcome.missing.prompt }]);
+        outcome = this.outcome(task);
+      }
+    }
+    const all = [...notes, ...(this.waits.get(task.id)?.notes ?? []), ...(outcome?.notes ?? [])];
+    const final = all.length === 0 ? text : `${text}\n\n--- What the platform recorded (not written by the AI) ---\n${all.map((l) => `- ${l}`).join("\n")}`;
+    if (outcome?.missing) throw new TaskFailure("workspace_not_saved", `Not finished: ${outcome.missing.problem}`, final);
+    return final;
   }
 
   private describe(err: unknown): { code: string; message: string } {
@@ -339,13 +413,20 @@ export class TaskEngine {
     const ancestors = this.ancestorBotIds(task);
     const offered = task.depth < limits.maxDepth ? allowed.filter((t) => !ancestors.includes(t.id)) : [];
 
-    // Outside actions this bot may ask for (none exist until connectors are built, and none at all while paused).
-    const actionOffers = this.deps.actions?.offersFor(bot.id) ?? [];
-
     const skillText = (await this.deps.promptExtras?.(bot.id)) ?? "";
+    let shared: TaskContext | null = null;
+    try {
+      shared = (await this.deps.taskContext?.(task)) ?? null;
+    } catch {
+      shared = null; // a workspace problem never stops a task; it simply runs without it
+    }
+    const contextNotes = shared?.notes ?? [];
+    // Outside actions this bot may ask for (none at all while paused). The workspace's own actions only make sense inside a project.
+    const actionOffers = (this.deps.actions?.offersFor(bot.id) ?? []).filter((o) => o.connector !== WORKSPACE_CONNECTOR || shared?.offerReads === true);
     const system =
-      buildSystemPrompt(bot) +
+      buildSystemPrompt(bot, { actions: actionOffers.length > 0 }) +
       (skillText ? `\n\n${skillText}` : "") +
+      (shared ? `\n\n${shared.system}` : "") +
       (offered.length > 0 ? `\n\n${buildDelegationAddendum(offered, limits.maxSubtasksPerTask)}` : "") +
       (actionOffers.length > 0 ? `\n\n${buildActionAddendum(actionOffers, MAX_ACTIONS_PER_TASK)}` : "");
     const label = task.originLabel ?? task.origin;
@@ -359,14 +440,14 @@ export class TaskEngine {
             : `Task from the user:\n${task.instruction}`;
     const first: ChatMessage[] = [
       { role: "system", content: system },
-      { role: "user", content: opening },
+      { role: "user", content: shared ? `${opening}\n\n---\n${shared.user}` : opening },
     ];
 
     const out1 = await this.call(task, bot, first);
     const parsed = parseDelegations(out1.text, limits.maxInstructionChars);
     parsed.text = stripActions(parsed.text);
     const actionRequests = parseActions(out1.text);
-    if (parsed.requests.length === 0 && actionRequests.length === 0) return parsed.text || out1.text;
+    if (parsed.requests.length === 0 && actionRequests.length === 0) return this.settle(task, bot, [...first, { role: "assistant", content: out1.text }], parsed.text || out1.text, contextNotes);
 
     // The bot asked for help or for outside actions. Check each request, run the allowed ones one after another.
     const feedback: Feedback[] = [];
@@ -399,7 +480,7 @@ export class TaskEngine {
         label: rejection.name,
         text:
           done.status === "completed"
-            ? truncate(stripActions(stripDelegations(done.result ?? "")), MAX_TEAMMATE_RESULT_CHARS)
+            ? truncate(stripWorkspaceBlocks(stripActions(stripDelegations(done.result ?? ""))), MAX_TEAMMATE_RESULT_CHARS)
             : `FAILED: ${done.errorMessage ?? "the task did not finish"}`,
       });
     }
@@ -434,7 +515,6 @@ export class TaskEngine {
       else if (outcome.status === "denied") platform.push(`${name}: NOT done. ${outcome.reason}`);
       else if (outcome.status === "failed") platform.push(`${name}: FAILED. ${outcome.reason}`);
     }
-    const withPlatformStatus = (text: string): string => (platform.length === 0 ? text : `${text}\n\n--- What the platform recorded (not written by the AI) ---\n${platform.map((l) => `- ${l}`).join("\n")}`);
 
     const assembled = (note: string): string =>
       [parsed.text, ...feedback.map((f) => `${f.label}: ${f.text}`), note].filter(Boolean).join("\n\n");
@@ -442,7 +522,7 @@ export class TaskEngine {
     // If the call budget is spent, hand back what we have instead of failing.
     if (this.deps.tasks.callsInChain(task.rootId) >= limits.maxLlmCallsPerChain) {
       this.event(task.rootId, task.id, "limit", { reason: "call budget used up before the final answer" });
-      return assembled("(The model-call budget for this task ran out, so this is the raw material instead of a written summary.)");
+      return this.settle(task, bot, [...first, { role: "assistant", content: out1.text }], assembled("(The model-call budget for this task ran out, so this is the raw material instead of a written summary.)"), [...contextNotes, ...platform]);
     }
 
     const second: ChatMessage[] = [
@@ -463,7 +543,7 @@ export class TaskEngine {
       },
     ];
     const out2 = await this.call(task, bot, second);
-    return withPlatformStatus(stripActions(stripDelegations(out2.text)) || assembled(""));
+    return this.settle(task, bot, [...second, { role: "assistant", content: out2.text }], stripActions(stripDelegations(out2.text)) || assembled(""), [...contextNotes, ...platform]);
   }
 
   /** Returns the teammate if the request is allowed, or the reason it is not. */
@@ -522,22 +602,54 @@ export class TaskEngine {
         `This chain of work used all ${limits.maxLlmCallsPerChain} model calls it is allowed.`,
       );
     }
-    try {
-      const out = await this.deps.llm.complete({
-        botId: bot.id,
-        conversationId: `task-${task.id}`,
-        modelRef: bot.model!,
-        messages,
-        temperature: bot.temperature ?? DEFAULT_TEMPERATURE,
-        maxOutputTokens: bot.maxOutputTokens,
-      });
-      this.deps.tasks.addUsage(task.id, 1, out.inputTokens, out.outputTokens);
-      this.throwIfCancelled(task.id);
-      return out;
-    } catch (err) {
-      if (!(err instanceof Cancelled)) this.deps.tasks.addUsage(task.id, 1, 0, 0);
-      throw err;
+    for (;;) {
+      try {
+        const out = await this.deps.llm.complete({
+          botId: bot.id,
+          conversationId: `task-${task.id}`,
+          modelRef: bot.model!,
+          messages,
+          temperature: bot.temperature ?? DEFAULT_TEMPERATURE,
+          maxOutputTokens: bot.maxOutputTokens,
+        });
+        this.deps.tasks.addUsage(task.id, 1, out.inputTokens, out.outputTokens);
+        if (this.deps.taskOutcome) this.replies.set(task.id, [...(this.replies.get(task.id) ?? []), out.text]);
+        this.throwIfCancelled(task.id);
+        return out;
+      } catch (err) {
+        if (err instanceof Cancelled) throw err;
+        this.deps.tasks.addUsage(task.id, 1, 0, 0);
+        const wait = this.rateLimitWait(task, err);
+        if (wait === null) throw err;
+        await (this.deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms))))(wait);
+        // After the wait the usual checks apply again: the Guardian, a cancel, and the chain's call budget (the failed call counted).
+        this.stopIfHeld();
+        this.throwIfCancelled(task.id);
+        if (this.deps.tasks.callsInChain(task.rootId) >= limits.maxLlmCallsPerChain) throw err;
+      }
     }
+  }
+
+  /**
+   * A provider's free-tier rate limit that says when to come back (its retry-after, or the rest the model service gave the model) is waited out,
+   * then the SAME request is tried again: at most RATE_LIMIT_WAITS waits per task, each at most a minute, together at most 90 seconds.
+   * A used-up daily quota, an unknown wait or a longer one is not waited for: the task fails with the provider's reason. Every wait is a task event
+   * and a line in the platform's record, so a delay is never hidden. Routing still chooses the model each time (free models only, nothing paid).
+   */
+  private rateLimitWait(task: TaskRecord, err: unknown): number | null {
+    if (!(err instanceof LlmError) || err.llmCode !== "rate_limited" || err.quota || err.retryAfterMs === undefined) return null;
+    const w = this.waits.get(task.id) ?? { count: 0, ms: 0, notes: [] };
+    const ms = Math.max(1000, Math.ceil(err.retryAfterMs / 1000) * 1000 + 1000); // a second of margin: the limit is counted on the provider's clock
+    if (w.count >= RATE_LIMIT_WAITS || ms > RATE_LIMIT_WAIT_MAX_MS || w.ms + ms > RATE_LIMIT_WAIT_TOTAL_MS) {
+      this.event(task.rootId, task.id, "rate_limit_gave_up", { waitedSeconds: Math.round(w.ms / 1000), neededSeconds: Math.round(ms / 1000) });
+      return null;
+    }
+    w.count += 1;
+    w.ms += ms;
+    w.notes.push(`Delayed ${Math.round(ms / 1000)} s by a provider rate limit (free tier), then tried again.`);
+    this.waits.set(task.id, w);
+    this.event(task.rootId, task.id, "rate_limit_wait", { seconds: Math.round(ms / 1000), attempt: w.count });
+    return ms;
   }
 }
 

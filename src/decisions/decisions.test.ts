@@ -250,6 +250,10 @@ describe("approving turns the choice into a project and tasks, once", () => {
     const project = (await t.call("GET", `/api/projects/${d.project.id}`)).body.project;
     expect(project.instructions).toContain("Chosen option: Start with Dubai");
     expect(id).toBe(d.id);
+    // the assigned work belongs to the decision's project, so its agents share that project's workspace
+    const items = (await t.call("GET", `/api/projects/${d.project.id}`)).body.items;
+    expect(items).toEqual([expect.objectContaining({ kind: "task", id: task.id })]);
+    expect(String(t.provider.calls.at(-1)!.messages.find((m: any) => m.role === "user")!.content)).toContain('WORKSPACE of project "First market"');
   });
 
   it("approving twice, or two clicks at once, creates exactly one task and one project", async () => {

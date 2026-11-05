@@ -12,6 +12,9 @@ import { makeVerifySource } from "./inbox/sources.js";
 import { registerInboxRoutes } from "./inbox/routes.js";
 import { ProjectService, type ItemKind } from "./projects/service.js";
 import { registerProjectRoutes } from "./projects/routes.js";
+import { WorkspaceService } from "./project-workspace/service.js";
+import { registerWorkspaceRoutes } from "./project-workspace/routes.js";
+import { createWorkspaceConnector } from "./project-workspace/connector.js";
 import { DecisionService } from "./decisions/service.js";
 import { registerDecisionRoutes } from "./decisions/routes.js";
 import { DecisionInsights } from "./decisions/collaboration.js";
@@ -117,6 +120,7 @@ declare module "fastify" {
     inbox: InboxService;
     /** Projects: the owner's way to organise conversations, workflows, schedules and tasks. */
     projects: ProjectService;
+    workspace: WorkspaceService;
     /** Decisions (the chalkboard). Present only once migration 019 exists in the database; absent until the owner approves it. */
     decisions?: DecisionService;
     /** Bot groups (migration 017). Switched OFF until the owner turns them on (NV-15). */
@@ -169,6 +173,8 @@ export interface BuildAppOptions {
   toolRunner?: CommandRunner;
   /** Tests: add the memory connector to the connectors given above (the real app always has it). */
   includeMemory?: boolean;
+  /** Tests: register the project workspace's read actions (always on in the real app). */
+  includeWorkspace?: boolean;
   /** Tests: add the five integration connectors (GitHub, Notion, n8n, MCP, Google Workspace) to the connectors given above (the real app always has them). */
   includeIntegrations?: boolean;
   /** Tests: add the PC agent connector to the connectors given above (the real app always has it). */
@@ -393,6 +399,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   app.decorate("pc", pcService);
   app.addHook("onClose", async () => pcService.shutdown());
   const memory = new MemoryService(db, audit, now);
+  let workspaceRef: WorkspaceService | undefined; // created once the task store exists; its connector reads it lazily
   // The Business Workforce: discovery, website checks and the leads file. Its outside-requests lock lives in the approval settings and is OFF by default.
   const approvalRepo = new ApprovalRepository(db);
   const business = new BusinessService({
@@ -462,6 +469,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         ]
       : []),
     ...(options.connectors === undefined || options.includeMemory ? [createMemoryConnector(memory)] : []),
+    ...(options.connectors === undefined || options.includeWorkspace ? [createWorkspaceConnector(() => workspaceRef!)] : []),
     ...(options.connectors === undefined || options.includeBusiness ? [createBusinessConnector(business)] : []),
     ...(options.connectors === undefined || options.includeIntegrations ? [createGithubConnector(), createNotionConnector(), createN8nConnector(), createMcpConnector(), createGoogleWorkspaceConnector(options.googleUrls ? { urls: options.googleUrls, now } : { now })] : []),
   ]);
@@ -477,7 +485,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const botModes = new BotModes({ get: (k) => approvalRepo.getSetting(k), set: (k, v) => approvalRepo.setSetting(k, v, new Date(now()).toISOString()) });
   const readEnabled = (botId: string, connector: string): boolean => {
     const asConnector = connector === "business" ? "browser" : connector;
-    return asConnector === "pc" || asConnector === "desktop" || asConnector === "documents" || asConnector === "memory" || (isIntegration(asConnector) ? integrationAccess.has(botId, asConnector) : false) || agentService.getBot(botId).permissions.some((p) => p.connector === asConnector && p.readEnabled);
+    return asConnector === "pc" || asConnector === "desktop" || asConnector === "documents" || asConnector === "memory" || asConnector === "workspace" || (isIntegration(asConnector) ? integrationAccess.has(botId, asConnector) : false) || agentService.getBot(botId).permissions.some((p) => p.connector === asConnector && p.readEnabled);
   };
   const gate = new ActionGate({
     repo: approvalRepo,
@@ -527,7 +535,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     audit,
     gate,
     agentsFor: (connector) => {
-      if (connector === "pc" || connector === "desktop" || connector === "documents" || connector === "memory") return null;
+      if (connector === "pc" || connector === "desktop" || connector === "documents" || connector === "memory" || connector === "workspace") return null;
       return agentService
         .listBots(false)
         .filter((b) => readEnabled(b.id, connector))
@@ -581,6 +589,25 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerPcRoutes(app, pcService);
 
   const taskRepo = new TaskRepository(db);
+  // ---- Shared project workspace: agents on the same project see and publish findings, files and progress. A view over memory notes, approvals and tasks (no new store). ----
+  const workspace = new WorkspaceService({
+    db,
+    memory,
+    projects,
+    tasks: taskRepo,
+    audit,
+    bots: () => agentService.listBots(true).map((b) => ({ id: b.id, name: b.name, archived: b.archived })),
+    // A required file is read FOR the agent through the gate's normal read path: its PC read permission, the folder grant, the daily read limit and the audit log all apply.
+    readFile: async (botId, taskId, path) => {
+      const r = await gate.request(botId, taskId, { connector: "pc", action: "read_file", args: { path } });
+      if (r.status === "done") return { ok: true, text: r.text };
+      return { ok: false, reason: r.status === "pending_approval" ? "Reading needs the owner's approval." : r.reason };
+    },
+    now,
+  });
+  workspaceRef = workspace;
+  app.decorate("workspace", workspace);
+  await registerWorkspaceRoutes(app, workspace);
   let automation: AutomationService | undefined; // created just below; the engine tells it when a chain ends
   const engine = new TaskEngine({
     tasks: taskRepo,
@@ -589,6 +616,9 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     now,
     actions: gate,
     promptExtras: async (botId) => [await skillService!.promptFor(botId), memory.promptFor(botId)].filter(Boolean).join("\n\n"),
+    taskContext: (task) => workspace.contextFor(task),
+    taskOutcome: (task, replies) => workspace.outcome(task, replies),
+    ...(options.sleep ? { sleep: options.sleep } : {}),
     onRootFinished: (task) => {
       automation?.onRootFinished(task);
       try {
@@ -678,7 +708,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
   app.decorate("workforce", workforce);
   await registerWorkforceRoutes(app, workforce);
-  await registerDelegationRoutes(app, new DelegationService(taskRepo, engine, (id) => agentService.getBot(id), now), engine);
+  await registerDelegationRoutes(app, new DelegationService(taskRepo, engine, (id) => agentService.getBot(id), now, projects, (rootId, save) => workspace.expect(rootId, save)), engine);
 
   // ---- Automation: schedules and text triggers. They start tasks through the engine above, so every
   // limit, the pause switches and the free-only gate apply. The clock is started by server.ts, not here. ----

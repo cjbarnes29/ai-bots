@@ -1,0 +1,517 @@
+{
+  "budgets": {
+    "groq": 12,
+    "google": 0,
+    "geminiModel": "gemini-flash-lite-latest"
+  },
+  "steps": [
+    {
+      "step": "routing order",
+      "order": [
+        "groq/qwen/qwen3.8-27b",
+        "groq/openai/gpt-oss-120b"
+      ]
+    },
+    {
+      "step": "A1 Researcher",
+      "status": "completed",
+      "error": null,
+      "code": null,
+      "attempts": [
+        [
+          {
+            "ref": "groq/qwen/qwen3.8-27b",
+            "outcome": "rate_limited"
+          },
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "answered"
+          }
+        ]
+      ],
+      "workspaceEvents": [
+        {
+          "kind": "workspace_published",
+          "detail": "{\"entry\":\"W-414cbe5b\",\"kind\":\"assumption\",\"title\":\"Typical yearly licence cost for a specialty cafe in Dubai Marina\"}"
+        },
+        {
+          "kind": "workspace_published",
+          "detail": "{\"entry\":\"W-9083a7e4\",\"kind\":\"assumption\",\"title\":\"Typical yearly rent for a small café unit in Dubai Marina\"}"
+        },
+        {
+          "kind": "workspace_published",
+          "detail": "{\"entry\":\"W-38950069\",\"kind\":\"assumption\",\"title\":\"Foot‑traffic / busyness of Dubai Marina for a café\"}"
+        }
+      ],
+      "answeredBy": [
+        "groq/openai/gpt-oss-120b"
+      ],
+      "result": "I don’t have access to up‑to‑date external data, so the figures below are based on my general knowledge of the Dubai market and typical industry reports. They are therefore **assumptions** rather than verified facts with a specific source.\n\n```workspace\n{\n  \"kind\": \"assumption\",\n  \"title\": \"Typical yearly licence cost for a specialty cafe in Dubai Marina\",\n  \"text\": \"A trade licence for a small‑to‑medium café in Dubai Marina usually ranges between AED 15,000 and AED 20,000 per year, depending on the exact business activity and any additional approvals (e.g., food safety, signage).\",\n  \"source\": \"general industry knowledge (no specific source available)\"\n}\n```\n\n```workspace\n{\n  \"kind\": \"assumption\",\n  \"title\": \"Typical yearly rent for a small café unit in Dubai Marina\",\n  \"text\": \"Rent for a 100 m² (≈1,076 ft²) retail unit in the Dubai Marina commercial areas is typically AED 180,000 – AED 240,000 per year (≈AED 1,500 – 2,000 per m² per year). Premium locations on the waterfront or in high‑traffic malls can be higher.\",\n  \"source\": \"general market observations (no specific source available)\"\n}\n```\n\n```workspace\n{\n  \"kind\": \"assumption\",\n  \"title\": \"Foot‑traffic / busyness of Dubai Marina for a café\",\n  \"text\": \"Dubai Marina is considered a high‑foot‑traffic area, especially in the evenings and on weekends. Estimates suggest 30,000 – 50,000 pedestrians pass through the main promenade and nearby retail zones each day, providing strong potential customer flow for a specialty café",
+      "entries": [
+        {
+          "kind": "assumption",
+          "title": "Foot‑traffic / busyness of Dubai Marina for a café",
+          "text": "Dubai Marina is considered a high‑foot‑traffic area, especially in the evenings and on weekends. Estimates suggest 30,000 – 50,000 pedestrians pass through the main promenade and nearby retail zones each day, providing strong potential customer flow for a specialty café.",
+          "source": "general knowledge of Dubai Marina activity (no specific source available)",
+          "platformNote": null
+        },
+        {
+          "kind": "assumption",
+          "title": "Typical yearly rent for a small café unit in Dubai Marina",
+          "text": "Rent for a 100 m² (≈1,076 ft²) retail unit in the Dubai Marina commercial areas is typically AED 180,000 – AED 240,000 per year (≈AED 1,500 – 2,000 per m² per year). Premium locations on the waterfront or in high‑traffic malls can be higher.",
+          "source": "general market observations (no specific source available)",
+          "platformNote": null
+        },
+        {
+          "kind": "assumption",
+          "title": "Typical yearly licence cost for a specialty cafe in Dubai Marina",
+          "text": "A trade licence for a small‑to‑medium café in Dubai Marina usually ranges between AED 15,000 and AED 20,000 per year, depending on the exact business activity and any additional approvals (e.g., food safety, signage).",
+          "source": "general industry knowledge (no specific source available)",
+          "platformNote": null
+        }
+      ]
+    },
+    {
+      "step": "A2 Analyst",
+      "status": "completed",
+      "error": null,
+      "code": null,
+      "attempts": [
+        [
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "answered"
+          }
+        ],
+        [
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "answered"
+          }
+        ]
+      ],
+      "workspaceEvents": [
+        {
+          "kind": "workspace_published",
+          "detail": "{\"entry\":\"W-27f341d4\",\"kind\":\"recommendation\",\"title\":\"Yearly Fixed Cost Estimate for Dubai Marina Café\"}"
+        },
+        {
+          "kind": "workspace_published",
+          "detail": "{\"entry\":\"W-da8ab046\",\"kind\":\"handover\",\"title\":\"Brief for Writer P44\"}"
+        },
+        {
+          "kind": "workspace_published",
+          "detail": "{\"entry\":\"W-03d75219\",\"kind\":\"recommendation\",\"title\":\"Yearly Fixed‑Cost Estimate for Dubai Marina Café\"}"
+        },
+        {
+          "kind": "workspace_rejected",
+          "detail": "{\"reason\":\"at most 3 entries per task\"}"
+        }
+      ],
+      "answeredBy": [
+        "groq/openai/gpt-oss-120b",
+        "groq/openai/gpt-oss-120b"
+      ],
+      "result": "The yearly fixed‑cost estimate for a small specialty café in Dubai Marina is based on the two unverified assumptions in the workspace:\n\n* **Rent** – AED 180,000 – AED 240,000 per year for a ~100 m² unit (mid‑point ≈ AED 210,000).  \n* **Trade licence** – AED 15,000 – AED 20,000 per year (mid‑point ≈ AED 17,500).\n\n**Estimated total fixed cost:** **AED 227,500 per year**.  \nTo allow for location premium or licence‑cost variation, budgeting **AED 230,000 – 250,000** annually is advisable.\n\nA request has been sent to create the CSV file **`marina-costs.csv`** containing the cost breakdown (Item, AED per year). This request is **still awaiting the owner’s approval** and **has not been completed yet**.\n\n---\n\n```workspace\n{\n  \"kind\": \"recommendation\",\n  \"title\": \"Yearly Fixed‑Cost Estimate for Dubai Marina Café\",\n  \"text\": \"Based on the available (unverified) assumptions, the expected yearly fixed costs are:\\n- Rent: AED 210,000 (mid‑point of AED 180,000‑240,000)\\n- Trade licence: AED 17,500 (mid‑point of AED 15,000‑20,000)\\n\\n**Total estimated fixed cost:** AED 227,500 per year.\\n\\nFor budgeting safety, plan for **AED 230,000‑250,000** annually to cover possible premium locations or licence variations.\\n\\nThe CSV file `marina-costs.csv` with this breakdown has been requested and is pending approval.\",\n  \"source\": \"Assumptions W-9083a7e4, W-414cbe5b\"\n}\n```\n\n```workspace\n{\n  \"kind\": \"handover\",\n  \"title\": \"Brief for Writer P44\",\n  \"text\": \"Please prepare the owner’s brief using the co",
+      "approvals": [
+        {
+          "action": "documents.create_spreadsheet",
+          "path": "marina-costs.csv",
+          "approved": true,
+          "status": "executed",
+          "error": null
+        }
+      ],
+      "entries": [
+        {
+          "kind": "recommendation",
+          "title": "Yearly Fixed‑Cost Estimate for Dubai Marina Café",
+          "text": "Based on the available (unverified) assumptions, the expected yearly fixed costs are:\n- Rent: AED 210,000 (mid‑point of AED 180,000‑240,000)\n- Trade licence: AED 17,500 (mid‑point of AED 15,000‑20,000)\n\n**Total estimated fixed cost:** AED 227,500 per year.\n\nFor budgeting safety, plan for **AED 230,000‑250,000** annually to cover possible premium locations or licence variations.\n\nThe CSV file `marina-costs.csv` with this breakdown has been requested and is pending approval.",
+          "forName": null
+        },
+        {
+          "kind": "handover",
+          "title": "Brief for Writer P44",
+          "text": "Please prepare the owner's brief using the cost estimate CSV (`marina-costs.csv`) and the recommendation above. Include the assumptions, the cost breakdown, and any suggested budgeting notes.\n\nDeliver the final brief in the agreed format (e.g., DOCX or PDF).",
+          "forName": "Writer P44"
+        },
+        {
+          "kind": "recommendation",
+          "title": "Yearly Fixed Cost Estimate for Dubai Marina Café",
+          "text": "Based on the available assumptions, the expected yearly fixed costs (rent + trade licence) for a small specialty café in Dubai Marina are:\n- Rent: AED 210,000 (mid‑point of the AED 180,000–240,000 range)\n- Trade licence: AED 17,500 (mid‑point of the AED 15,000–20,000 range)\n\n**Total estimated fixed cost:** AED 227,500 per year.\n\nThese figures are derived from unverified market assumptions (see workspace entries W-9083a7e4 and W-414cbe5b). To provide a safety buffer for location premium or licence variations, it is advisable to budget **AED 230,000–250,000** annually.\n\nThe CSV file `marina-costs.csv` containing the breakdown has been prepared for the Writer.",
+          "forName": null
+        }
+      ]
+    },
+    {
+      "step": "B' Writer on Groq",
+      "status": "failed",
+      "error": "The provider refused the request (HTTP 400). (Tool choice is none, but model called a tool)",
+      "code": "llm_bad_request",
+      "attempts": [
+        [
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "rate_limited"
+          }
+        ]
+      ],
+      "workspaceEvents": [
+        {
+          "kind": "workspace_file_read",
+          "detail": "{\"file\":\"marina-costs.csv\"}"
+        }
+      ],
+      "answeredBy": [
+        null
+      ],
+      "entries": []
+    },
+    {
+      "step": "D after restart",
+      "status": "completed",
+      "error": null,
+      "code": null,
+      "attempts": [
+        [
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "answered"
+          }
+        ],
+        [
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "rate_limited"
+          }
+        ],
+        [
+          {
+            "ref": "groq/qwen/qwen3.8-27b",
+            "outcome": "rate_limited"
+          },
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "rate_limited"
+          }
+        ]
+      ],
+      "workspaceEvents": [],
+      "answeredBy": [
+        "groq/openai/gpt-oss-120b",
+        null,
+        null
+      ],
+      "result": "Yearly Fixed Cost: AED 227,500 per year (mid‑point of rent AED 180‑240k + licence AED 15‑20k) – budget AED 230,000‑250,000 for safety 【W-03d75219】  \nRecommendation: Use the AED 230,000‑250,000 annual budget estimate for the Dubai Marina café’s fixed costs when planning the venture 【W-03d75219】\n\n--- What the platform recorded (not written by the AI) ---\n- Delayed 18 s by a provider rate limit (free tier), then tried again.\n- Delayed 2 s by a provider rate limit (free tier), then tried again.\n- This result uses numbers that are NOT verified (they come from assumptions or unsupported estimates in the workspace): AED 227,500 from W-27f341d4, 240,000 from W-9083a7e4, 20,000 from W-414cbe5b, AED 230,000 from W-27f341d4, 250,000 from W-27f341d4, AED 230,000 from W-27f341d4."
+    }
+  ],
+  "note": "Real providers. Groq's unavailability in step B is INJECTED (its daily cap in the scratch copy is set to the count reached), not a real outage.",
+  "before": {
+    "groq": 15,
+    "google": 18
+  },
+  "tokens": [
+    {
+      "agent": "Analyst P44",
+      "status": "completed",
+      "llmCalls": 3,
+      "inputTokens": 2478,
+      "outputTokens": 375
+    },
+    {
+      "agent": "Writer P44",
+      "status": "failed",
+      "llmCalls": 2,
+      "inputTokens": 0,
+      "outputTokens": 0
+    },
+    {
+      "agent": "Analyst P44",
+      "status": "completed",
+      "llmCalls": 2,
+      "inputTokens": 4392,
+      "outputTokens": 1616
+    },
+    {
+      "agent": "Researcher P44",
+      "status": "completed",
+      "llmCalls": 1,
+      "inputTokens": 1023,
+      "outputTokens": 806
+    }
+  ],
+  "tokenTotals": {
+    "llmCalls": 8,
+    "inputTokens": 7893,
+    "outputTokens": 2797
+  },
+  "workspace": {
+    "entries": [
+      {
+        "id": "03d75219-7713-4f75-8b06-da75bc16aa81",
+        "ref": "W-03d75219",
+        "kind": "recommendation",
+        "title": "Yearly Fixed‑Cost Estimate for Dubai Marina Café",
+        "text": "Based on the available (unverified) assumptions, the expected yearly fixed costs are:\n- Rent: AED 210,000 (mid‑point of AED 180,000‑240,000)\n- Trade licence: AED 17,500 (mid‑point of AED 15,000‑20,000)\n\n**Total estimated fixed cost:** AED 227,500 per year.\n\nFor budgeting safety, plan for **AED 230,000‑250,000** annually to cover possible premium locations or licence variations.\n\nThe CSV file `marina-costs.csv` with this breakdown has been requested and is pending approval.",
+        "source": "Assumptions W-9083a7e4, W-414cbe5b",
+        "authorBotId": "f977572f-b616-467a-8e5c-ae01c1c28ea9",
+        "authorName": "Analyst P44",
+        "taskId": "e20bc16f-869b-4aa8-a41a-99229c952271",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "warnings": [
+          "Large unsupported amount (AED 250,000): no checkable source; check it before relying on it",
+          "Uses unverified numbers from W-27f341d4 (recommendation, unsupported)",
+          "Uses unverified numbers from W-9083a7e4 (assumption)",
+          "Uses unverified numbers from W-414cbe5b (assumption)"
+        ],
+        "createdAt": "2026-11-05T15:00:09.295Z"
+      },
+      {
+        "id": "da8ab046-9083-4267-98d2-552bc7aef2f4",
+        "ref": "W-da8ab046",
+        "kind": "handover",
+        "title": "Brief for Writer P44",
+        "text": "Please prepare the owner's brief using the cost estimate CSV (`marina-costs.csv`) and the recommendation above. Include the assumptions, the cost breakdown, and any suggested budgeting notes.\n\nDeliver the final brief in the agreed format (e.g., DOCX or PDF).",
+        "source": "Recommendation generated by Analyst P44",
+        "authorBotId": "f977572f-b616-467a-8e5c-ae01c1c28ea9",
+        "authorName": "Analyst P44",
+        "taskId": "e20bc16f-869b-4aa8-a41a-99229c952271",
+        "forBotId": "0983e009-c6d5-482a-92d2-1ed9e1e19039",
+        "forName": "Writer P44",
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "warnings": [],
+        "createdAt": "2026-11-05T15:00:09.289Z"
+      },
+      {
+        "id": "27f341d4-d53d-445b-b327-5cbb0b0c0a90",
+        "ref": "W-27f341d4",
+        "kind": "recommendation",
+        "title": "Yearly Fixed Cost Estimate for Dubai Marina Café",
+        "text": "Based on the available assumptions, the expected yearly fixed costs (rent + trade licence) for a small specialty café in Dubai Marina are:\n- Rent: AED 210,000 (mid‑point of the AED 180,000–240,000 range)\n- Trade licence: AED 17,500 (mid‑point of the AED 15,000–20,000 range)\n\n**Total estimated fixed cost:** AED 227,500 per year.\n\nThese figures are derived from unverified market assumptions (see workspace entries W-9083a7e4 and W-414cbe5b). To provide a safety buffer for location premium or licence variations, it is advisable to budget **AED 230,000–250,000** annually.\n\nThe CSV file `marina-costs.csv` containing the breakdown has been prepared for the Writer.",
+        "source": "Assumptions W-9083a7e4, W-414cbe5b",
+        "authorBotId": "f977572f-b616-467a-8e5c-ae01c1c28ea9",
+        "authorName": "Analyst P44",
+        "taskId": "e20bc16f-869b-4aa8-a41a-99229c952271",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "warnings": [
+          "Large unsupported amount (AED 250,000): no checkable source; check it before relying on it",
+          "Uses unverified numbers from W-9083a7e4 (assumption)",
+          "Uses unverified numbers from W-414cbe5b (assumption)"
+        ],
+        "createdAt": "2026-11-05T15:00:09.279Z"
+      },
+      {
+        "id": "38950069-d154-40e8-9e30-14d731d2a962",
+        "ref": "W-38950069",
+        "kind": "assumption",
+        "title": "Foot‑traffic / busyness of Dubai Marina for a café",
+        "text": "Dubai Marina is considered a high‑foot‑traffic area, especially in the evenings and on weekends. Estimates suggest 30,000 – 50,000 pedestrians pass through the main promenade and nearby retail zones each day, providing strong potential customer flow for a specialty café.",
+        "source": "general knowledge of Dubai Marina activity (no specific source available)",
+        "authorBotId": "9f98c305-c243-48ab-b8a0-2ba458962ee6",
+        "authorName": "Researcher P44",
+        "taskId": "5d454683-7867-4092-b89d-f24a4ec73da6",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "warnings": [
+          "Unsupported estimate: numbers without a checkable source"
+        ],
+        "createdAt": "2026-11-05T15:00:01.758Z"
+      },
+      {
+        "id": "9083a7e4-327d-4f8d-88bf-f1a9ae72b5aa",
+        "ref": "W-9083a7e4",
+        "kind": "assumption",
+        "title": "Typical yearly rent for a small café unit in Dubai Marina",
+        "text": "Rent for a 100 m² (≈1,076 ft²) retail unit in the Dubai Marina commercial areas is typically AED 180,000 – AED 240,000 per year (≈AED 1,500 – 2,000 per m² per year). Premium locations on the waterfront or in high‑traffic malls can be higher.",
+        "source": "general market observations (no specific source available)",
+        "authorBotId": "9f98c305-c243-48ab-b8a0-2ba458962ee6",
+        "authorName": "Researcher P44",
+        "taskId": "5d454683-7867-4092-b89d-f24a4ec73da6",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "warnings": [],
+        "createdAt": "2026-11-05T15:00:01.752Z"
+      },
+      {
+        "id": "414cbe5b-923a-4e6e-bac8-d759a0c53061",
+        "ref": "W-414cbe5b",
+        "kind": "assumption",
+        "title": "Typical yearly licence cost for a specialty cafe in Dubai Marina",
+        "text": "A trade licence for a small‑to‑medium café in Dubai Marina usually ranges between AED 15,000 and AED 20,000 per year, depending on the exact business activity and any additional approvals (e.g., food safety, signage).",
+        "source": "general industry knowledge (no specific source available)",
+        "authorBotId": "9f98c305-c243-48ab-b8a0-2ba458962ee6",
+        "authorName": "Researcher P44",
+        "taskId": "5d454683-7867-4092-b89d-f24a4ec73da6",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "warnings": [],
+        "createdAt": "2026-11-05T15:00:01.744Z"
+      }
+    ],
+    "files": [
+      {
+        "approvalId": "f9e448e3-b887-4a6c-816d-03a0362bc899",
+        "path": "marina-costs.csv",
+        "action": "documents.create_spreadsheet",
+        "status": "created",
+        "ownerBotId": "f977572f-b616-467a-8e5c-ae01c1c28ea9",
+        "ownerName": "Analyst P44",
+        "taskId": "e20bc16f-869b-4aa8-a41a-99229c952271",
+        "at": "2026-11-05T15:00:09.386Z"
+      }
+    ],
+    "contributions": [
+      {
+        "botId": "f977572f-b616-467a-8e5c-ae01c1c28ea9",
+        "name": "Analyst P44",
+        "entries": 3,
+        "byKind": {
+          "recommendation": 2,
+          "handover": 1
+        },
+        "files": 1,
+        "tasksCompleted": 2,
+        "lastAt": "2026-11-05T15:00:51.356Z"
+      },
+      {
+        "botId": "9f98c305-c243-48ab-b8a0-2ba458962ee6",
+        "name": "Researcher P44",
+        "entries": 3,
+        "byKind": {
+          "assumption": 3
+        },
+        "files": 0,
+        "tasksCompleted": 1,
+        "lastAt": "2026-11-05T15:00:01.777Z"
+      }
+    ]
+  },
+  "used": {
+    "groq": 10,
+    "google": 0
+  },
+  "results": [
+    {
+      "name": "scratch copy started",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "routing prefers verified Groq models",
+      "ok": true,
+      "detail": "groq/qwen/qwen3.8-27b > groq/openai/gpt-oss-120b"
+    },
+    {
+      "name": "PC workspace = scratch folder",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "folder grant for the scratch folder only",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "A1: Researcher finished on Groq",
+      "ok": true,
+      "detail": "groq/openai/gpt-oss-120b"
+    },
+    {
+      "name": "A1: Researcher published to the workspace",
+      "ok": true,
+      "detail": "3 entries: assumption,assumption,assumption"
+    },
+    {
+      "name": "A1: every published 'fact' carries a source (others are labelled assumption/finding)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A2: Analyst finished on Groq",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A2: the CSV was requested, approved and created in the granted folder",
+      "ok": true,
+      "detail": "[{\"action\":\"documents.create_spreadsheet\",\"path\":\"marina-costs.csv\",\"approved\":true,\"status\":\"executed\",\"error\":null}]"
+    },
+    {
+      "name": "A2: Analyst published a recommendation and a handover for the Writer",
+      "ok": true,
+      "detail": "recommendation,handover->Writer P44,recommendation"
+    },
+    {
+      "name": "B: Groq -> Gemini switch NOT RUN (no Gemini model passed verification)",
+      "ok": false,
+      "detail": "see the Gemini verification step"
+    },
+    {
+      "name": "B': Writer (on Groq) finished and used the Analyst's numbers / the CSV",
+      "ok": false,
+      "detail": "The provider refused the request (HTTP 400). (Tool choice is none, but model called a tool)"
+    },
+    {
+      "name": "B': Writer published to the workspace",
+      "ok": false,
+      "detail": ""
+    },
+    {
+      "name": "D: app restarted on the same scratch copy",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D: workspace identical after the restart",
+      "ok": true,
+      "detail": "6 entries, 1 files"
+    },
+    {
+      "name": "D: a task after the restart used the workspace (numbers from it)",
+      "ok": true,
+      "detail": "Yearly Fixed Cost: AED 227,500 per year (mid‑point of rent AED 180‑240k + licence AED 15‑20k) – budget AED 230,000‑250,000 for safety 【W-03d75219】  \nRecommendation: Use the AED 230,000‑250,000 annual "
+    },
+    {
+      "name": "E: dashboard showed all five workspace tabs with the real data (screenshots saved)",
+      "ok": true,
+      "detail": "C:\\Users\\carlou\\Desktop\\ai bot\\docs\\evidence\\real-workspace"
+    },
+    {
+      "name": "real requests within the approved budgets (Groq 12, Google 0)",
+      "ok": true,
+      "detail": "{\"groq\":10,\"google\":0}"
+    }
+  ],
+  "finishedAt": "2026-11-05T15:00:55.816Z"
+}

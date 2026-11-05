@@ -128,6 +128,59 @@ export function useProjectAction() {
   });
 }
 
+// ---- A project's shared workspace (backend: src/project-workspace). Only agents' finished tasks write entries; the owner reads, checks and withdraws. ----
+export type WorkspaceEntryKind = "finding" | "fact" | "assumption" | "recommendation" | "progress" | "handover" | "note";
+export interface WorkspaceEntry {
+  id: string;
+  ref: string;
+  kind: WorkspaceEntryKind;
+  title: string;
+  text: string;
+  source: string | null;
+  authorBotId: string | null;
+  authorName: string;
+  taskId: string | null;
+  forBotId: string | null;
+  forName: string | null;
+  replaces: string | null;
+  replacedBy: string | null;
+  checkedByOwner: boolean;
+  withdrawn: boolean;
+  platformNote: string | null;
+  /** Number warnings computed by the platform (unsupported, large, wide range, arithmetic, conflicts, use of unverified numbers). */
+  warnings: string[];
+  createdAt: string;
+}
+export interface WorkspaceFile {
+  approvalId: string;
+  path: string;
+  action: string;
+  status: "created" | "waiting_for_approval";
+  ownerBotId: string;
+  ownerName: string;
+  taskId: string | null;
+  at: string;
+}
+export interface ProjectWorkspace {
+  project: { id: string; name: string };
+  entries: WorkspaceEntry[];
+  files: WorkspaceFile[];
+  tasks: { id: string; rootId: string; botId: string; botName: string; instruction: string; status: string; finishedAt: string | null; createdAt: string }[];
+  contributions: { botId: string; name: string; entries: number; byKind: Record<string, number>; files: number; tasksCompleted: number; lastAt: string | null }[];
+  activity: { at: string; kind: string; botName: string | null; text: string; ref: string | null }[];
+}
+export function useProjectWorkspace(id: string | null) {
+  return useQuery({ queryKey: ["projects", "workspace", id], enabled: id !== null, queryFn: () => api<ProjectWorkspace>("GET", `/api/projects/${id}/workspace`) });
+}
+export function useWorkspaceEntryAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (a: { op: "check"; projectId: string; entryId: string } | { op: "withdraw"; projectId: string; entryId: string; on: boolean }) =>
+      a.op === "check" ? api("POST", `/api/projects/${a.projectId}/workspace/entries/${a.entryId}/check`) : api("PUT", `/api/projects/${a.projectId}/workspace/entries/${a.entryId}/withdrawn`, { on: a.on }),
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["projects", "workspace", vars.projectId] }),
+  });
+}
+
 // ---- Decisions (backend: src/decisions). Only the owner chooses, approves or rejects; the screen never sends a bot as the actor. ----
 export type DecisionStatus = "open" | "chosen" | "approved" | "in_progress" | "done" | "rejected" | "archived";
 export interface DecisionSummary {

@@ -214,8 +214,23 @@ export class ModelRouter {
     }
     if (attempts.length > 0) this.remember(cls, input, attempts);
     const tried = attempts.map((a) => `${a.ref} (${a.outcome})`).join(", ");
-    throw new LlmError(last?.llmCode ?? "provider_unavailable", `No model could answer. Tried: ${tried}. ${last?.message ?? ""}`.trim(), {
+    // When a tried model only hit a (non-quota) rate limit and every other attempt failed at MODEL level (e.g. a reply the provider refused),
+    // that rate-limited model is the next real chance: report the rate limit with the soonest time it may be asked again, so a caller can wait
+    // exactly that long instead of giving up or guessing (the task engine uses it; P-44 runs 3 and 5 lost the provider's "try again in 5.4s" here).
+    // The same holds for an eligible model that was NOT tried only because it is resting (P-44 run 6: qwen was resting, gpt-oss's reply was refused).
+    const limited = attempts.filter((a) => a.outcome === "rate_limited").map((a) => this.host.modelCooldownMs(a.ref));
+    const restingUntried = this.candidates(cls, cfg, input.require ?? [], { ignoreRest: true })
+      .filter((c) => !attempts.some((a) => a.ref === c.ref))
+      .map((c) => this.host.modelCooldownMs(c.ref))
+      .filter((ms) => ms > 0);
+    const othersModelLevel = attempts.every((a) => a.outcome === "rate_limited" || MODEL_LEVEL.includes(a.outcome as LlmErrorCode));
+    const waitable = limited.length + restingUntried.length > 0 && othersModelLevel && !last?.quota;
+    const soonest = waitable ? Math.min(...limited, ...restingUntried) : undefined;
+    const restingNote = waitable && restingUntried.length > 0 ? ` ${restingUntried.length} more eligible model(s) are resting after a rate limit and can be asked again in about ${Math.max(1, Math.ceil(soonest! / 1000))} s.` : "";
+    throw new LlmError(waitable ? "rate_limited" : (last?.llmCode ?? "provider_unavailable"), `No model could answer. Tried: ${tried}. ${last?.message ?? ""}${restingNote}`.trim(), {
       retryable: false,
+      ...(soonest !== undefined && Number.isFinite(soonest) ? { retryAfterMs: Math.max(1000, soonest) } : {}),
+      ...(last?.quota ? { quota: true } : {}),
     });
   }
 }

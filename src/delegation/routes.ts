@@ -6,7 +6,7 @@ import { delegationLimitsUpdateSchema } from "./limits.js";
 import type { DelegationService } from "./service.js";
 
 const idSchema = z.string().uuid();
-const submitSchema = z.strictObject({ instruction: z.string() });
+const submitSchema = z.strictObject({ instruction: z.string(), projectId: z.string().uuid().optional(), saveToWorkspace: z.boolean().optional() });
 const teamSchema = z.strictObject({ targetBotIds: z.array(z.string().uuid()).max(100) });
 
 function parseId(value: unknown, code: string, message: string): string {
@@ -33,7 +33,7 @@ export async function registerDelegationRoutes(
   // ---- tasks ----
   app.post<{ Params: { id: string } }>("/api/bots/:id/tasks", async (req, reply) => {
     const body = submitSchema.parse(req.body);
-    const task = service.submit(parseId(req.params.id, "bot_not_found", "Bot not found"), body.instruction);
+    const task = service.submit(parseId(req.params.id, "bot_not_found", "Bot not found"), body.instruction, body.projectId, body.saveToWorkspace === undefined ? {} : { saveToWorkspace: body.saveToWorkspace });
     return reply.code(202).send({ task });
   });
 

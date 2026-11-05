@@ -1,0 +1,436 @@
+{
+  "budgets": {
+    "groq": 12,
+    "google": 0,
+    "geminiModel": "gemini-flash-lite-latest"
+  },
+  "steps": [
+    {
+      "step": "routing order",
+      "order": [
+        "groq/qwen/qwen3.8-27b",
+        "groq/openai/gpt-oss-120b"
+      ]
+    },
+    {
+      "step": "A1 Researcher",
+      "status": "completed",
+      "error": null,
+      "code": null,
+      "attempts": [
+        [
+          {
+            "ref": "groq/qwen/qwen3.8-27b",
+            "outcome": "answered"
+          }
+        ]
+      ],
+      "workspaceEvents": [
+        {
+          "kind": "workspace_published",
+          "detail": "{\"entry\":\"W-155de904\",\"kind\":\"assumption\",\"title\":\"Est. yearly cafe licence cost (Dubai, mainland)\"}"
+        },
+        {
+          "kind": "workspace_published",
+          "detail": "{\"entry\":\"W-feb3c729\",\"kind\":\"assumption\",\"title\":\"Est. yearly rent, small unit in Dubai Marina\"}"
+        },
+        {
+          "kind": "workspace_published",
+          "detail": "{\"entry\":\"W-122952b6\",\"kind\":\"finding\",\"title\":\"How busy Dubai Marina is (footfall)\"}"
+        }
+      ],
+      "answeredBy": [
+        "groq/qwen/qwen3.8-27b"
+      ],
+      "result": "I'll research this from my own knowledge (no web access). I'll be explicit about what is a verified fact versus an estimate, and label workspace entries accordingly.\n\nQuick method note: the task asks for \"fact only with a source.\" My knowledge has no live checkable source, so true \"fact\" entries would fail that bar. I'll therefore mark licence and rent figures as **assumption** (estimates from general knowledge, clearly flagged), and treat the \"how busy\" point as a **finding** with a plain-language basis. I did not use any unverified external numbers.\n\nKey figures (my estimates, not verified against current Dubai DED/DTCM or live listings):\n- Licence: A small mainland F&B trade licence in Dubai typically runs roughly **AED 12,000–25,000/year** for the licence itself, with **additional** DTCM (Dubai Municipality) food licence, NOC, and establishment card fees that can add several thousand AED. I'll state a combined planning range and flag it.\n- Rent: A small unit (≈400–800 sq ft) in a ground-floor retail strip in Dubai Marina commonly rents around **AED 25,000–60,000/year** (≈AED 30–75/sq ft). This varies a lot by exact location and whether it's in a mall/podium vs. street-facing.\n- Busyness: Dubai Marina is a dense, high-footfall residential + tourist corridor (canal promenade, Yachts, JBR nearby) — consistently busy day and night, with strong weekend and evening peaks.\n\nPublishing to the workspace now.\n\n```workspace\n{\"kind\": \"assumption\", \"title\": \"Est. yearly cafe licence c",
+      "entries": [
+        {
+          "kind": "finding",
+          "title": "How busy Dubai Marina is (footfall)",
+          "text": "Dubai Marina is one of Dubai's densest, most active residential-and-tourist corridors: a long canal promenade, high-rise residential towers, the Marina Walk, Yachting Club, and proximity to Jumeirah Beach Residence (JBR) and the beach. Footfall is strong across the day and peaks in the evening and on weekends, with steady weekday daytime traffic from residents and workers. It is generally considered a high-traffic, high-visibility location for a cafe, which supports the higher rent range but also supports demand. (Qualitative assessment from general knowledge; not a measured footfall figure.)",
+          "source": "AI general knowledge (P44); qualitative, not a sourced measurement",
+          "platformNote": null
+        },
+        {
+          "kind": "assumption",
+          "title": "Est. yearly rent, small unit in Dubai Marina",
+          "text": "ESTIMATE, not verified: a small street-level retail unit of roughly 400–800 sq ft in Dubai Marina commonly rents around AED 25,000–60,000 per year (about AED 30–75/sq ft), depending on exact spot (mall/podium vs. street-facing), fit-out condition, and lease term. Marina retail is on the pricier side of Dubai. Get 2–3 live listings/agent quotes before committing.",
+          "source": "AI general knowledge (P44); no live source; estimate",
+          "platformNote": null
+        },
+        {
+          "kind": "assumption",
+          "title": "Est. yearly cafe licence cost (Dubai, mainland)",
+          "text": "ESTIMATE, not verified: a small specialty cafe on Dubai mainland typically needs a DED trade licence plus a Dubai Municipality (DTCM) food-safety licence, an establishment card, and possibly a NOC. Planning range for the combined first-year licensing is roughly AED 15,000–40,000, with the DED licence itself around AED 12,000–25,000/year. Actual fees depend on activity code, trade name, and current DED/DTCM schedules. Confirm with DED (dubaided.gov.ae) and DTCM before budgeting.",
+          "source": "AI general knowledge (P44); no live source; estimate",
+          "platformNote": null
+        }
+      ]
+    },
+    {
+      "step": "A2 Analyst",
+      "status": "completed",
+      "error": null,
+      "code": null,
+      "attempts": [
+        [
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "answered"
+          }
+        ],
+        [
+          {
+            "ref": "groq/qwen/qwen3.8-27b",
+            "outcome": "rate_limited"
+          },
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "answered"
+          }
+        ]
+      ],
+      "workspaceEvents": [
+        {
+          "kind": "workspace_published",
+          "detail": "{\"entry\":\"W-47d716f1\",\"kind\":\"handover\",\"title\":\"Brief for Owner – Fixed‑Cost Estimate\"}"
+        }
+      ],
+      "answeredBy": [
+        "groq/openai/gpt-oss-120b",
+        "groq/openai/gpt-oss-120b"
+      ],
+      "result": "**Estimated yearly fixed costs (licence + rent) for a small specialty café in Dubai Marina**\n\n- **Rent:** Mid‑point of the assumed range AED 25,000 – 60,000 → **≈ AED 42,500 per year**  \n- **Licence:** Mid‑point of the assumed range AED 15,000 – 40,000 → **≈ AED 27,500 per year**  \n\n**Total estimated fixed cost:** **≈ AED 70,000 per year** (possible range AED 40,000 – 100,000).\n\n*Sources / assumptions*  \n- Rent estimate from **W‑feb3c729** (small street‑level unit, 400–800 sq ft, AED 25,000–60,000/yr).  \n- Licence estimate from **W‑155de904** (combined DED trade licence and Dubai Municipality food‑safety licence, AED 15,000–40,000/yr).\n\n---\n\n### File creation status\nA request was sent to create **marina‑costs.csv** containing the two line items (Rent, Licence) and their estimated AED amounts. The request is **awaiting owner approval** and **has not been executed yet**.\n\n---\n\n```workspace\n{\n  \"kind\": \"handover\",\n  \"title\": \"Brief for Owner – Fixed‑Cost Estimate\",\n  \"text\": \"Please prepare the owner’s brief using the cost estimate above and, once the CSV file is approved and created, reference it as needed.\",\n  \"for\": \"Writer P44\"\n}\n```\n\n--- What the platform recorded (not written by the AI) ---\n- documents.create_spreadsheet: WAITING for the owner's approval. It has NOT happened.\n- Saved to the project workspace: W-47d716f1 (handover for Writer P44).\n- This result uses numbers that are NOT verified (they come from assumptions or unsupported estimates in the workspace): AED 25,",
+      "approvals": [
+        {
+          "action": "documents.create_spreadsheet",
+          "path": "marina-costs.csv",
+          "approved": true,
+          "status": "executed",
+          "error": null
+        }
+      ],
+      "entries": [
+        {
+          "kind": "handover",
+          "title": "Brief for Owner – Fixed‑Cost Estimate",
+          "text": "Please prepare the owner’s brief using the cost estimate above and, once the CSV file is approved and created, reference it as needed.",
+          "forName": "Writer P44"
+        }
+      ]
+    },
+    {
+      "step": "B' Writer on Groq",
+      "status": "failed",
+      "error": "No model could answer. Tried: groq/openai/gpt-oss-120b (rate_limited). The provider says too many requests were sent (free-tier limit). (Rate limit reached for model `openai/gpt-oss-120b` in organization `org_[redacted]` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 5663, Requested 3064. Please try again in 5.4525s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/setting…)",
+      "code": "llm_rate_limited",
+      "attempts": [
+        [
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "rate_limited"
+          }
+        ]
+      ],
+      "workspaceEvents": [
+        {
+          "kind": "workspace_file_read",
+          "detail": "{\"file\":\"marina-costs.csv\"}"
+        }
+      ],
+      "answeredBy": [
+        null
+      ],
+      "entries": []
+    },
+    {
+      "step": "D after restart",
+      "status": "failed",
+      "error": "No model could answer. Tried: groq/qwen/qwen3.8-27b (rate_limited), groq/openai/gpt-oss-120b (rate_limited). The provider says too many requests were sent (free-tier limit). (Rate limit reached for model `openai/gpt-oss-120b` in organization `org_[redacted]` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 5220, Requested 2845. Please try again in 487.5ms. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/setting…)",
+      "code": "llm_rate_limited",
+      "attempts": [
+        [
+          {
+            "ref": "groq/qwen/qwen3.8-27b",
+            "outcome": "rate_limited"
+          },
+          {
+            "ref": "groq/openai/gpt-oss-120b",
+            "outcome": "rate_limited"
+          }
+        ]
+      ],
+      "workspaceEvents": [],
+      "answeredBy": [
+        null
+      ]
+    }
+  ],
+  "note": "Real providers. Groq's unavailability in step B is INJECTED (its daily cap in the scratch copy is set to the count reached), not a real outage.",
+  "before": {
+    "groq": 15,
+    "google": 18
+  },
+  "tokens": [
+    {
+      "agent": "Analyst P44",
+      "status": "failed",
+      "llmCalls": 1,
+      "inputTokens": 0,
+      "outputTokens": 0
+    },
+    {
+      "agent": "Writer P44",
+      "status": "failed",
+      "llmCalls": 1,
+      "inputTokens": 0,
+      "outputTokens": 0
+    },
+    {
+      "agent": "Analyst P44",
+      "status": "completed",
+      "llmCalls": 2,
+      "inputTokens": 4730,
+      "outputTokens": 1544
+    },
+    {
+      "agent": "Researcher P44",
+      "status": "completed",
+      "llmCalls": 1,
+      "inputTokens": 1008,
+      "outputTokens": 1024
+    }
+  ],
+  "tokenTotals": {
+    "llmCalls": 5,
+    "inputTokens": 5738,
+    "outputTokens": 2568
+  },
+  "workspace": {
+    "entries": [
+      {
+        "id": "47d716f1-1a6c-4ee7-8b8e-ab4d91083ca3",
+        "ref": "W-47d716f1",
+        "kind": "handover",
+        "title": "Brief for Owner – Fixed‑Cost Estimate",
+        "text": "Please prepare the owner’s brief using the cost estimate above and, once the CSV file is approved and created, reference it as needed.",
+        "source": null,
+        "authorBotId": "5c6e1ba5-9a43-42e2-b98b-dbeaea48b0a3",
+        "authorName": "Analyst P44",
+        "taskId": "5b7d2099-5a0c-4683-8833-34a8bf8350fc",
+        "forBotId": "646dc72e-9c1d-4d4d-abaf-b9a012bdd0c7",
+        "forName": "Writer P44",
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "warnings": [],
+        "createdAt": "2026-11-05T14:54:44.989Z"
+      },
+      {
+        "id": "122952b6-420b-4488-bfaa-10b1226f84ab",
+        "ref": "W-122952b6",
+        "kind": "finding",
+        "title": "How busy Dubai Marina is (footfall)",
+        "text": "Dubai Marina is one of Dubai's densest, most active residential-and-tourist corridors: a long canal promenade, high-rise residential towers, the Marina Walk, Yachting Club, and proximity to Jumeirah Beach Residence (JBR) and the beach. Footfall is strong across the day and peaks in the evening and on weekends, with steady weekday daytime traffic from residents and workers. It is generally considered a high-traffic, high-visibility location for a cafe, which supports the higher rent range but also supports demand. (Qualitative assessment from general knowledge; not a measured footfall figure.)",
+        "source": "AI general knowledge (P44); qualitative, not a sourced measurement",
+        "authorBotId": "e8396260-442f-4126-93ef-16b6a6cd8023",
+        "authorName": "Researcher P44",
+        "taskId": "85e37ed5-e7e2-4c13-b3c5-7a9a316ccd24",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "warnings": [],
+        "createdAt": "2026-11-05T14:54:40.113Z"
+      },
+      {
+        "id": "feb3c729-e0fa-47ed-ac8b-449d8560dc9b",
+        "ref": "W-feb3c729",
+        "kind": "assumption",
+        "title": "Est. yearly rent, small unit in Dubai Marina",
+        "text": "ESTIMATE, not verified: a small street-level retail unit of roughly 400–800 sq ft in Dubai Marina commonly rents around AED 25,000–60,000 per year (about AED 30–75/sq ft), depending on exact spot (mall/podium vs. street-facing), fit-out condition, and lease term. Marina retail is on the pricier side of Dubai. Get 2–3 live listings/agent quotes before committing.",
+        "source": "AI general knowledge (P44); no live source; estimate",
+        "authorBotId": "e8396260-442f-4126-93ef-16b6a6cd8023",
+        "authorName": "Researcher P44",
+        "taskId": "85e37ed5-e7e2-4c13-b3c5-7a9a316ccd24",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "warnings": [
+          "Unsupported estimate: numbers without a checkable source",
+          "Wide range (25,000-60,000): very uncertain",
+          "Wide range (30-75): very uncertain",
+          "Uses unverified numbers from W-155de904 (assumption, unsupported)"
+        ],
+        "createdAt": "2026-11-05T14:54:40.100Z"
+      },
+      {
+        "id": "155de904-81bb-4682-9ba7-16d79cc92a08",
+        "ref": "W-155de904",
+        "kind": "assumption",
+        "title": "Est. yearly cafe licence cost (Dubai, mainland)",
+        "text": "ESTIMATE, not verified: a small specialty cafe on Dubai mainland typically needs a DED trade licence plus a Dubai Municipality (DTCM) food-safety licence, an establishment card, and possibly a NOC. Planning range for the combined first-year licensing is roughly AED 15,000–40,000, with the DED licence itself around AED 12,000–25,000/year. Actual fees depend on activity code, trade name, and current DED/DTCM schedules. Confirm with DED (dubaided.gov.ae) and DTCM before budgeting.",
+        "source": "AI general knowledge (P44); no live source; estimate",
+        "authorBotId": "e8396260-442f-4126-93ef-16b6a6cd8023",
+        "authorName": "Researcher P44",
+        "taskId": "85e37ed5-e7e2-4c13-b3c5-7a9a316ccd24",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "warnings": [
+          "Unsupported estimate: numbers without a checkable source",
+          "Wide range (15,000-40,000): very uncertain",
+          "Wide range (12,000-25,000): very uncertain"
+        ],
+        "createdAt": "2026-11-05T14:54:40.080Z"
+      }
+    ],
+    "files": [
+      {
+        "approvalId": "413e0e94-d275-480d-aae1-7a1cbb874fa3",
+        "path": "marina-costs.csv",
+        "action": "documents.create_spreadsheet",
+        "status": "created",
+        "ownerBotId": "5c6e1ba5-9a43-42e2-b98b-dbeaea48b0a3",
+        "ownerName": "Analyst P44",
+        "taskId": "5b7d2099-5a0c-4683-8833-34a8bf8350fc",
+        "at": "2026-11-05T14:54:45.129Z"
+      }
+    ],
+    "contributions": [
+      {
+        "botId": "e8396260-442f-4126-93ef-16b6a6cd8023",
+        "name": "Researcher P44",
+        "entries": 3,
+        "byKind": {
+          "finding": 1,
+          "assumption": 2
+        },
+        "files": 0,
+        "tasksCompleted": 1,
+        "lastAt": "2026-11-05T14:54:40.221Z"
+      },
+      {
+        "botId": "5c6e1ba5-9a43-42e2-b98b-dbeaea48b0a3",
+        "name": "Analyst P44",
+        "entries": 1,
+        "byKind": {
+          "handover": 1
+        },
+        "files": 1,
+        "tasksCompleted": 1,
+        "lastAt": "2026-11-05T14:54:45.129Z"
+      }
+    ]
+  },
+  "used": {
+    "groq": 7,
+    "google": 0
+  },
+  "results": [
+    {
+      "name": "scratch copy started",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "routing prefers verified Groq models",
+      "ok": true,
+      "detail": "groq/qwen/qwen3.8-27b > groq/openai/gpt-oss-120b"
+    },
+    {
+      "name": "PC workspace = scratch folder",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "folder grant for the scratch folder only",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "A1: Researcher finished on Groq",
+      "ok": true,
+      "detail": "groq/qwen/qwen3.8-27b"
+    },
+    {
+      "name": "A1: Researcher published to the workspace",
+      "ok": true,
+      "detail": "3 entries: finding,assumption,assumption"
+    },
+    {
+      "name": "A1: every published 'fact' carries a source (others are labelled assumption/finding)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A2: Analyst finished on Groq",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A2: the CSV was requested, approved and created in the granted folder",
+      "ok": true,
+      "detail": "[{\"action\":\"documents.create_spreadsheet\",\"path\":\"marina-costs.csv\",\"approved\":true,\"status\":\"executed\",\"error\":null}]"
+    },
+    {
+      "name": "A2: Analyst published a recommendation and a handover for the Writer",
+      "ok": false,
+      "detail": "handover->Writer P44"
+    },
+    {
+      "name": "B: Groq -> Gemini switch NOT RUN (no Gemini model passed verification)",
+      "ok": false,
+      "detail": "see the Gemini verification step"
+    },
+    {
+      "name": "B': Writer (on Groq) finished and used the Analyst's numbers / the CSV",
+      "ok": false,
+      "detail": "No model could answer. Tried: groq/openai/gpt-oss-120b (rate_limited). The provider says too many requests were sent (free-tier limit). (Rate limit reached for model `openai/gpt-oss-120b` in organizat"
+    },
+    {
+      "name": "B': Writer published to the workspace",
+      "ok": false,
+      "detail": ""
+    },
+    {
+      "name": "D: app restarted on the same scratch copy",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D: workspace identical after the restart",
+      "ok": true,
+      "detail": "4 entries, 1 files"
+    },
+    {
+      "name": "D: a task after the restart used the workspace (numbers from it)",
+      "ok": false,
+      "detail": ""
+    },
+    {
+      "name": "E: dashboard showed all five workspace tabs with the real data (screenshots saved)",
+      "ok": true,
+      "detail": "C:\\Users\\carlou\\Desktop\\ai bot\\docs\\evidence\\real-workspace"
+    },
+    {
+      "name": "real requests within the approved budgets (Groq 12, Google 0)",
+      "ok": true,
+      "detail": "{\"groq\":7,\"google\":0}"
+    }
+  ],
+  "finishedAt": "2026-11-05T14:54:52.923Z"
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/client";
 import { useProject, useProjectAction, useProjects } from "../api/workHooks";
+import { ProjectWorkspace } from "../components/ProjectWorkspace";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 const KINDS = ["conversation", "workflow", "schedule", "task", "note"];
@@ -86,6 +87,8 @@ function Detail({ id, onGone }: { id: string; onGone: () => void }) {
           Link item
         </button>
       </div>
+
+      <ProjectWorkspace projectId={id} />
 
       <details className="space-y-2">
         <summary className="cursor-pointer text-sm font-semibold">Delete this project</summary>

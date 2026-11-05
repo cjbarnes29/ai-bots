@@ -544,6 +544,14 @@ export class DecisionService {
     try {
       const task = this.d.engine.submit(botId, this.briefOf(String(d["title"]), opt, String(a["duty"])), { type: "user", id, label: `Decision: ${clip(String(d["title"]), 60)}` });
       this.d.db.prepare("UPDATE decision_assignments SET start_state = 'started', task_id = ? WHERE decision_id = ? AND bot_id = ? AND start_state = 'starting'").run(task.id, id, botId);
+      // The decision's project: its assigned agents then share that project's workspace. Linking happens before the queued task starts running.
+      if (d["project_id"]) {
+        try {
+          this.d.projects.link(String(d["project_id"]), "task", task.id);
+        } catch {
+          /* an archived or removed project only means no shared workspace; the work itself goes on */
+        }
+      }
       this.d.db.prepare("INSERT INTO decision_revisions (decision_id, actor, action, bot_id, detail, created_at) VALUES (?, 'system', 'started', ?, ?, ?)").run(id, botId, JSON.stringify({ task: task.id }), this.iso());
       this.d.db.prepare("UPDATE decisions SET status = 'in_progress', updated_at = ? WHERE id = ? AND status = 'approved'").run(this.iso(), id);
       return { botId, result: "started", taskId: task.id };

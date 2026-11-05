@@ -226,6 +226,16 @@ describe("error handling", () => {
     expect(err.message).toContain("[redacted]");
   });
 
+  it("REAL-RUN REGRESSION (P-44 run 4): Groq's 'model called a tool' 400 is the model's unusable reply (bad_output, routing tries the next model); other 400s stay bad_request", async () => {
+    reset();
+    server.setHandler(() => ({ status: 400, body: { error: { message: "Tool choice is none, but model called a tool", type: "invalid_request_error", code: "tool_use_failed" } } }));
+    const err = await failure(provider().complete(REQUEST));
+    expect(err.llmCode).toBe("bad_output");
+    expect(err.message).toMatch(/tried to call a built-in tool, which this app does not offer/);
+    server.setHandler(() => ({ status: 400, body: { error: { message: "messages: field required" } } }));
+    expect((await failure(provider().complete(REQUEST))).llmCode).toBe("bad_request");
+  });
+
   it("truncates very long provider messages", async () => {
     reset();
     server.setHandler(() => ({ status: 400, body: { error: { message: "x".repeat(5000) } } }));

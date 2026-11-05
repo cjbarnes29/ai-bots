@@ -80,6 +80,8 @@ const OWNER_ONLY_ROUTES: RegExp[] = [
   // Running a model evaluation sends real requests to a provider: an owner act.
   /^\/api\/llm\/registry\/evaluate/,
   /^\/api\/projects\/:id$/,
+  // A project's shared workspace: marking an entry as checked by the owner, and withdrawing or restoring it, are owner acts. Reading stays open.
+  /^\/api\/projects\/:id\/workspace\/entries\//,
   // Groups: the switch, creating, editing, archiving, members and responsibilities are owner acts. Writing in a group and handing work over work like chat and stay open.
   /^\/api\/workforce\/bots\/:botId$/,
   /^\/api\/groups\/enabled/,

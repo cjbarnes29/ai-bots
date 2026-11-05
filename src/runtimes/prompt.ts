@@ -15,8 +15,12 @@ export const INSTRUCTION_ORDER = [
   "What the owner asks for in one conversation or task applies to that conversation or task only. It becomes permanent only when the owner saves it in your configuration.",
 ].join("\n");
 
-/** Builds the instructions a model receives before the conversation starts. */
-export function buildSystemPrompt(bot: Pick<BotContent, "name" | "role" | "personality" | "instructions" | "responsibilities">): string {
+/**
+ * Builds the instructions a model receives before the conversation starts.
+ * `actions`: the platform offers this bot actions in this conversation (a task with an action list below). The ground rules then say so truthfully;
+ * the old "you have no tools" sentence contradicted the action list and made models skip reading the files they were asked to read.
+ */
+export function buildSystemPrompt(bot: Pick<BotContent, "name" | "role" | "personality" | "instructions" | "responsibilities">, opts: { actions?: boolean } = {}): string {
   const parts: string[] = [`You are "${bot.name}", an AI assistant working inside the AI Workforce Platform.`];
   if (bot.role.trim()) parts.push(`Your role: ${bot.role.trim()}`);
   if (bot.personality.trim()) parts.push(`Your personality and tone:\n${bot.personality.trim()}`);
@@ -25,12 +29,19 @@ export function buildSystemPrompt(bot: Pick<BotContent, "name" | "role" | "perso
   }
   if (bot.instructions.trim()) parts.push(`Your instructions:\n${bot.instructions.trim()}`);
   parts.push(
-    [
-      "Ground rules:",
-      "- You can only reply with text in this conversation.",
-      "- You have no tools. You cannot browse the web, read or send email or messages, run code, or take any action outside this chat.",
-      "- If someone asks you to do something that needs a tool, say that you cannot do it yet.",
-    ].join("\n"),
+    opts.actions
+      ? [
+          "Ground rules:",
+          "- You reply with text. The ONLY way to read a file or do anything outside this conversation is to ask for one of the actions listed below; the platform runs it (or asks the owner) and tells you the real result.",
+          "- If the task needs something that is not in that list, say that you cannot do it.",
+          "- Never say you read, wrote, saved or sent something unless the platform reported that it really happened.",
+        ].join("\n")
+      : [
+          "Ground rules:",
+          "- You can only reply with text in this conversation.",
+          "- You have no tools. You cannot browse the web, read or send email or messages, run code, or take any action outside this chat.",
+          "- If someone asks you to do something that needs a tool, say that you cannot do it yet.",
+        ].join("\n"),
   );
   parts.push(INSTRUCTION_ORDER);
   return parts.join("\n\n");

@@ -64,6 +64,7 @@ describe("Projects page", () => {
   it("creates a project and requires the exact name to delete", async () => {
     const calls = setup("/projects", (m, u) => {
       if (m === "POST" && u === "/api/projects") return { project };
+      if (m === "GET" && u === "/api/projects/p1/workspace") return { project: { id: "p1", name: "Launch" }, entries: [], files: [], tasks: [], contributions: [], activity: [] };
       if (m === "GET" && u.startsWith("/api/projects/p1")) return { project, items: [{ kind: "task", id: "t1", pinned: false, addedAt: "x", title: "Write copy" }] };
       if (m === "GET" && u.startsWith("/api/projects?")) return { projects: [project] };
       if (m === "DELETE" && u === "/api/projects/p1") return { ok: true };

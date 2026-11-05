@@ -190,7 +190,7 @@ export class ActionGate {
         return deny(`This bot has reached today's limit of ${GATE_LIMITS.maxReadsPerBotPerDay} outside reads.`);
       }
       try {
-        const text = await withTimeout(spec.execute(parsed.data, { secret: (n) => this.deps.vault.resolve(n), botId }), spec.timeoutMs ?? GATE_LIMITS.executeTimeoutMs);
+        const text = await withTimeout(spec.execute(parsed.data, { secret: (n) => this.deps.vault.resolve(n), botId, taskId }), spec.timeoutMs ?? GATE_LIMITS.executeTimeoutMs);
         audit.record("external.read", { action: label, summary, ok: true }, { botId, actor: "bot" });
         return { status: "done", text: clip(redactKnownSecrets(text), GATE_LIMITS.maxResultForBotChars) };
       } catch (err) {
@@ -311,7 +311,7 @@ export class ActionGate {
     if (modeNowNo) return fail(`${modeNowNo} Nothing was run.`);
 
     try {
-      const result = await withTimeout(spec.execute(args.data, { secret: (n) => this.deps.vault.resolve(n), botId: existing.botId }), spec.timeoutMs ?? GATE_LIMITS.executeTimeoutMs);
+      const result = await withTimeout(spec.execute(args.data, { secret: (n) => this.deps.vault.resolve(n), botId: existing.botId, taskId: existing.taskId }), spec.timeoutMs ?? GATE_LIMITS.executeTimeoutMs);
       repo.finish(id, "executed", this.iso(), { result: clip(redactKnownSecrets(result), GATE_LIMITS.maxStoredResultChars) });
       audit.record("approval.executed", { id, action: `${existing.connector}.${existing.action}` }, { botId: existing.botId });
       return this.get(id);

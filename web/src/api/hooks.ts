@@ -334,9 +334,9 @@ export function useTaskTree(id: string) {
 export function useSubmitTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { botId: string; instruction: string }) =>
-      (await api<{ task: TaskRecord }>("POST", `/api/bots/${input.botId}/tasks`, { instruction: input.instruction })).task,
-    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["tasks"] }), qc.invalidateQueries({ queryKey: ["llm"] })]),
+    mutationFn: async (input: { botId: string; instruction: string; projectId?: string; saveToWorkspace?: boolean }) =>
+      (await api<{ task: TaskRecord }>("POST", `/api/bots/${input.botId}/tasks`, { instruction: input.instruction, ...(input.projectId ? { projectId: input.projectId, saveToWorkspace: input.saveToWorkspace ?? true } : {}) })).task,
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ["tasks"] }), qc.invalidateQueries({ queryKey: ["llm"] }), qc.invalidateQueries({ queryKey: ["projects"] })]),
   });
 }
 

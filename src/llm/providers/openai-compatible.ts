@@ -52,6 +52,14 @@ function numberOrNull(value: unknown): number | null {
 }
 
 /** "Retry-After" is either seconds or a date. Returns milliseconds, or undefined. */
+/** "try again in 10.2225s" / "in 1m3.5s" / "in 450ms" inside a provider's rate-limit message. Only plain, short waits are read. */
+export function retryHintInText(text: string): number | undefined {
+  const m = /try again in\s+(?:(\d+)m)?\s*(?:(\d+(?:\.\d+)?)s|(\d+)ms)\b/i.exec(text);
+  if (!m) return undefined;
+  const ms = (Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0)) * 1000 + Number(m[3] ?? 0);
+  return Number.isFinite(ms) && ms > 0 && ms <= 3_600_000 ? Math.ceil(ms) : undefined;
+}
+
 function parseRetryAfter(header: string | null): number | undefined {
   if (!header) return undefined;
   const seconds = Number(header);
@@ -276,6 +284,12 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         `The provider says payment or credits are required. This platform only uses free models, so the call was stopped.${suffix}`,
       );
     }
+    // The MODEL tried to call a built-in tool that this app never offers (seen with gpt-oss on Groq, P-44 run 4: "Tool choice is none, but model called
+    // a tool"). The request was fine; the model's reply was unusable. So it is a model-level failure: automatic routing tries the next model, an explicit
+    // model fails clearly. Only this exact provider wording is read this way; any other 400 stays a stop, as before.
+    if (status === 400 && /model called a tool|tool choice is none|tool_use_failed/i.test(detail)) {
+      return new LlmError("bad_output", `The model tried to call a built-in tool, which this app does not offer, so the provider refused its reply. Nothing was used.${suffix}`);
+    }
     // A CONFIRMED retirement: the provider says, about the model, that it is gone. A bare 404 or a temporary error is never read this way.
     if ((status === 404 || status === 410 || status === 400) && RETIRED.test(this.options.redact(text).slice(0, 3000))) {
       return new LlmError("model_not_found", `The provider says this model is no longer available.${suffix}`, { retired: true });
@@ -287,7 +301,8 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       return new LlmError("timeout", "The provider timed out.", { retryable: true });
     }
     if (status === 429) {
-      const retryAfterMs = parseRetryAfter(retryAfter);
+      // The Retry-After header first; otherwise the wait the provider writes in its message ("Please try again in 10.22s", "in 1m3.5s", Groq/OpenAI style).
+      const retryAfterMs = parseRetryAfter(retryAfter) ?? retryHintInText(detail);
       // A used-up daily quota (or "limit: 0", no free allowance for this model at all) will not clear in seconds, so it is flagged and never retried.
       const quota = /per[ _-]?day|daily|limit:\s*0\b|PerDay/i.test(detail);
       return new LlmError("rate_limited", `The provider says too many requests were sent (free-tier limit).${suffix}`, {

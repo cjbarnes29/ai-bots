@@ -10,6 +10,8 @@ export interface ActionContext {
   secret(name: string): string | null;
   /** The bot that asked (null when the platform itself is acting). */
   botId: string | null;
+  /** The task the request came from, when there is one (the project workspace uses it to find the task's project). */
+  taskId?: string | null;
 }
 
 export interface ActionSpec {
@@ -28,7 +30,7 @@ export interface ActionSpec {
 }
 
 export interface ConnectorDefinition {
-  id: Connector | "pc" | "documents" | "github" | "notion" | "n8n" | "mcp" | "gworkspace" | "memory" | "business" | "desktop";
+  id: Connector | "pc" | "documents" | "github" | "notion" | "n8n" | "mcp" | "gworkspace" | "memory" | "business" | "desktop" | "workspace";
   label: string;
   /** The vault secrets this connector needs (for the Secrets screen). */
   secrets?: { name: string; description: string }[];

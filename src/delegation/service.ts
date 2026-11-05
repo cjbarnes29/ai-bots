@@ -1,5 +1,6 @@
 import type { BotRecord } from "../agent-manager/types.js";
 import { AppError } from "../errors.js";
+import type { ProjectService } from "../projects/service.js";
 import type { TaskEngine } from "./engine.js";
 import { DEFAULT_DELEGATION_LIMITS } from "./limits.js";
 import type { DelegationAuditRecord, TaskEventRecord, TaskRecord, TaskRepository, TeamMember } from "./repository.js";
@@ -27,6 +28,10 @@ export class DelegationService {
     private readonly engine: TaskEngine,
     private readonly getBot: (id: string) => BotRecord,
     private readonly now: () => number = Date.now,
+    /** Projects, so a task can be started inside one (its agents then share that project's workspace). */
+    private readonly projects?: Pick<ProjectService, "get" | "link">,
+    /** Tells the project workspace that this task must save its result there (checked when the task answers). */
+    private readonly expectSave?: (rootTaskId: string, save: boolean) => void,
   ) {}
 
   // ---- the allow-list: who each bot may delegate to (empty by default) ----
@@ -62,8 +67,23 @@ export class DelegationService {
 
   // ---- tasks ----
 
-  submit(botId: string, instruction: string): TaskRecord {
-    return this.engine.submit(botId, instruction);
+  /**
+   * Starts a task. With a project, the task is linked to it before it can start running (the engine starts queued work on a later tick),
+   * so its very first model call already gets the project's shared workspace.
+   */
+  submit(botId: string, instruction: string, projectId?: string, opts: { saveToWorkspace?: boolean } = {}): TaskRecord {
+    if (projectId) {
+      if (!this.projects) throw new AppError(400, "projects_unavailable", "Projects are not available here.");
+      const p = this.projects.get(projectId);
+      if (p.archived) throw new AppError(409, "project_archived", "That project is archived. Unarchive it first.");
+    }
+    const task = this.engine.submit(botId, instruction);
+    if (projectId) {
+      this.projects!.link(projectId, "task", task.id);
+      // In a project the agent must save its result to the workspace unless the owner said otherwise (a task that saves nothing is then not finished).
+      this.expectSave?.(task.id, opts.saveToWorkspace ?? true);
+    }
+    return task;
   }
 
   cancel(taskId: string): TaskRecord {

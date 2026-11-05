@@ -1,0 +1,370 @@
+{
+  "budgets": {
+    "groq": 12,
+    "google": 8,
+    "geminiModel": "gemini-flash-lite-latest"
+  },
+  "steps": [
+    {
+      "step": "Gemini verification",
+      "ref": "gemini/gemini-flash-lite-latest",
+      "status": 200,
+      "results": [
+        {
+          "test": "connectivity",
+          "label": "Connectivity",
+          "result": "not_run",
+          "detail": "Stopped: temporary (The provider had a problem (HTTP 503). (This model is currently experiencing high demand. Spikes in demand are usually t)",
+          "latencyMs": null
+        },
+        {
+          "test": "instruction",
+          "label": "Follows a simple instruction",
+          "result": "not_run",
+          "detail": "Stopped: temporary (The provider had a problem (HTTP 503). (This model is currently experiencing high demand. Spikes in demand are usually t)",
+          "latencyMs": null
+        },
+        {
+          "test": "json_output",
+          "label": "Structured JSON output",
+          "result": "not_run",
+          "detail": "Stopped: temporary (The provider had a problem (HTTP 503). (This model is currently experiencing high demand. Spikes in demand are usually t)",
+          "latencyMs": null
+        },
+        {
+          "test": "identity_instruction",
+          "label": "Keeps its identity and the owner's rule (system instructions)",
+          "result": "not_run",
+          "detail": "Stopped: temporary (The provider had a problem (HTTP 503). (This model is currently experiencing high demand. Spikes in demand are usually t)",
+          "latencyMs": null
+        }
+      ]
+    },
+    {
+      "step": "routing order",
+      "order": [
+        "groq/qwen/qwen3.8-27b",
+        "groq/openai/gpt-oss-120b"
+      ]
+    },
+    {
+      "step": "A1 Researcher",
+      "status": "completed",
+      "error": null,
+      "answeredBy": [
+        "groq/qwen/qwen3.8-27b"
+      ],
+      "result": "I can answer this from general knowledge, but I have no web access, so every figure below is an estimate or a well-known range, not a verified current figure. I will publish them as **assumptions** (or a \"finding\" with the source named as \"my own knowledge, unverified\"), never as \"fact\", because I cannot cite a live, checkable source right now.\n\nKey caveats up front:\n- Dubai food & beverage (F&B) licence fees and rent move with market conditions, free-zone vs. mainland choice (Dubai Marina is mainland, so you need a mainland DED trade licence plus DTCM/food authority approval), and the exact size/location of the unit.\n- \"How busy\" is qualitative; I can describe foot-traffic patterns but I do not have a measured pedestrian-count figure for Marina Walk from a citable source in this chat.\n\nWhat I will publish:\n\n1. Mainland F&B trade licence (DED) yearly cost – estimate.\n2. Yearly rent for a small café unit in Dubai Marina – estimate range.\n3. Busyness of Dubai Marina – qualitative finding.\n\n```workspace\n{\"kind\": \"assumption\", \"title\": \"Mainland F&B trade licence (DED) annual cost, Dubai\", \"text\": \"A single-activity mainland Food & Beverage trade licence issued by the Dubai Economy (DED) for a small café typically falls in the range of roughly AED 15,000–25,000 per year for the licence fee itself, BEFORE additional costs such as DTCM/food-safety approval, name reservation, establishment card, visa quotas, and notary/PRO fees. Total first-year setup for a small mainland café is co",
+      "entries": [
+        {
+          "kind": "finding",
+          "title": "Busyness / foot traffic in Dubai Marina",
+          "text": "Dubai Marina is one of Dubai's highest-traffic mixed-use districts. Marina Walk is a pedestrian promenade lined with retail and F&B, with heavy daytime and evening foot traffic from residents of the ~10,000+ residential towers, office workers in the Marina business towers, and tourists/cruise passengers. Weekends and evenings are peak; the area is busy year-round, with additional spikes during Ramadan (iftar/dinner) and holiday periods. There is no single official pedestrian-count figure available to me in this session, so treat 'very busy, high-density residential + tourist + office catchment' as a qualitative assessment rather than a measured number. For a specialty café, the catchment is strong for both walk-in traffic and delivery/app orders from residents and nearby offices.",
+          "source": "Researcher P44 qualitative assessment from general knowledge; no measured foot-traffic dataset cited",
+          "platformNote": null
+        },
+        {
+          "kind": "assumption",
+          "title": "Yearly rent for a small café unit in Dubai Marina",
+          "text": "A small ground-floor or low-floor retail/F&B unit in Dubai Marina (roughly 350–600 sq ft / 32–55 m²) typically rents in the range of AED 30,000–70,000 per year in recent market conditions, with prime Marina Walk-facing units at the higher end and interior/mall-adjacent units at the lower end. Rent is usually paid in cheques (commonly 1–4 per year). These are estimates from general market knowledge; actual asking rents vary widely by exact location, fit-out state, and negotiation. Verify against current listings (e.g., Bayut, Property Finder, or a local broker) before committing.",
+          "source": "Researcher P44 general knowledge, unverified estimate as of 2024-2025",
+          "platformNote": null
+        },
+        {
+          "kind": "assumption",
+          "title": "Mainland F&B trade licence (DED) annual cost, Dubai",
+          "text": "A single-activity mainland Food & Beverage trade licence issued by the Dubai Economy (DED) for a small café typically falls in the range of roughly AED 15,000–25,000 per year for the licence fee itself, BEFORE additional costs such as DTCM/food-safety approval, name reservation, establishment card, visa quotas, and notary/PRO fees. Total first-year setup for a small mainland café is commonly quoted in the AED 25,000–50,000+ range depending on visas and approvals. These are estimates from general market knowledge, not a verified current DED tariff; confirm with DED or a licensed PRO before budgeting.",
+          "source": "Researcher P44 general knowledge, unverified estimate as of 2024-2025",
+          "platformNote": null
+        }
+      ]
+    },
+    {
+      "step": "A2 Analyst",
+      "status": "completed",
+      "error": null,
+      "answeredBy": [
+        "groq/openai/gpt-oss-120b",
+        "groq/openai/gpt-oss-120b"
+      ],
+      "result": "**Yearly Fixed‑Cost Estimate (Licence + Rent)**  \n\n| Item     | AED per year (estimate) |\n|----------|------------------------|\n| Trade licence (DED) | 20,000 |\n| Rent (small 350‑600 sq ft unit) | 50,000 |\n| **Total** | **70,000** |\n\n**Explanation & Assumptions**  \n- The licence cost is taken as the midpoint of the AED 15,000 – 25,000 range reported in the workspace (W‑5de1c9c1).  \n- The rent figure is the midpoint of the AED 30,000 – 70,000 range reported in the workspace (W‑4094db03).  \n- These are **assumptions**, not verified facts; actual amounts may differ based on exact location (prime Marina Walk‑facing vs. interior), unit size, lease terms, and any additional regulatory fees (e.g., DTCM approvals, visa quotas).  \n- It is prudent to add a budgeting cushion of about 15‑20 % (≈ AED 10,500‑14,000) to cover possible variations.\n\n**Next Steps for the Owner**  \n1. Review the estimate and decide whether to proceed with a more detailed cost verification (e.g., contacting a local broker for current rent listings, checking the latest DED tariff).  \n2. Use the attached CSV file (once approved) for budgeting and financial modelling.  \n\n**CSV File**  \nA request to create **marina-costs.csv** (columns *Item* and *AED per year*) has been sent for the owner’s approval. The file has **not** been created yet and will be generated once the approval is granted.\n\n**Hand‑over to Writer P44**  \nWriter P44, please prepare the owner’s brief that incorporates the above recommendation, explains",
+      "approvals": [
+        {
+          "action": "documents.create_spreadsheet",
+          "path": "marina-costs.csv",
+          "approved": true,
+          "status": "executed",
+          "error": null
+        }
+      ],
+      "entries": [
+        {
+          "kind": "handover",
+          "title": "Prepare owner’s brief on fixed‑cost estimate",
+          "text": "Writer P44, please draft the owner’s brief that summarises the yearly fixed‑cost estimate (licence + rent) for a small café in Dubai Marina, using the CSV file created below and the recommendation above. Include a short explanation of the assumptions and a note on the recommended budgeting cushion.",
+          "forName": "Writer P44"
+        },
+        {
+          "kind": "recommendation",
+          "title": "Yearly fixed‑cost estimate for a small café in Dubai Marina",
+          "text": "Based on the available assumptions in the project workspace, a typical small café (≈350‑600 sq ft) in Dubai Marina can expect the following annual fixed costs:\n\n- **Trade licence (DED)**: AED 20,000 per year (mid‑point of the AED 15‑000 – 25 000 range).\n- **Rent**: AED 50,000 per year (mid‑point of the AED 30‑000 – 70 000 range).\n\n**Total estimated fixed cost**: **AED 70,000 per year**.\n\nThese figures are rough estimates derived from unverified market knowledge; actual costs may vary depending on exact unit size, location (prime Marina Walk‑facing vs. interior), lease terms, and any additional licence‑related fees (e.g., DTCM approvals, visa quotas). It is advisable to budget a cushion of at least 15‑20 % above the estimate to accommodate possible variations.",
+          "forName": null
+        }
+      ]
+    },
+    {
+      "step": "C recovery",
+      "status": "failed",
+      "answeredBy": [
+        null
+      ]
+    },
+    {
+      "step": "D after restart",
+      "status": "completed",
+      "answeredBy": [
+        "groq/qwen/qwen3.8-27b"
+      ],
+      "result": "Yearly fixed cost: AED 70,000 (licence AED 20,000 + rent AED 50,000, per W-6a8c21f7)\nRecommendation: Budget AED 70,000/year as a baseline fixed-cost figure, add a 10–15% cushion (≈AED 7,000–10,500) to cover DTCM/food-safety, name reservation, PRO/notary and rent-escalation variability, and verify all figures against current DED tariffs and live Marina listings before committing (per W-6a8c21f7, built on W-4094db03 and W-5de1c9c1)"
+    }
+  ],
+  "note": "Real providers. Groq's unavailability in step B is INJECTED (its daily cap in the scratch copy is set to the count reached), not a real outage.",
+  "before": {
+    "groq": 15,
+    "google": 18
+  },
+  "workspace": {
+    "entries": [
+      {
+        "id": "c32ace7e-81d9-44c8-9795-3016488249da",
+        "ref": "W-c32ace7e",
+        "kind": "handover",
+        "title": "Prepare owner’s brief on fixed‑cost estimate",
+        "text": "Writer P44, please draft the owner’s brief that summarises the yearly fixed‑cost estimate (licence + rent) for a small café in Dubai Marina, using the CSV file created below and the recommendation above. Include a short explanation of the assumptions and a note on the recommended budgeting cushion.",
+        "source": "Current task",
+        "authorBotId": "44ea7cf8-2553-49c2-a44f-6817b49d7ec6",
+        "authorName": "Analyst P44",
+        "taskId": "763cf75e-c1b8-4102-92ec-74643e3f4a3b",
+        "forBotId": "8ad6fb21-b5d5-4bf1-b8ed-b45c71e6c4e3",
+        "forName": "Writer P44",
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "createdAt": "2026-11-05T14:09:38.965Z"
+      },
+      {
+        "id": "6a8c21f7-10d5-4c0b-94a4-a32b3483f5fc",
+        "ref": "W-6a8c21f7",
+        "kind": "recommendation",
+        "title": "Yearly fixed‑cost estimate for a small café in Dubai Marina",
+        "text": "Based on the available assumptions in the project workspace, a typical small café (≈350‑600 sq ft) in Dubai Marina can expect the following annual fixed costs:\n\n- **Trade licence (DED)**: AED 20,000 per year (mid‑point of the AED 15‑000 – 25 000 range).\n- **Rent**: AED 50,000 per year (mid‑point of the AED 30‑000 – 70 000 range).\n\n**Total estimated fixed cost**: **AED 70,000 per year**.\n\nThese figures are rough estimates derived from unverified market knowledge; actual costs may vary depending on exact unit size, location (prime Marina Walk‑facing vs. interior), lease terms, and any additional licence‑related fees (e.g., DTCM approvals, visa quotas). It is advisable to budget a cushion of at least 15‑20 % above the estimate to accommodate possible variations.",
+        "source": "W-4094db03, W-5de1c9c1 (assumptions from Researcher P44)",
+        "authorBotId": "44ea7cf8-2553-49c2-a44f-6817b49d7ec6",
+        "authorName": "Analyst P44",
+        "taskId": "763cf75e-c1b8-4102-92ec-74643e3f4a3b",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "createdAt": "2026-11-05T14:09:38.960Z"
+      },
+      {
+        "id": "97a60b93-c4b0-4929-acf2-bbe82dd137e8",
+        "ref": "W-97a60b93",
+        "kind": "finding",
+        "title": "Busyness / foot traffic in Dubai Marina",
+        "text": "Dubai Marina is one of Dubai's highest-traffic mixed-use districts. Marina Walk is a pedestrian promenade lined with retail and F&B, with heavy daytime and evening foot traffic from residents of the ~10,000+ residential towers, office workers in the Marina business towers, and tourists/cruise passengers. Weekends and evenings are peak; the area is busy year-round, with additional spikes during Ramadan (iftar/dinner) and holiday periods. There is no single official pedestrian-count figure available to me in this session, so treat 'very busy, high-density residential + tourist + office catchment' as a qualitative assessment rather than a measured number. For a specialty café, the catchment is strong for both walk-in traffic and delivery/app orders from residents and nearby offices.",
+        "source": "Researcher P44 qualitative assessment from general knowledge; no measured foot-traffic dataset cited",
+        "authorBotId": "e20ecd90-96f7-409e-97f9-35f8e8978dd2",
+        "authorName": "Researcher P44",
+        "taskId": "dbd156e7-ddb0-4667-9254-8a744760db65",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "createdAt": "2026-11-05T14:09:34.222Z"
+      },
+      {
+        "id": "4094db03-fe10-4175-8cf9-a637df09344c",
+        "ref": "W-4094db03",
+        "kind": "assumption",
+        "title": "Yearly rent for a small café unit in Dubai Marina",
+        "text": "A small ground-floor or low-floor retail/F&B unit in Dubai Marina (roughly 350–600 sq ft / 32–55 m²) typically rents in the range of AED 30,000–70,000 per year in recent market conditions, with prime Marina Walk-facing units at the higher end and interior/mall-adjacent units at the lower end. Rent is usually paid in cheques (commonly 1–4 per year). These are estimates from general market knowledge; actual asking rents vary widely by exact location, fit-out state, and negotiation. Verify against current listings (e.g., Bayut, Property Finder, or a local broker) before committing.",
+        "source": "Researcher P44 general knowledge, unverified estimate as of 2024-2025",
+        "authorBotId": "e20ecd90-96f7-409e-97f9-35f8e8978dd2",
+        "authorName": "Researcher P44",
+        "taskId": "dbd156e7-ddb0-4667-9254-8a744760db65",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "createdAt": "2026-11-05T14:09:34.213Z"
+      },
+      {
+        "id": "5de1c9c1-d358-41aa-99f8-b45e61d047a7",
+        "ref": "W-5de1c9c1",
+        "kind": "assumption",
+        "title": "Mainland F&B trade licence (DED) annual cost, Dubai",
+        "text": "A single-activity mainland Food & Beverage trade licence issued by the Dubai Economy (DED) for a small café typically falls in the range of roughly AED 15,000–25,000 per year for the licence fee itself, BEFORE additional costs such as DTCM/food-safety approval, name reservation, establishment card, visa quotas, and notary/PRO fees. Total first-year setup for a small mainland café is commonly quoted in the AED 25,000–50,000+ range depending on visas and approvals. These are estimates from general market knowledge, not a verified current DED tariff; confirm with DED or a licensed PRO before budgeting.",
+        "source": "Researcher P44 general knowledge, unverified estimate as of 2024-2025",
+        "authorBotId": "e20ecd90-96f7-409e-97f9-35f8e8978dd2",
+        "authorName": "Researcher P44",
+        "taskId": "dbd156e7-ddb0-4667-9254-8a744760db65",
+        "forBotId": null,
+        "forName": null,
+        "replaces": null,
+        "replacedBy": null,
+        "checkedByOwner": false,
+        "withdrawn": false,
+        "platformNote": null,
+        "createdAt": "2026-11-05T14:09:34.203Z"
+      }
+    ],
+    "files": [
+      {
+        "approvalId": "7f006ff1-23d7-4fdc-86de-17ac2c547ae1",
+        "path": "marina-costs.csv",
+        "action": "documents.create_spreadsheet",
+        "status": "created",
+        "ownerBotId": "44ea7cf8-2553-49c2-a44f-6817b49d7ec6",
+        "ownerName": "Analyst P44",
+        "taskId": "763cf75e-c1b8-4102-92ec-74643e3f4a3b",
+        "at": "2026-11-05T14:09:39.382Z"
+      }
+    ],
+    "contributions": [
+      {
+        "botId": "44ea7cf8-2553-49c2-a44f-6817b49d7ec6",
+        "name": "Analyst P44",
+        "entries": 2,
+        "byKind": {
+          "handover": 1,
+          "recommendation": 1
+        },
+        "files": 1,
+        "tasksCompleted": 2,
+        "lastAt": "2026-11-05T14:09:43.296Z"
+      },
+      {
+        "botId": "e20ecd90-96f7-409e-97f9-35f8e8978dd2",
+        "name": "Researcher P44",
+        "entries": 3,
+        "byKind": {
+          "finding": 1,
+          "assumption": 2
+        },
+        "files": 0,
+        "tasksCompleted": 1,
+        "lastAt": "2026-11-05T14:09:34.222Z"
+      }
+    ]
+  },
+  "used": {
+    "groq": 6,
+    "google": 1
+  },
+  "results": [
+    {
+      "name": "scratch copy started",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Gemini model gemini-flash-lite-latest verified by real core tests",
+      "ok": false,
+      "detail": "[\"connectivity:not_run\",\"instruction:not_run\",\"json_output:not_run\",\"identity_instruction:not_run\"]"
+    },
+    {
+      "name": "routing prefers verified Groq models",
+      "ok": true,
+      "detail": "groq/qwen/qwen3.8-27b > groq/openai/gpt-oss-120b"
+    },
+    {
+      "name": "PC workspace = scratch folder",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "folder grant for the scratch folder only",
+      "ok": true,
+      "detail": "200"
+    },
+    {
+      "name": "A1: Researcher finished on Groq",
+      "ok": true,
+      "detail": "groq/qwen/qwen3.8-27b"
+    },
+    {
+      "name": "A1: Researcher published to the workspace",
+      "ok": true,
+      "detail": "3 entries: finding,assumption,assumption"
+    },
+    {
+      "name": "A1: every published 'fact' carries a source (others are labelled assumption/finding)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A2: Analyst finished on Groq",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A2: the CSV was requested, approved and created in the granted folder",
+      "ok": true,
+      "detail": "[{\"action\":\"documents.create_spreadsheet\",\"path\":\"marina-costs.csv\",\"approved\":true,\"status\":\"executed\",\"error\":null}]"
+    },
+    {
+      "name": "A2: Analyst published a recommendation and a handover for the Writer",
+      "ok": true,
+      "detail": "handover->Writer P44,recommendation"
+    },
+    {
+      "name": "B: Groq -> Gemini switch NOT RUN (no Gemini model passed verification)",
+      "ok": false,
+      "detail": "see the Gemini verification step"
+    },
+    {
+      "name": "C: after Groq is back, the next task runs on Groq",
+      "ok": false,
+      "detail": ""
+    },
+    {
+      "name": "D: app restarted on the same scratch copy",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D: workspace identical after the restart",
+      "ok": true,
+      "detail": "5 entries, 1 files"
+    },
+    {
+      "name": "D: a task after the restart used the workspace (numbers from it)",
+      "ok": true,
+      "detail": "Yearly fixed cost: AED 70,000 (licence AED 20,000 + rent AED 50,000, per W-6a8c21f7)\nRecommendation: Budget AED 70,000/year as a baseline fixed-cost figure, add a 10–15% cushion (≈AED 7,000–10,500) to"
+    },
+    {
+      "name": "E: dashboard showed all five workspace tabs with the real data (screenshots saved)",
+      "ok": true,
+      "detail": "C:\\Users\\carlou\\Desktop\\ai bot\\docs\\evidence\\real-workspace"
+    },
+    {
+      "name": "real requests within the approved budgets (Groq 12, Google 8)",
+      "ok": true,
+      "detail": "{\"groq\":6,\"google\":1}"
+    }
+  ],
+  "finishedAt": "2026-11-05T14:09:47.674Z"
+}
