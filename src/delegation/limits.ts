@@ -15,6 +15,11 @@ export const DEFAULT_DELEGATION_LIMITS = {
   maxLlmCallsPerChain: 8,
   /** Longest instruction, in characters. */
   maxInstructionChars: 4000,
+  /**
+   * How many independent chains (separately started tasks) may run at the same time. 1 = one after another, as before. Work INSIDE one chain stays in order.
+   * Never more than the model service allows at once ("simultaneous cloud requests" minus one, which keeps a slot free for chat).
+   */
+  maxParallelChains: 1,
 } as const;
 
 export type DelegationLimits = { [K in keyof typeof DEFAULT_DELEGATION_LIMITS]: number };
@@ -27,6 +32,7 @@ export const delegationLimitsUpdateSchema = z
     maxTasksPerChain: z.number().int().min(1).max(15),
     maxLlmCallsPerChain: z.number().int().min(1).max(30),
     maxInstructionChars: z.number().int().min(50).max(20_000),
+    maxParallelChains: z.number().int().min(1).max(6),
   })
   .partial();
 

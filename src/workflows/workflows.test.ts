@@ -9,6 +9,7 @@ import type { CompletionRequest, CompletionResult } from "../llm/types.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { evaluateCondition, renderTemplate, validateGraph, type Graph } from "./graph.js";
 import { WORKFLOW_LIMITS, WorkflowService } from "./service.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fence = "```";
@@ -39,8 +40,8 @@ beforeEach(async () => {
   t = await createTestApp({ connectors: [telegram as any] });
   ref = await setupGeminiModel(t);
   await t.call("PUT", "/api/llm/limits", { botRequestsPerMinute: 1000 });
-  botA = (await t.call("POST", "/api/bots", { name: "Alpha", model: ref })).body.bot.id;
-  botB = (await t.call("POST", "/api/bots", { name: "Beta", model: ref })).body.bot.id;
+  botA = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Alpha", model: ref }))).body.bot.id;
+  botB = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Beta", model: ref }))).body.bot.id;
   respond = () => null;
   const original = t.provider.complete.bind(t.provider);
   t.provider.complete = async (req) => {

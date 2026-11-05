@@ -89,12 +89,38 @@ describe("editing and version history", () => {
     expect((await call("GET", `/api/bots/${bot.id}/versions`)).body.versions).toHaveLength(1);
   });
 
-  it("refuses to activate a bot in Phase 1", async () => {
+  // The Phase 1 lock ("Bots cannot be activated yet") was replaced on 2026-11-04: a bot can be switched on once it has a model,
+  // and only a switched-on bot runs (tests in chat.test.ts and delegation.test.ts).
+  it("switching a bot on needs a model first; nothing else changes", async () => {
     const bot = await createBot();
-    const res = await call("PATCH", `/api/bots/${bot.id}`, { status: "active" });
-    expect(res.status).toBe(409);
-    expect(res.body.error).toBe("activation_not_available");
+    const refused = await call("PATCH", `/api/bots/${bot.id}`, { status: "active" });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toBe("model_required");
     expect((await call("GET", `/api/bots/${bot.id}`)).body.bot.status).toBe("disabled");
+
+    const on = await call("PATCH", `/api/bots/${bot.id}`, { model: "auto/general", status: "active" });
+    expect(on.status).toBe(200);
+    expect(on.body.bot.status).toBe("active");
+    // switching on grants nothing: every permission stays exactly as it was (OFF, approval-only)
+    for (const p of on.body.bot.permissions) {
+      expect(p.readEnabled).toBe(false);
+      expect(p.writePolicy).toBe("approval_required");
+    }
+  });
+
+  it("removing the model of a switched-on bot switches it off; archiving switches it off too", async () => {
+    const bot = await createBot({ model: "auto/general" });
+    expect((await call("PATCH", `/api/bots/${bot.id}`, { status: "active" })).body.bot.status).toBe("active");
+    expect((await call("PATCH", `/api/bots/${bot.id}`, { model: null })).body.bot.status).toBe("disabled");
+    await call("PATCH", `/api/bots/${bot.id}`, { model: "auto/general", status: "active" });
+    await call("DELETE", `/api/bots/${bot.id}`);
+    expect((await call("GET", `/api/bots/${bot.id}`)).body.bot).toMatchObject({ archived: true, status: "disabled" });
+  });
+
+  it("a duplicate starts switched off, even when the original is on", async () => {
+    const bot = await createBot({ model: "auto/general" });
+    await call("PATCH", `/api/bots/${bot.id}`, { status: "active" });
+    expect((await call("POST", `/api/bots/${bot.id}/duplicate`)).body.bot.status).toBe("disabled");
   });
 
   it("restore creates a NEW version and never touches permissions", async () => {
@@ -260,7 +286,8 @@ describe("request protection", () => {
   });
 
   it("only gives CORS approval to the dashboard origin", async () => {
-    const withDashboard = await buildApp({ dbPath: ":memory:", dashboardOrigins: ["http://localhost:5173"] });
+    const withDashboard = await buildApp({ dbPath: ":memory:",
+    verification: "off", dashboardOrigins: ["http://localhost:5173"] });
     try {
       const good = await withDashboard.inject({
         method: "OPTIONS",
@@ -335,6 +362,6 @@ describe("database-level safety rules (cannot be broken even by buggy code)", ()
   it("applies migrations only once", () => {
     const { db } = seed();
     const rows = db.prepare("SELECT version FROM schema_migrations ORDER BY version").all();
-    expect(rows.map((r) => r["version"])).toEqual(["001_init.sql", "002_llm.sql", "003_chat.sql", "004_delegation.sql", "005_automation.sql", "006_approvals_vault.sql", "007_devices.sql", "008_owner_free_models.sql", "009_inbound.sql", "010_push.sql", "011_manager.sql", "012_skills_tools.sql", "013_pc_agent.sql", "014_workflows.sql", "015_integrations.sql", "016_memory.sql", "017_groups.sql"]);
+    expect(rows.map((r) => r["version"])).toEqual(["001_init.sql", "002_llm.sql", "003_chat.sql", "004_delegation.sql", "005_automation.sql", "006_approvals_vault.sql", "007_devices.sql", "008_owner_free_models.sql", "009_inbound.sql", "010_push.sql", "011_manager.sql", "012_skills_tools.sql", "013_pc_agent.sql", "014_workflows.sql", "015_integrations.sql", "016_memory.sql", "017_groups.sql", "018_inbox.sql", "019_decisions.sql"]);
   });
 });

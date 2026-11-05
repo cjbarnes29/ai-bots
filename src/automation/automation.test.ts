@@ -4,6 +4,7 @@ import { LlmError } from "../llm/errors.js";
 import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { AutomationScheduler } from "./scheduler.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const MIN = 60_000;
@@ -19,7 +20,7 @@ afterEach(async () => {
 });
 
 const reply = (text: string) => ({ ...OK_RESULT, text, inputTokens: 10, outputTokens: 5 });
-const mkBot = async (name: string, extra: Record<string, unknown> = {}) => (await t.call("POST", "/api/bots", { name, model: ref, ...extra })).body.bot as any;
+const mkBot = async (name: string, extra: Record<string, unknown> = {}) => (await switchOn(t.call, await t.call("POST", "/api/bots", { name, model: ref, ...extra }))).body.bot as any;
 const FINAL = ["completed", "failed", "cancelled"];
 /** Waits until every task has finished. */
 async function settle() {
@@ -177,7 +178,7 @@ describe("switching schedules on and off, and editing them", () => {
   });
 
   it("a bot that cannot take tasks blocks switching on, with the reason", async () => {
-    const noModel = (await t.call("POST", "/api/bots", { name: "NoModel" })).body.bot;
+    const noModel = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "NoModel" }))).body.bot;
     const s = await makeSchedule(noModel.id);
     const res = await enableSchedule(s.id);
     expect(res.status).toBe(409);
@@ -622,7 +623,7 @@ describe("triggers: setting them up", () => {
   });
 
   it("switching on needs a bot that can take tasks; editing and deleting work", async () => {
-    const noModel = (await t.call("POST", "/api/bots", { name: "NoModel" })).body.bot;
+    const noModel = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "NoModel" }))).body.bot;
     const trig = await makeTrigger(noModel.id);
     expect((await t.call("PATCH", `/api/triggers/${trig.id}`, { enabled: true })).body.error).toBe("bot_not_ready");
 

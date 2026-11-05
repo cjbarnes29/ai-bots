@@ -12,12 +12,24 @@ import {
   type LimitsUpdate,
 } from "./limits.js";
 import { FREE_ONLY_MODE, checkCallable } from "./policy.js";
+import { classifyFailure, type ModelRegistry } from "./registry.js";
 import { parseAutoRef } from "../routing/config.js";
 import type { ModelRouter } from "../routing/router.js";
 import type { LlmRepository, ProviderRow } from "./repository.js";
 import { CircuitBreaker, Semaphore } from "./resilience.js";
 import { estimateMessagesTokens, estimateTokens, type ChatMessage, type CompletionResult, type ProviderPlugin } from "./types.js";
 import type { UsageRepository } from "./usage.js";
+
+/**
+ * The form a reply must have, checked by our own code. A task that needs structured output (a plan, options, a bot draft) passes one.
+ * `check` returns null when the reply is usable, or a short plain-words problem. With an automatic model choice a reply that breaks the contract counts
+ * as a failed attempt and the next eligible model is tried; with an explicit model the call fails with a clear "bad_output" error. A broken reply is
+ * never handed on as if it were good.
+ */
+export interface OutputContract {
+  name: string;
+  check(text: string): string | null;
+}
 
 export interface CompleteInput {
   botId: string | null;
@@ -28,6 +40,14 @@ export interface CompleteInput {
   temperature: number;
   /** Null = use the platform default. Always capped at 4,096. */
   maxOutputTokens: number | null;
+  /** Automatic routing only: capabilities the chosen model must have (see routing/capabilities.ts). Unknown counts as not met. */
+  require?: import("../routing/capabilities.js").Capability[];
+  /** The form the reply must have (see OutputContract). Absent = any text is fine. */
+  contract?: OutputContract;
+  /** Set only by the model evaluation process: lets ONE call reach a model the registry marks retired, to find out whether it is back. Every other check still applies. */
+  verification?: boolean;
+  /** Overrides how instructions are sent (see CompletionRequest). Used by the model evaluation; otherwise the registry's tested knowledge decides. */
+  instructionRole?: "native" | "folded";
 }
 
 export interface CompleteOutput {
@@ -49,6 +69,16 @@ export interface LlmServiceOptions {
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
 }
+
+/** Seconds until the next midnight in Pacific time, when Google resets its daily free quotas (at least one minute). */
+export function msUntilPacificMidnight(nowMs: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", minute: "numeric", second: "numeric", hourCycle: "h23" }).formatToParts(new Date(nowMs));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return Math.max(60_000, (86_400 - (get("hour") * 3600 + get("minute") * 60 + get("second"))) * 1000);
+}
+
+/** How long a model rests after hitting its free-tier limit, when the provider did not say: 1 min, then 5, 15 and finally 60 minutes if it keeps happening. */
+const REST_LADDER_MS = [60_000, 300_000, 900_000, 3_600_000];
 
 const LIMITS_KEY = "limits";
 const PAUSED_KEY = "paused";
@@ -137,6 +167,12 @@ export class LlmService {
 
   private router: ModelRouter | null = null;
 
+  private registry: ModelRegistry | null = null;
+  /** Connects the model registry: confirmed retirements stop being called, and failures are counted by category. */
+  setRegistry(registry: ModelRegistry): void {
+    this.registry = registry;
+  }
+
   /** Connects the automatic model router (Stage 1). */
   setRouter(router: ModelRouter): void {
     this.router = router;
@@ -147,13 +183,54 @@ export class LlmService {
     return this.breakers.get(providerId)?.blockedForMs() ?? 0;
   }
 
+  // ---- models resting after a rate limit ----
+  // Free-tier quotas belong to ONE model, so a rate limit rests that model only (in memory: cleared by a restart or by a successful call).
+  // It is never counted toward the provider-wide circuit breaker, so a model that is out of quota cannot take its healthy siblings down with it.
+  private readonly resting = new Map<string, { until: number; strikes: number }>();
+
+  /** Milliseconds this model must still rest (0 = it may be tried). */
+  modelCooldownMs(ref: string): number {
+    const c = this.resting.get(ref);
+    return c ? Math.max(0, c.until - this.now()) : 0;
+  }
+
+  /** Models resting now, for the dashboard. */
+  modelCooldowns(): { ref: string; secondsLeft: number }[] {
+    return [...this.resting.keys()].map((ref) => ({ ref, secondsLeft: Math.ceil(this.modelCooldownMs(ref) / 1000) })).filter((c) => c.secondsLeft > 0);
+  }
+
+  private restModel(ref: string, err: LlmError): void {
+    const strikes = (this.resting.get(ref)?.strikes ?? 0) + 1;
+    let ms: number;
+    if (err.quota) ms = msUntilPacificMidnight(this.now());
+    else if (err.retryAfterMs !== undefined) ms = Math.min(3_600_000, Math.max(1000, err.retryAfterMs));
+    else ms = REST_LADDER_MS[Math.min(strikes, REST_LADDER_MS.length) - 1]!;
+    this.resting.set(ref, { until: this.now() + ms, strikes });
+  }
+
+  private botGate: ((botId: string) => LlmError | null) | null = null;
+
+  /** Connects the bot on/off check: a call made for a bot that is not switched on is refused before anything is sent. */
+  setBotGate(gate: (botId: string) => LlmError | null): void {
+    this.botGate = gate;
+  }
+
   /** The one entry point. "auto/..." choices are routed to an explicit model; everything else is a direct, fully checked call. */
   async complete(input: CompleteInput): Promise<CompleteOutput> {
+    // Every way a bot runs (chat, tasks, teammates, workflows, schedules, the Manager's specialists, inbound messages) reaches a model
+    // through here, so this is the one place where "switched off" really means off.
+    if (input.botId && this.botGate) {
+      const refused = this.botGate(input.botId);
+      if (refused) throw refused;
+    }
     if (parseAutoRef(input.modelRef)) {
       if (!this.router) throw new LlmError("model_unavailable", "Automatic model routing is not available.");
       return this.router.complete(input);
     }
-    return this.completeDirect(input);
+    const out = await this.completeDirect(input);
+    const broken = input.contract?.check(out.text) ?? null;
+    if (broken) throw new LlmError("bad_output", `The model ${out.providerId}/${out.modelId} did not answer in the required form (${input.contract!.name}): ${broken}`);
+    return out;
   }
 
   /** One call to ONE explicit model: pause switch, free-only policy, size, breaker, limits, concurrency, record. */
@@ -181,6 +258,9 @@ export class LlmService {
 
     const policy = checkCallable(provider, plugin, model);
     if (policy) refuse(new LlmError(policy.code, policy.message));
+    // A model the provider has confirmed as retired is not asked again: the answer would be the same and would only use up allowance.
+    const retiredNow = input.verification ? null : this.registry?.retiredInfo(`${provider.id}/${model.modelId}`) ?? null;
+    if (retiredNow) refuse(new LlmError("model_unavailable", `${model.modelId} is retired: ${retiredNow.reason} No request was sent. Choose another model, or refresh the models and verify it again.`));
 
     const estimatedInput = estimateMessagesTokens(input.messages);
     if (estimatedInput > limits.maxPromptTokens) {
@@ -202,6 +282,12 @@ export class LlmService {
     const maxSlots = cloud ? limits.maxConcurrentCloud : limits.maxConcurrentLocal;
     const maxAttempts = limits.retries + 1;
     const client = this.factory(provider, plugin);
+    const ref = `${provider.id}/${model.modelId}`;
+    const rest = this.modelCooldownMs(ref);
+    if (rest > 0) {
+      // Asking again now would only waste a request against a limit we already know about.
+      refuse(new LlmError("rate_limited", `${model.modelId} hit its free-tier limit and is resting for about ${Math.ceil(rest / 1000)} more seconds. No request was sent.`, { retryAfterMs: rest }));
+    }
 
     for (let attempt = 1; ; attempt++) {
       // Checked again on every attempt: a retry is another request and counts as one.
@@ -235,6 +321,7 @@ export class LlmService {
           temperature: input.temperature,
           maxOutputTokens: maxOutput,
           timeoutMs: limits.timeoutMs,
+          ...((input.instructionRole ?? this.registry?.get(ref)?.instructionRole) ? { instructionRole: (input.instructionRole ?? this.registry?.get(ref)?.instructionRole)! } : {}),
         });
       } catch (err) {
         slots.release();
@@ -242,8 +329,26 @@ export class LlmService {
         const error =
           err instanceof LlmError ? err : new LlmError("bad_response", "The provider call failed unexpectedly.");
         this.record(base, { status: "error", errorCode: error.llmCode, latencyMs: latency });
-        breaker.recordFailure(limits.breakerFailures, limits.breakerOpenMs);
-        if (error.retryable && attempt < maxAttempts) {
+        if (this.registry) {
+          const refKey = `${provider.id}/${model.modelId}`;
+          this.registry.noteFailure(refKey, classifyFailure(error));
+          if (error.retired) this.registry.markRetired(refKey, error.message);
+        }
+        // A rate limit is retried only when the provider itself said to wait a few seconds, and never when it is a used-up quota.
+        const worthRetry = error.llmCode !== "rate_limited" || (!error.quota && error.retryAfterMs !== undefined && error.retryAfterMs <= 5000);
+        const retry = error.retryable && worthRetry && attempt < maxAttempts;
+        if (error.llmCode === "rate_limited") {
+          // A model-level problem: rest THIS model; the provider's breaker and shown status are left alone.
+          if (!retry) this.restModel(ref, error);
+        } else if (error.llmCode === "bad_output" || error.retired || error.llmCode === "model_not_found") {
+          // A problem with this ONE model's answer or existence, not with the provider: the provider's breaker and shown status are left alone.
+        } else {
+          breaker.recordFailure(limits.breakerFailures, limits.breakerOpenMs);
+          // A real call failing at the provider level (key, reachability, outage) also changes the provider's shown status,
+          // so the dashboard never keeps saying "Connected" after it stopped working.
+          this.catalog.noteCallOutcome(provider.id, error);
+        }
+        if (retry) {
           const delay = Math.min(limits.retryDelayMaxMs, Math.max(limits.retryDelayMs, error.retryAfterMs ?? 0));
           await this.sleep(delay);
           continue;
@@ -282,6 +387,7 @@ export class LlmService {
       const cost = result.costReportedMicro ?? 0;
       const notes: string[] = [];
       if (result.toolCallsIgnored) notes.push("tool_call_ignored");
+      if (result.reasoningRemoved) notes.push("reasoning_removed");
       if (cost > 0) notes.push("cost_reported");
 
       this.record(base, {
@@ -294,6 +400,8 @@ export class LlmService {
         note: notes.length ? notes.join(",") : null,
       });
       breaker.recordSuccess();
+      this.resting.delete(ref);
+      this.catalog.noteCallOutcome(provider.id, null);
 
       let warning: string | null = null;
       if (cost > 0) {

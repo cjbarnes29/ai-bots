@@ -8,6 +8,7 @@ import { parseCsv, summarizeTable, writeCsv, writeHtml, writeMarkdown } from "..
 import { chartSvg, diagramSvg } from "../documents/svg.js";
 import { resolveInRoots } from "./pc/paths.js";
 import type { PcService } from "./pc/service.js";
+import type { FolderGate } from "../access/gate.js";
 import type { ActionSpec, ConnectorDefinition } from "./types.js";
 
 /**
@@ -26,7 +27,7 @@ const pathArgFor = (pc: PcService) =>
     if (!r.ok) ctx.addIssue({ code: "custom", message: r.reason });
   });
 
-export function createDocumentsConnector(pc: PcService): ConnectorDefinition {
+export function createDocumentsConnector(pc: PcService, folders?: FolderGate): ConnectorDefinition {
   const pathArg = pathArgFor(pc);
   const extOk = (path: string, ext: string) => path.toLowerCase().endsWith(`.${ext}`);
   const withExt = <T extends z.ZodType<{ path: string }>>(schema: T, ext: (v: z.infer<T>) => string) =>
@@ -40,6 +41,7 @@ export function createDocumentsConnector(pc: PcService): ConnectorDefinition {
     if (!r.ok) throw new Error(r.reason);
     const bytes = Buffer.isBuffer(data) ? data : Buffer.from(data, "utf8");
     if (bytes.length > LIMITS.fileBytes) throw new Error(`The file would be larger than ${LIMITS.fileBytes / 1_000_000} MB.`);
+    folders?.require({ subject: "workforce", path: r.abs, op: existsSync(r.abs) ? "edit" : "create" });
     if (existsSync(r.abs) && (!overwrite || statSync(r.abs).isDirectory())) throw new Error("That file already exists. Ask again with overwrite set to true if you really want to replace it.");
     mkdirSync(dirname(r.abs), { recursive: true });
     writeFileSync(r.abs, bytes);
@@ -108,6 +110,7 @@ export function createDocumentsConnector(pc: PcService): ConnectorDefinition {
       execute: async (a, ctx) => {
         const r = resolveInRoots(pc.roots(), String(a["path"]), pc.roots()[0] ?? ".");
         if (!r.ok) throw new Error(r.reason);
+        folders?.require({ subject: "workforce", path: r.abs, op: "read" });
         if (!/\.csv$/i.test(r.abs)) throw new Error("Only .csv files can be summarised.");
         if (!existsSync(r.abs) || statSync(r.abs).size > 5_000_000) throw new Error("That file does not exist or is larger than 5 MB.");
         const text = summarizeTable(parseCsv(readFileSync(r.abs, "utf8")));

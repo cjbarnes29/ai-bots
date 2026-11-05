@@ -7,6 +7,7 @@ import { OK_RESULT } from "../../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../../test-app.js";
 import type { PcProcess, RunResult, RunSpec } from "./runner.js";
 import { RUN_LIMITS, startProcess } from "./runner.js";
+import { switchOn } from "../../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fence = "```";
@@ -59,7 +60,7 @@ afterEach(async () => {
   vi.unstubAllEnvs();
 });
 
-const mkBot = async (name = "Dev") => (await t.call("POST", "/api/bots", { name, model: ref })).body.bot as any;
+const mkBot = async (name = "Dev") => (await switchOn(t.call, await t.call("POST", "/api/bots", { name, model: ref }))).body.bot as any;
 const grant = (botId: string, grants: string[]) => t.call("PUT", `/api/bots/${botId}/pc`, { grants });
 const addWorkspace = (path = ws) => t.call("POST", "/api/pc/workspaces", { path });
 const pending = async () => (await t.call("GET", "/api/approvals?status=pending")).body.approvals as any[];

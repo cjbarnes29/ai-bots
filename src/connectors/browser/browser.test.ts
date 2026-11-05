@@ -4,6 +4,7 @@ import { createTestApp, setupGeminiModel, type TestApp } from "../../test-app.js
 import { createBrowserConnector } from "./browser.js";
 import { fetchPublicPage, FETCH_LIMITS, type RawResponse, type RequestSpec } from "./fetcher.js";
 import { BlockedAddressError, isPublicAddress, parseTarget, resolvePublicAddress } from "./netguard.js";
+import { switchOn } from "../../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 describe("which web addresses are allowed", () => {
@@ -139,7 +140,7 @@ describe("the browser through the approval gate", () => {
     await t.app.close();
     vi.unstubAllEnvs();
   });
-  const mkBot = async () => (await t.call("POST", "/api/bots", { name: "Surfer", model: ref })).body.bot as any;
+  const mkBot = async () => (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Surfer", model: ref }))).body.bot as any;
   const runTask = async (botId: string) => {
     await t.call("POST", `/api/bots/${botId}/tasks`, { instruction: "Do it" });
     await vi.waitFor(async () => expect(((await t.call("GET", "/api/tasks")).body.tasks as any[]).every((x) => ["completed", "failed"].includes(x.status))).toBe(true), { timeout: 3000, interval: 10 });

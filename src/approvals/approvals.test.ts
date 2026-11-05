@@ -10,6 +10,7 @@ import { VaultService } from "../vault/service.js";
 import { parseActions, stripActions } from "./protocol.js";
 import { ApprovalRepository } from "./repository.js";
 import { ActionGate, GATE_LIMITS } from "./service.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const TOKEN = "TELEGRAM-TOKEN-0123456789abcdef";
@@ -94,7 +95,7 @@ describe("nothing outside is reachable by default", () => {
 
   it("a bot is not even told outside actions exist, and a request it makes anyway is refused", async () => {
     const ref = await setupGeminiModel(t);
-    const bot = (await t.call("POST", "/api/bots", { name: "Helper", model: ref })).body.bot;
+    const bot = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Helper", model: ref }))).body.bot;
     t.provider.script.push(reply(act("gmail", "send_email", { to: "x@y.z" })), reply("I could not do that."));
     await t.call("POST", `/api/bots/${bot.id}/tasks`, { instruction: "Email someone" });
     await vi.waitFor(async () => expect(((await t.call("GET", "/api/tasks")).body.tasks as any[]).every((x) => ["completed", "failed"].includes(x.status))).toBe(true));
@@ -119,7 +120,7 @@ describe("a bot working on a task", () => {
     vi.unstubAllEnvs();
   });
 
-  const mkBot = async (name = "Helper") => (await t.call("POST", "/api/bots", { name, model: ref })).body.bot as any;
+  const mkBot = async (name = "Helper") => (await switchOn(t.call, await t.call("POST", "/api/bots", { name, model: ref }))).body.bot as any;
   const settle = () =>
     vi.waitFor(async () => expect(((await t.call("GET", "/api/tasks")).body.tasks as any[]).every((x) => ["completed", "failed", "cancelled"].includes(x.status))).toBe(true), { timeout: 3000, interval: 10 });
   const runTask = async (botId: string, instruction = "Do the thing") => {
@@ -196,7 +197,8 @@ describe("a bot working on a task", () => {
       expect(told).toContain("Do not say it was done");
       expect(told).toContain("has NOT happened yet"); // the extra instruction for the final answer
       const tree = (await t.call("GET", `/api/tasks/${task.id}`)).body;
-      expect(tree.task.result).toBe("I asked for approval. Nothing has been sent yet.");
+      // the model's own words, then what the PLATFORM recorded (so the record is right whatever a model writes)
+      expect(tree.task.result).toBe("I asked for approval. Nothing has been sent yet.\n\n--- What the platform recorded (not written by the AI) ---\n- telegram.send_message: WAITING for the owner's approval. It has NOT happened.");
       expect(tree.events.some((e: any) => e.kind === "action_requested" && JSON.parse(e.detail).outcome === "pending_approval")).toBe(true);
       expect((await t.call("GET", "/api/external/status")).body.pendingCount).toBe(1);
     });

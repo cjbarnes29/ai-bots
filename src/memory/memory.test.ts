@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { ftsQuery, MEMORY_LIMITS } from "./service.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fence = "```";
@@ -28,7 +29,7 @@ describe("memory", () => {
     await t.app.close();
     vi.unstubAllEnvs();
   });
-  const mkBot = async (name = "Helper") => (await t.call("POST", "/api/bots", { name, model: ref })).body.bot as any;
+  const mkBot = async (name = "Helper") => (await switchOn(t.call, await t.call("POST", "/api/bots", { name, model: ref }))).body.bot as any;
   const note = async (body: Record<string, unknown>) => (await t.call("POST", "/api/memory", body)).body.note as any;
   const runTask = async (botId: string) => {
     await t.call("POST", `/api/bots/${botId}/tasks`, { instruction: "Look it up" });

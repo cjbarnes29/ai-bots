@@ -73,6 +73,14 @@ export class UsageRepository {
    * Requests and tokens that count against limits. Blocked attempts never reached a provider,
    * so they do not count. Failed attempts DO count (the provider may still have counted them).
    */
+  /** Per model: how many calls, how many failed, the average time of the successful ones, and when it was last used. Counts only real calls (not blocked ones). */
+  byModelStats(): Map<string, { requests: number; ok: number; errors: number; avgLatencyMs: number | null; lastAt: string | null }> {
+    const rows = this.db
+      .prepare("SELECT provider_id AS p, model_id AS m, COUNT(*) AS n, SUM(status = 'ok') AS ok, SUM(status = 'error') AS err, AVG(CASE WHEN status = 'ok' THEN latency_ms END) AS lat, MAX(created_at) AS last FROM llm_usage WHERE status IN ('ok', 'error') GROUP BY provider_id, model_id")
+      .all() as Row[];
+    return new Map(rows.map((r) => [`${String(r["p"])}/${String(r["m"])}`, { requests: num(r["n"]), ok: num(r["ok"]), errors: num(r["err"]), avgLatencyMs: r["lat"] === null ? null : Math.round(num(r["lat"])), lastAt: r["last"] === null ? null : String(r["last"]) }]));
+  }
+
   totals(filter: UsageFilter): UsageTotals {
     const where: string[] = ["status IN ('ok', 'error')"];
     const params: (string | number)[] = [];

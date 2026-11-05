@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { createGithubConnector, createGoogleWorkspaceConnector, createMcpConnector, createN8nConnector, createNotionConnector, GWS_SCOPES, safeEndpoint } from "./integrations.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const GH = "github_pat_FakeTokenForTestsOnly_0123456789";
@@ -174,6 +175,48 @@ describe("MCP", () => {
       await f.close();
     }
   });
+
+  it("list_tools shows each tool's declared arguments (names, types, required) and runs nothing", async () => {
+    const methods: string[] = [];
+    const f = await startFake((req, send) => {
+      const m = req.body ? JSON.parse(req.body) : {};
+      methods.push(String(m.method));
+      if (m.method === "initialize") return send(200, { jsonrpc: "2.0", id: 1, result: {} }, { "mcp-session-id": "s" });
+      if (m.method === "notifications/initialized") return send(202, "");
+      send(200, { jsonrpc: "2.0", id: 2, result: { tools: [
+        { name: "read_note", description: "Read a note", inputSchema: { type: "object", properties: { id: { type: "string" }, "bad name!<x>": { type: "number" } }, required: ["id"] } },
+        { name: "ping", description: "No arguments", inputSchema: { type: "object", properties: {} } },
+      ] } });
+    });
+    try {
+      const out = await run(createMcpConnector(), "list_tools", {}, { MCP_SERVER_URL: f.base });
+      expect(out).toBe("read_note: Read a note (arguments: id:string*, badnamex:number)\nping: No arguments");
+      expect(methods).not.toContain("tools/call");
+    } finally {
+      await f.close();
+    }
+  });
+
+  it("Test connection lists the tools only (no tool runs) and reports a refused token plainly", async () => {
+    const methods: string[] = [];
+    const f = await startFake((req, send) => {
+      const m = req.body ? JSON.parse(req.body) : {};
+      methods.push(String(m.method));
+      if (req.headers.authorization !== "Bearer mcp-secret") return send(401, {});
+      if (m.method === "initialize") return send(200, { jsonrpc: "2.0", id: 1, result: {} }, { "mcp-session-id": "s" });
+      if (m.method === "notifications/initialized") return send(202, "");
+      send(200, { jsonrpc: "2.0", id: 2, result: { tools: [{ name: "a" }, { name: "b" }] } });
+    });
+    try {
+      const c = createMcpConnector();
+      const ok = await c.verify!({ secret: (n) => ({ MCP_SERVER_URL: f.base, MCP_SERVER_TOKEN: "mcp-secret" })[n] ?? null });
+      expect(ok.summary).toBe("The MCP server answered and offers 2 tools");
+      expect(methods).not.toContain("tools/call");
+      await expect(c.verify!({ secret: (n) => ({ MCP_SERVER_URL: f.base, MCP_SERVER_TOKEN: "wrong" })[n] ?? null })).rejects.toThrow(/did not accept the saved token/);
+    } finally {
+      await f.close();
+    }
+  });
 });
 
 describe("Google Workspace", () => {
@@ -240,7 +283,7 @@ describe("through the approval gate", () => {
     await f.close();
     vi.unstubAllEnvs();
   });
-  const mkBot = async () => (await t.call("POST", "/api/bots", { name: "Dev", model: ref })).body.bot as any;
+  const mkBot = async () => (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Dev", model: ref }))).body.bot as any;
   const runTask = async (botId: string) => {
     await t.call("POST", `/api/bots/${botId}/tasks`, { instruction: "Do it" });
     await vi.waitFor(async () => expect(((await t.call("GET", "/api/tasks")).body.tasks as any[]).every((x) => ["completed", "failed"].includes(x.status))).toBe(true), { timeout: 3000, interval: 10 });
@@ -249,7 +292,7 @@ describe("through the approval gate", () => {
 
   it("a read is refused until the owner switches that integration on for that bot only", async () => {
     const bot = await mkBot();
-    const other = (await t.call("POST", "/api/bots", { name: "Other", model: ref })).body.bot as any;
+    const other = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Other", model: ref }))).body.bot as any;
     t.provider.script.push(reply(act("github", "search_issues", { repo: "me/app" })), reply("no"));
     await runTask(bot.id);
     expect(toldBot()).toContain("reading is not switched on for this bot");

@@ -29,7 +29,7 @@ export class BuiltInRuntime implements AgentRuntime {
     }
     const limits = this.llm.limits();
     const extras = await this.promptExtras(bot.id);
-    const system: ChatMessage = { role: "system", content: buildSystemPrompt(bot) + (extras ? `\n\n${extras}` : "") };
+    const system: ChatMessage = { role: "system", content: buildSystemPrompt(bot) + (extras ? `\n\n${extras}` : "") + (input.projectContext ? `\n\n${input.projectContext}` : "") };
     const user: ChatMessage = { role: "user", content: input.userMessage };
 
     // Keep the most recent messages, dropping the oldest until the prompt fits the size limit.

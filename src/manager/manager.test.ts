@@ -5,6 +5,7 @@ import type { CompletionRequest, CompletionResult } from "../llm/types.js";
 import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { parseJsonReply } from "./service.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fence = "```";
@@ -61,7 +62,7 @@ afterEach(async () => {
   vi.unstubAllEnvs();
 });
 
-const mkBot = async (name: string, role = "Helper") => (await t.call("POST", "/api/bots", { name, role, model: ref, responsibilities: [`Does ${name} things`] })).body.bot as any;
+const mkBot = async (name: string, role = "Helper") => (await switchOn(t.call, await t.call("POST", "/api/bots", { name, role, model: ref, responsibilities: [`Does ${name} things`] }))).body.bot as any;
 const allow = (ids: string[]) => t.call("PUT", "/api/manager/settings", { allowedBots: ids });
 const start = async (goal = "Do the thing", budget?: Record<string, number>) => {
   const res = await t.call("POST", "/api/manager/runs", { goal, ...(budget ? { budget } : {}) });

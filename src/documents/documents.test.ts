@@ -11,6 +11,7 @@ import { parseCsv, summarizeTable, writeCsv, writeHtml, writeMarkdown } from "./
 import { diagramSvg, chartSvg } from "./svg.js";
 import { LIMITS, esc, neutralize, type Chart, type DocumentSpec } from "./spec.js";
 import { createZip, crc32, readZip } from "./zip.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -320,7 +321,7 @@ describe("through the approval gate", () => {
   });
 
   const bot = async (grants: string[]) => {
-    const b = (await t.call("POST", "/api/bots", { name: "Writer", model: ref })).body.bot as any;
+    const b = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Writer", model: ref }))).body.bot as any;
     await t.call("PUT", `/api/bots/${b.id}/pc`, { grants });
     return b;
   };

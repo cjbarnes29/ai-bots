@@ -131,6 +131,22 @@ export function modelInfo(id: string, overrides: Partial<ModelInfo> = {}): Model
   return { id, displayName: id, contextWindow: null, priceInput: null, priceOutput: null, ...overrides };
 }
 
+// ---------- switching a test bot on ----------
+
+type AnyCall = (method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE", url: string, payload?: unknown) => Promise<{ status: number; body: any }>;
+
+/**
+ * Tests only: switches a just-created bot on (status "active") through the normal API, exactly as the owner does on the bot's Details tab.
+ * Bots now run only when switched on. A bot without a model, or a failed creation, is returned unchanged (it stays off).
+ */
+export async function switchOn(call: AnyCall, created: { status: number; body: any }): Promise<{ status: number; body: any }> {
+  const bot = created.body?.bot;
+  if (created.status >= 400 || !bot?.id || !bot.model) return created;
+  const res = await call("PATCH", `/api/bots/${bot.id}`, { status: "active" });
+  if (res.status >= 400) throw new Error(`Could not switch the test bot on (${res.status}): ${JSON.stringify(res.body)}`);
+  return { status: created.status, body: { ...created.body, bot: res.body.bot } };
+}
+
 // ---------- calling the API in tests ----------
 
 export function makeCaller(app: FastifyInstance) {

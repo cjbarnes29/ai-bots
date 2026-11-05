@@ -269,6 +269,7 @@ describe("what a phone may do", () => {
   it("chat, tasks, bots and approvals work", async () => {
     const ref = await setupGeminiModel(t);
     const bot = (await remote("POST", "/api/bots", { cookie, body: { name: "Helper", model: ref } })).body.bot;
+    expect((await remote("PATCH", `/api/bots/${bot.id}`, { cookie, body: { status: "active" } })).status).toBe(200); // switched on, as on its Details tab
     const chat = await remote("POST", `/api/bots/${bot.id}/chat`, { cookie, body: { message: "hello" } });
     expect(chat.status).toBe(200);
     expect(JSON.stringify(chat.body)).toContain(OK_RESULT.text);
@@ -286,6 +287,7 @@ describe("what a phone may do", () => {
   it("denying from the phone works too, and an item decided on one device cannot be decided again on the other", async () => {
     const ref = await setupGeminiModel(t);
     const bot = (await local("POST", "/api/bots", { name: "Helper", model: ref })).body.bot;
+    await local("PATCH", `/api/bots/${bot.id}`, { status: "active" });
     t.provider.script.push({ ...OK_RESULT, text: `${fence}action\n${JSON.stringify({ connector: "telegram", action: "send_message", args: { chat: "sam", text: "x" } })}\n${fence}` }, OK_RESULT);
     await local("POST", `/api/bots/${bot.id}/tasks`, { instruction: "go" });
     await vi.waitFor(async () => expect((await local("GET", "/api/approvals?status=pending")).body.approvals).toHaveLength(1), { timeout: 3000, interval: 20 });

@@ -4,7 +4,7 @@ import { ModelCatalogService } from "./catalog.js";
 import { LlmError } from "./errors.js";
 import { DEFAULT_LIMITS, MAX_OUTPUT_TOKENS_CEILING } from "./limits.js";
 import { LlmRepository } from "./repository.js";
-import { LlmService, type CompleteInput } from "./service.js";
+import { LlmService, msUntilPacificMidnight, type CompleteInput } from "./service.js";
 import { OK_RESULT, ScriptedProvider, modelInfo } from "./test-helpers.js";
 import type { CompletionResult } from "./types.js";
 import { UsageRepository } from "./usage.js";
@@ -377,22 +377,77 @@ describe("limits: each one stops the call and says which limit was hit", () => {
 });
 
 describe("retries", () => {
-  it("retries once after a rate limit, waiting 2 seconds, and then succeeds", async () => {
-    ctx.provider.script.push(new LlmError("rate_limited", "slow down", { retryable: true }));
+  it("retries a rate limit once only when the provider itself asks for a short wait", async () => {
+    ctx.provider.script.push(new LlmError("rate_limited", "slow down", { retryable: true, retryAfterMs: 2000 }));
     const out = await ctx.llm.complete(input(ctx));
     expect(out.text).toBe(OK_RESULT.text);
     expect(ctx.sleeps).toEqual([2000]);
     expect(ctx.provider.calls).toHaveLength(2);
     // Both attempts are recorded: one error, one success.
     expect(ctx.usage.summary(ctx.clock.t, 7).byDay[0]).toMatchObject({ ok: 1, errors: 1 });
+    expect(ctx.llm.modelCooldownMs(ctx.gemini)).toBe(0); // it recovered, so the model does not rest
   });
 
-  it("respects the provider's 'retry after' hint, but never waits more than 30 seconds", async () => {
+  it("does NOT retry a rate limit that gave no short wait: the model rests and no second request is wasted", async () => {
+    ctx.provider.script.push(new LlmError("rate_limited", "slow down", { retryable: true }));
+    expect((await fails(ctx.llm.complete(input(ctx)))).llmCode).toBe("rate_limited");
+    expect(ctx.provider.calls).toHaveLength(1);
+    expect(ctx.sleeps).toEqual([]);
+    expect(ctx.llm.modelCooldownMs(ctx.gemini)).toBe(60_000);
+    expect(ctx.llm.modelCooldowns()).toEqual([{ ref: ctx.gemini, secondsLeft: 60 }]);
+  });
+
+  it("a resting model is refused without any request, then tried again once its time is up", async () => {
+    ctx.provider.script.push(new LlmError("rate_limited", "slow down", { retryable: true }));
+    await fails(ctx.llm.complete(input(ctx)));
+    const again = await fails(ctx.llm.complete(input(ctx)));
+    expect(again.llmCode).toBe("rate_limited");
+    expect(again.message).toMatch(/resting for about \d+ more seconds. No request was sent/);
+    expect(ctx.provider.calls).toHaveLength(1); // nothing new was sent
+    ctx.clock.t += 61_000;
+    expect((await ctx.llm.complete(input(ctx))).text).toBe(OK_RESULT.text);
+    expect(ctx.provider.calls).toHaveLength(2);
+    expect(ctx.llm.modelCooldownMs(ctx.gemini)).toBe(0); // a success clears it
+  });
+
+  it("rests longer when it keeps happening (1, 5, 15, then 60 minutes)", async () => {
+    const seen: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      ctx.provider.script.push(new LlmError("rate_limited", "x", { retryable: true }));
+      await fails(ctx.llm.complete(input(ctx)));
+      seen.push(ctx.llm.modelCooldownMs(ctx.gemini));
+      ctx.clock.t += seen.at(-1)! + 1;
+    }
+    expect(seen).toEqual([60_000, 300_000, 900_000, 3_600_000, 3_600_000]);
+  });
+
+  it("a used-up daily quota is never retried and rests until Google resets (midnight Pacific)", async () => {
+    ctx.provider.script.push(new LlmError("rate_limited", "quota", { retryable: false, quota: true }));
+    await fails(ctx.llm.complete(input(ctx)));
+    expect(ctx.provider.calls).toHaveLength(1);
+    expect(ctx.llm.modelCooldownMs(ctx.gemini)).toBe(msUntilPacificMidnight(ctx.clock.t));
+    expect(msUntilPacificMidnight(Date.UTC(2026, 10, 5, 7, 0, 0))).toBe(3_600_000); // 23:00 in Pacific time: one hour to go
+    expect(msUntilPacificMidnight(Date.UTC(2026, 10, 5, 8, 0, 0) - 1000)).toBe(60_000); // never less than a minute
+  });
+
+  it("respects a provider's wait hint when it is short; a long hint means rest, not retry", async () => {
     ctx.provider.script.push(new LlmError("rate_limited", "x", { retryable: true, retryAfterMs: 5000 }));
     await ctx.llm.complete(input(ctx));
+    expect(ctx.sleeps).toEqual([5000]);
     ctx.provider.script.push(new LlmError("rate_limited", "x", { retryable: true, retryAfterMs: 120_000 }));
-    await ctx.llm.complete(input(ctx));
-    expect(ctx.sleeps).toEqual([5000, 30_000]);
+    await fails(ctx.llm.complete(input(ctx)));
+    expect(ctx.sleeps).toEqual([5000]); // no second wait
+    expect(ctx.llm.modelCooldownMs(ctx.gemini)).toBe(120_000);
+  });
+
+  it("a rate limit never opens the provider-wide breaker or marks the provider as down", async () => {
+    for (let i = 0; i < 5; i++) {
+      ctx.provider.script.push(new LlmError("rate_limited", "x", { retryable: true }));
+      await fails(ctx.llm.complete(input(ctx)));
+      expect(ctx.llm.breakerWaitMs("gemini")).toBe(0); // checked right away: three failures would have opened it for a minute
+      expect(ctx.catalog.listProviders().find((p) => p.id === "gemini")!.status).not.toBe("rate_limited");
+      ctx.clock.t += 4_000_000;
+    }
   });
 
   it("does not retry errors that will not fix themselves", async () => {

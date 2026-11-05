@@ -58,6 +58,12 @@ export interface GateDeps {
   /** Has the owner switched on READING from this connector for this bot? */
   readEnabled: (botId: string, connector: string) => boolean;
   now?: () => number;
+  /** The Guardian: a plain-language reason while nothing new may run (paused, stopped, locked), else null. */
+  startGuard?: () => string | null;
+  /** An operating-mode ceiling (Bot Studio): why this bot's mode does not allow this connector, or null. It can only forbid, never grant. */
+  modeBlock?: (botId: string, connectorId: string, kind: "read" | "write") => string | null;
+  /** Called after a request starts waiting for the owner (the inbox uses it). A failure here never affects the request. */
+  onPending?: (approvalId: string, botId: string) => void;
 }
 
 const sha256 = (text: string): string => createHash("sha256").update(text).digest("hex");
@@ -127,6 +133,7 @@ export class ActionGate {
       if (this.notReadyReason(connector)) continue;
       for (const [action, spec] of Object.entries(connector.actions)) {
         if (spec.kind === "read" && !this.deps.readEnabled(botId, connector.id)) continue;
+        if (this.deps.modeBlock?.(botId, connector.id, spec.kind)) continue; // the bot's operating mode does not include this
         if (connector.authorize?.(botId, action, {}) != null) continue; // the bot lacks the permission this action needs
         offers.push({ connector: connector.id, connectorLabel: connector.label, action, kind: spec.kind, description: spec.description, argNames: argNamesOf(spec.args) });
       }
@@ -155,6 +162,8 @@ export class ActionGate {
     }
     if (bot.archived) return deny("The bot is archived.");
     if (this.isPaused()) return deny("All outside actions are paused by the owner.");
+    const held = this.deps.startGuard?.();
+    if (held) return deny(held);
     const notReady = this.notReadyReason(connector);
     if (notReady) return deny(`${connector.label} is not set up yet: ${notReady}`);
 
@@ -165,6 +174,8 @@ export class ActionGate {
     }
     const notAllowed = connector.authorize?.(botId, req.action, parsed.data) ?? null;
     if (notAllowed) return deny(notAllowed, "external.read_denied");
+    const modeNo = this.deps.modeBlock?.(botId, req.connector, spec.kind) ?? null;
+    if (modeNo) return deny(modeNo, "external.read_denied");
     const argsJson = JSON.stringify(parsed.data);
     if (argsJson.length > GATE_LIMITS.maxArgsJsonChars) return deny("The arguments are too large.");
     const summary = clip(spec.summarize(parsed.data), 300);
@@ -212,6 +223,11 @@ export class ActionGate {
       expiresAt: new Date(this.now() + GATE_LIMITS.expiryMs).toISOString(),
     });
     audit.record("approval.requested", { id, action: label, summary }, { botId, actor: "bot" });
+    try {
+      this.deps.onPending?.(id, botId);
+    } catch {
+      /* telling the inbox must never change what the gate decided */
+    }
     return { status: "pending_approval", approvalId: id };
   }
 
@@ -267,6 +283,8 @@ export class ActionGate {
     const existing = repo.get(id);
     if (!existing) throw new AppError(404, "approval_not_found", "Approval request not found");
     if (this.isPaused()) throw new AppError(409, "external_paused", "All outside actions are paused. Switch them back on before approving.");
+    const held = this.deps.startGuard?.();
+    if (held) throw new AppError(409, "guardian_paused", held);
     if (!repo.claimApproval(id, this.iso(), "owner")) {
       throw new AppError(409, "approval_not_pending", `This request is already ${repo.get(id)?.status}. It cannot be approved now.`);
     }
@@ -289,6 +307,8 @@ export class ActionGate {
     if (notReadyNow) return fail(`${registry.get(existing.connector)!.label} is not ready: ${notReadyNow} Nothing was run.`);
     const stillAllowed = registry.get(existing.connector)?.authorize?.(existing.botId, existing.action, args.data) ?? null;
     if (stillAllowed) return fail(`${stillAllowed} Nothing was run.`);
+    const modeNowNo = this.deps.modeBlock?.(existing.botId, existing.connector, spec.kind) ?? null;
+    if (modeNowNo) return fail(`${modeNowNo} Nothing was run.`);
 
     try {
       const result = await withTimeout(spec.execute(args.data, { secret: (n) => this.deps.vault.resolve(n), botId: existing.botId }), spec.timeoutMs ?? GATE_LIMITS.executeTimeoutMs);

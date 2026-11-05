@@ -16,8 +16,8 @@ import { UsageRepository } from "./usage.js";
 afterEach(() => vi.unstubAllEnvs());
 
 describe("which providers exist", () => {
-  it("has Gemini, Groq, OpenRouter, Ollama and the OmniRoute gateway: no Together AI", () => {
-    expect(PLUGINS.map((p) => p.id)).toEqual(["gemini", "groq", "openrouter", "ollama", "omniroute"]);
+  it("has Gemini, Groq, OpenRouter, Ollama, the OmniRoute gateway and the simulated demo: no Together AI", () => {
+    expect(PLUGINS.map((p) => p.id)).toEqual(["gemini", "groq", "openrouter", "ollama", "omniroute", "demo"]);
     expect(PLUGINS.some((p) => /together/i.test(p.id) || /together/i.test(p.displayName))).toBe(false);
     expect(PLUGINS).toContain(omniRoutePlugin);
     expect(omniRoutePlugin.connectable).toBe(true);
@@ -137,15 +137,15 @@ describe("the model catalog", () => {
     return { db, repo, provider, catalog };
   }
 
-  it("starts with all five providers switched off and unconfirmed, with the approved caps", () => {
+  it("starts with all six providers switched off and unconfirmed, with the approved caps", () => {
     const { catalog } = setup();
     const views = catalog.listProviders();
-    expect(views.map((v) => v.id)).toEqual(["gemini", "groq", "openrouter", "ollama", "omniroute"]);
+    expect(views.map((v) => v.id)).toEqual(["gemini", "groq", "openrouter", "ollama", "omniroute", "demo"]);
     for (const v of views) {
       expect(v.enabled).toBe(false);
       expect(v.freeConfirmed).toBe(false);
     }
-    expect(views.map((v) => v.dailyRequestCap)).toEqual([50, 50, 40, null, 40]);
+    expect(views.map((v) => v.dailyRequestCap)).toEqual([50, 50, 40, null, 40, null]);
   });
 
   it("OpenRouter refresh stores only verified-free models and ignores paid ones", async () => {

@@ -307,6 +307,15 @@ async function mcpRun<T>(u: URL, token: string | null, method: string, params: R
   return r.data?.result as T;
 }
 
+/** A short, read-only summary of a tool's declared arguments, such as " (arguments: id:string*, limit:number)" (* = required). Untrusted text from the server, so names and types are cut down to plain words. */
+function mcpArgsSummary(schema: { properties?: Record<string, { type?: unknown }>; required?: unknown } | undefined): string {
+  const props = schema && typeof schema.properties === "object" && schema.properties !== null ? Object.entries(schema.properties).slice(0, 12) : [];
+  if (props.length === 0) return "";
+  const required = new Set(Array.isArray(schema?.required) ? schema.required.map(String) : []);
+  const parts = props.map(([name, p]) => `${name.replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 40)}:${typeof p?.type === "string" ? p.type.replace(/[^a-z]/g, "").slice(0, 10) || "any" : "any"}${required.has(name) ? "*" : ""}`);
+  return ` (arguments: ${parts.join(", ")})`;
+}
+
 /** HTTP MCP servers only: starting a local program for a bot would be a PC-agent action, so stdio servers are not supported. */
 export function createMcpConnector(): ConnectorDefinition {
   const endpoint = (ctx: { secret(n: string): string | null }) => {
@@ -326,6 +335,12 @@ export function createMcpConnector(): ConnectorDefinition {
       if (!u) return "paste the MCP server address in the Integrations Center first.";
       return safeEndpoint(u) ? null : "the saved MCP address must be https, or http on this PC (localhost), with no name or password inside.";
     },
+    // "Test connection" (owner-pressed only): the same read-only handshake + tools/list a bot's list_tools uses. It runs no tool and changes nothing.
+    verify: async (ctx) => {
+      const r = await mcpRun<{ tools?: unknown[] }>(endpoint(ctx), ctx.secret(MCP_TOKEN), "tools/list", {});
+      const n = Array.isArray(r?.tools) ? r.tools.length : 0;
+      return { ok: true, summary: `The MCP server answered and offers ${n} tool${n === 1 ? "" : "s"}` };
+    },
     actions: {
       list_tools: {
         kind: "read",
@@ -333,8 +348,8 @@ export function createMcpConnector(): ConnectorDefinition {
         args: z.strictObject({}),
         summarize: () => "List the MCP server's tools",
         execute: async (_a, ctx) => {
-          const r = await mcpRun<{ tools?: { name?: string; description?: string }[] }>(endpoint(ctx), ctx.secret(MCP_TOKEN), "tools/list", {});
-          const rows = (r?.tools ?? []).slice(0, 50).map((t) => `${String(t.name)}: ${clip(oneLine(String(t.description ?? "")), 120)}`);
+          const r = await mcpRun<{ tools?: { name?: string; description?: string; inputSchema?: { properties?: Record<string, { type?: unknown }>; required?: unknown } }[] }>(endpoint(ctx), ctx.secret(MCP_TOKEN), "tools/list", {});
+          const rows = (r?.tools ?? []).slice(0, 50).map((t) => `${String(t.name)}: ${clip(oneLine(String(t.description ?? "")), 120)}${mcpArgsSummary(t.inputSchema)}`);
           return rows.length ? rows.join("\n") : "The server offers no tools.";
         },
       },

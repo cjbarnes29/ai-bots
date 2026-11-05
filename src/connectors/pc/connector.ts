@@ -6,6 +6,7 @@ import { resolveInRoots } from "./paths.js";
 import { ACTION_GRANT, PROGRAMS, checkCommand, checkInstall } from "./policy.js";
 import { RUN_LIMITS } from "./runner.js";
 import type { PcService } from "./service.js";
+import type { FolderGate } from "../../access/gate.js";
 
 /**
  * The PC agent as a connector (Stage 4). It lives behind the same approval gate as Gmail and Telegram:
@@ -20,7 +21,11 @@ const MAX_FILE_BYTES = 200_000;
 const MAX_LIST = 200;
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}...` : s);
 
-export function createPcConnector(pc: PcService): ConnectorDefinition {
+export function createPcConnector(pc: PcService, folders?: FolderGate): ConnectorDefinition {
+  /** The owner's folder approvals (src/access). When given, nothing is touched unless a folder approval covers it: default deny. */
+  const folderOk = (path: string, op: "read" | "create" | "edit" | "rename" | "delete", isDirectory?: boolean): void => {
+    folders?.require({ subject: "workforce", path, op, ...(isDirectory !== undefined ? { isDirectory } : {}) });
+  };
   const firstRoot = () => pc.roots()[0] ?? ".";
   const needPath = (p: string, relativeTo = firstRoot(), options: { allowSecretNames?: boolean } = {}): string => {
     const r = resolveInRoots(pc.roots(), p, relativeTo, options);
@@ -80,6 +85,7 @@ export function createPcConnector(pc: PcService): ConnectorDefinition {
       execute: async (a, ctx) =>
         logged(ctx, "list_dir", null, `list ${String(a["path"])}`, async () => {
           const dir = needPath(String(a["path"]));
+          folderOk(dir, "read", true);
           if (!statSync(dir).isDirectory()) throw new Error("That is a file, not a folder.");
           const entries = readdirSync(dir, { withFileTypes: true }).slice(0, MAX_LIST).map((e) => `${e.isDirectory() ? "[folder] " : ""}${e.name}`);
           return { status: "ok", text: entries.length === 0 ? "(empty folder)" : entries.join("\n") };
@@ -93,6 +99,7 @@ export function createPcConnector(pc: PcService): ConnectorDefinition {
       execute: async (a, ctx) =>
         logged(ctx, "read_file", null, `read ${String(a["path"])}`, async () => {
           const file = needPath(String(a["path"]));
+          folderOk(file, "read");
           const st = statSync(file);
           if (!st.isFile()) throw new Error("That is a folder, not a file.");
           if (st.size > 2_000_000) throw new Error("That file is too big to read (2 MB at most).");
@@ -124,6 +131,7 @@ export function createPcConnector(pc: PcService): ConnectorDefinition {
       execute: async (a, ctx) =>
         logged(ctx, "make_dir", null, `mkdir ${String(a["path"])}`, async () => {
           const dir = needPath(String(a["path"]));
+          folderOk(dir, "create", true);
           mkdirSync(dir, { recursive: true });
           return { status: "ok", text: `Created ${dir}` };
         }),
@@ -136,6 +144,7 @@ export function createPcConnector(pc: PcService): ConnectorDefinition {
       execute: async (a, ctx) =>
         logged(ctx, "write_file", null, `write ${String(a["path"])}`, async () => {
           const file = needPath(String(a["path"]));
+          folderOk(file, existsSync(file) ? "edit" : "create");
           if (existsSync(file) && !a["overwrite"]) throw new Error("That file already exists. Ask again with overwrite set to true if you really want to replace it.");
           if (existsSync(file) && statSync(file).isDirectory()) throw new Error("That is a folder.");
           mkdirSync(dirname(file), { recursive: true });
@@ -157,6 +166,7 @@ export function createPcConnector(pc: PcService): ConnectorDefinition {
           const root = pc.roots().find((r) => target.toLowerCase().startsWith(r.toLowerCase()));
           if (!root || target.toLowerCase() === root.toLowerCase()) throw new Error("A whole workspace folder cannot be removed.");
           if (!existsSync(target)) throw new Error("That does not exist.");
+          folderOk(target, "delete", statSync(target).isDirectory());
           const trash = join(root, ".awp-trash", `${new Date().toISOString().replace(/[:.]/g, "-")}`);
           mkdirSync(trash, { recursive: true });
           const dest = join(trash, basename(target));
@@ -184,6 +194,7 @@ export function createPcConnector(pc: PcService): ConnectorDefinition {
         const check = checkRun(String(a["cwd"]), String(a["program"]), a["args"] as string[]);
         if (!check.ok) throw new Error(check.reason);
         const cwd = needPath(String(a["cwd"]));
+        for (const op of ["read", "create", "edit"] as const) folderOk(cwd, op, true);
         return logged(ctx, "run_command", cwd, check.display, async () =>
           outcome(await pc.run({ program: check.program, argv: check.argv, cwd, timeoutMs: RUN_LIMITS.defaultTimeoutMs, messageIndexes: check.messageIndexes }), "The command"),
         );
@@ -201,6 +212,7 @@ export function createPcConnector(pc: PcService): ConnectorDefinition {
       summarize: (a) => `Start "npm run ${String(a["script"])}" in ${String(a["cwd"])} (keeps running up to ${RUN_LIMITS.maxServerMs / 60000} minutes)`,
       execute: async (a, ctx) => {
         const cwd = needPath(String(a["cwd"]));
+        for (const op of ["read", "create", "edit"] as const) folderOk(cwd, op, true);
         if (!existsSync(join(cwd, "package.json"))) throw new Error("There is no package.json in that folder.");
         const info = pc.startServer({ program: "npm", argv: ["run", String(a["script"])], cwd, timeoutMs: RUN_LIMITS.maxServerMs }, `npm run ${String(a["script"])}`, ctx.botId);
         pc.log({ botId: ctx.botId, action: "start_server", cwd, command: `npm run ${String(a["script"])} (started)`, status: "ok", output: `id ${info.id}` });
@@ -227,6 +239,7 @@ export function createPcConnector(pc: PcService): ConnectorDefinition {
         const check = checkInstall(a["manager"] as "npm" | "pip", a["packages"] as string[], Boolean(a["dev"]));
         if (!check.ok) throw new Error(check.reason);
         const cwd = needPath(String(a["cwd"]));
+        for (const op of ["read", "create", "edit"] as const) folderOk(cwd, op, true);
         if (a["manager"] === "npm" && !existsSync(join(cwd, "package.json"))) throw new Error("There is no package.json in that folder.");
         return logged(ctx, "install_dependencies", cwd, check.display, async () => outcome(await pc.run({ program: check.program, argv: check.argv, cwd, timeoutMs: RUN_LIMITS.maxTimeoutMs }), "The install"));
       },

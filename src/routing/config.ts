@@ -42,12 +42,29 @@ export const routingConfigSchema = z.strictObject({
   allowedProviders: z.array(z.string().max(40)).max(10),
   /** Models never chosen automatically ("provider/model"). */
   excludedModels: z.array(z.string().max(200)).max(100),
+  /**
+   * Share work: among models that score equally (for example two verified models on different providers), take turns instead of always starting with the first
+   * provider. Spreads independent tasks over the combined free allowance. Off by default so the order never changes without the owner's say-so.
+   */
+  spreadLoad: z.boolean(),
   /** Try local Ollama models first (default: only as a backup). */
   preferLocal: z.boolean(),
   /** How many different models one call may try. */
   maxAttempts: z.number().int().min(1).max(5),
   /** Ask the providers for their model lists again every this many hours (0 = never by itself). */
   autoRefreshHours: z.number().int().min(0).max(168),
+  /**
+   * The owner's first choice per kind of task ("provider/model"). It is tried first while it is eligible (free, switched on, provider on and
+   * healthy); if it fails or is not eligible, routing falls back to the next best free models as usual. Never a way to allow a paid model.
+   */
+  preferred: z.strictObject({
+    general: z.string().max(200).optional(),
+    coding: z.string().max(200).optional(),
+    research: z.string().max(200).optional(),
+    light: z.string().max(200).optional(),
+  }),
+  /** The model a new bot gets ("provider/model" or "auto/<kind>"). null = "auto/general" when automatic assignment is on. */
+  defaultModel: z.string().max(200).nullable(),
 });
 
 export type RoutingConfig = z.infer<typeof routingConfigSchema>;
@@ -59,9 +76,12 @@ export const DEFAULT_ROUTING: RoutingConfig = {
   providerOrder: ["gemini", "groq", "openrouter", "omniroute", "ollama"],
   allowedProviders: [],
   excludedModels: [],
+  spreadLoad: false,
   preferLocal: false,
   maxAttempts: 3,
   autoRefreshHours: 24,
+  preferred: {},
+  defaultModel: null,
 };
 
 export const routingPatchSchema = routingConfigSchema.partial();

@@ -5,6 +5,7 @@ import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { TaskEngine } from "./engine.js";
 import { TaskRepository } from "./repository.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let t: TestApp;
@@ -21,7 +22,7 @@ afterEach(async () => {
 const block = (to: string, task: string) => "```delegate\n" + JSON.stringify({ to, task }) + "\n```";
 const reply = (text: string) => ({ ...OK_RESULT, text, inputTokens: 10, outputTokens: 5 });
 const mkBot = async (name: string, extra: Record<string, unknown> = {}) =>
-  (await t.call("POST", "/api/bots", { name, model: ref, ...extra })).body.bot as any;
+  (await switchOn(t.call, await t.call("POST", "/api/bots", { name, model: ref, ...extra }))).body.bot as any;
 const allow = (botId: string, ...ids: string[]) => t.call("PUT", `/api/bots/${botId}/delegation`, { targetBotIds: ids });
 const submit = (botId: string, instruction = "Do the thing") => t.call("POST", `/api/bots/${botId}/tasks`, { instruction });
 const FINAL = ["completed", "failed", "cancelled"];
@@ -170,7 +171,7 @@ describe("nobody may delegate by default", () => {
     await mkBot("B");
     t.provider.script.push(reply(block("B", "please help")), reply("I did it myself."));
     const tree = await run(a.id);
-    expect(tree.task).toMatchObject({ status: "completed", result: "I did it myself.", children: [] });
+    expect(tree.task).toMatchObject({ status: "completed", result: expect.stringMatching(/^I did it myself\.\n\n--- What the platform recorded \(not written by the AI\) ---\n- .*rejected and not done/), children: [] });
     expect(system(0)).not.toContain("Teamwork");
     const secondPrompt = t.provider.calls[1]!.messages[3]!.content;
     expect(secondPrompt).toContain('REJECTED: "B" is not one of your allowed teammates');
@@ -190,7 +191,7 @@ describe("nobody may delegate by default", () => {
 
   it("a teammate without a model, or using OpenClaw, is not offered", async () => {
     const a = await mkBot("A");
-    const noModel = (await t.call("POST", "/api/bots", { name: "NoModel" })).body.bot;
+    const noModel = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "NoModel" }))).body.bot;
     const claw = await mkBot("Claw", { runtime: "openclaw" });
     await allow(a.id, noModel.id, claw.id);
     t.provider.script.push(reply("alone"));
@@ -272,7 +273,7 @@ describe("safeguards", () => {
     await allow(a.id, b.id);
     t.provider.script.push(reply(block("B", "help")), reply("a final"));
     const tree = await run(a.id);
-    expect(tree.task).toMatchObject({ status: "completed", result: "a final", llmCalls: 2, children: [] });
+    expect(tree.task).toMatchObject({ status: "completed", result: expect.stringMatching(/^a final\n\n--- What the platform recorded/), llmCalls: 2, children: [] });
     expect(t.provider.calls[1]!.messages[3]!.content).toMatch(/REJECTED: the budget of 2 model calls for this chain would be exceeded/);
   });
 
@@ -344,7 +345,7 @@ describe("when something goes wrong", () => {
     t.provider.script.push(reply(block("B", "help")), new LlmError("auth_failed", "The provider rejected the API key."), reply("a final"));
     await t.call("PUT", "/api/llm/limits", { retries: 0 });
     const tree = await run(a.id);
-    expect(tree.task).toMatchObject({ status: "completed", result: "a final" });
+    expect(tree.task).toMatchObject({ status: "completed", result: expect.stringMatching(/^a final\n\n--- What the platform recorded \(not written by the AI\) ---\n- .* did not finish the work handed to it/) });
     expect(tree.task.children[0]).toMatchObject({ status: "failed", errorCode: "llm_auth_failed" });
     expect(t.provider.calls[2]!.messages[3]!.content).toContain("FAILED: The provider rejected the API key.");
     expect(kinds(tree)).toContain("failed");
@@ -359,8 +360,11 @@ describe("when something goes wrong", () => {
   });
 
   it("refuses a task for a bot that cannot run, with a reason", async () => {
-    const noModel = (await t.call("POST", "/api/bots", { name: "NoModel" })).body.bot;
-    expect((await submit(noModel.id)).body.error).toBe("llm_no_model_selected");
+    const noModel = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "NoModel" }))).body.bot;
+    expect((await submit(noModel.id)).body.error).toBe("bot_not_active"); // a bot without a model cannot be switched on
+    const paused = await mkBot("Paused");
+    await t.call("PATCH", `/api/bots/${paused.id}`, { status: "paused" });
+    expect((await submit(paused.id)).body.message).toMatch(/paused/);
     const claw = await mkBot("Claw", { runtime: "openclaw" });
     expect((await submit(claw.id)).body.error).toBe("runtime_not_installed");
     const old = await mkBot("Old");
@@ -539,7 +543,7 @@ describe("choosing who a bot may delegate to", () => {
 describe("delegation limits", () => {
   it("starts at the safe defaults", async () => {
     const res = await t.call("GET", "/api/delegation/limits");
-    expect(res.body.limits).toEqual({ maxDepth: 2, maxSubtasksPerTask: 3, maxTasksPerChain: 5, maxLlmCallsPerChain: 8, maxInstructionChars: 4000 });
+    expect(res.body.limits).toEqual({ maxDepth: 2, maxSubtasksPerTask: 3, maxTasksPerChain: 5, maxLlmCallsPerChain: 8, maxInstructionChars: 4000, maxParallelChains: 1 });
     expect(res.body.defaults).toEqual(res.body.limits);
   });
 

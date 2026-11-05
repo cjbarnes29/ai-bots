@@ -7,6 +7,8 @@ export interface RuntimeInput {
   history: ChatMessage[];
   userMessage: string;
   conversationId: string;
+  /** The owner's project notes for this conversation, when it belongs to a project. Context only: it grants nothing. */
+  projectContext?: string | null;
 }
 
 export interface RuntimeResult {

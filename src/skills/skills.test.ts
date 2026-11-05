@@ -3,6 +3,7 @@ import type { CompletionRequest } from "../llm/types.js";
 import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { containsSecret, EXPORT_FORMAT, SKILL_LIMITS } from "./service.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let t: TestApp;
@@ -26,7 +27,7 @@ afterEach(async () => {
 
 const skillBody = (over: Record<string, unknown> = {}) => ({ name: "Polite emails", description: "Write short polite emails", instructions: "Always greet by name. Keep it under 120 words.", requiredTools: [], tags: ["email"], ...over });
 const create = async (over: Record<string, unknown> = {}) => (await t.call("POST", "/api/skills", skillBody(over))).body.skill as any;
-const mkBot = async (name = "Helper") => (await t.call("POST", "/api/bots", { name, model: ref })).body.bot as any;
+const mkBot = async (name = "Helper") => (await switchOn(t.call, await t.call("POST", "/api/bots", { name, model: ref }))).body.bot as any;
 
 describe("the tool registry tells the truth", () => {
   it("lists what exists and what does not, with a reason, and never calls an unbuilt tool available", async () => {

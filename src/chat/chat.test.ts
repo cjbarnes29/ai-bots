@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LlmError } from "../llm/errors.js";
-import { OK_RESULT } from "../llm/test-helpers.js";
+import { OK_RESULT, switchOn } from "../llm/test-helpers.js";
 import { buildSystemPrompt } from "../runtimes/prompt.js";
 import { createTestApp, setupGeminiModel, setupOllamaModel, type TestApp } from "../test-app.js";
 
@@ -17,7 +17,7 @@ afterEach(async () => {
 });
 
 async function makeBot(extra: Record<string, unknown> = {}) {
-  const res = await t.call("POST", "/api/bots", { name: "Scout", model: ref, ...extra });
+  const res = await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Scout", model: ref, ...extra }));
   expect(res.status).toBe(201);
   return res.body.bot as any;
 }
@@ -205,20 +205,41 @@ describe("no tools, no actions", () => {
 });
 
 describe("who can chat, and when", () => {
-  it("works whatever the bot's status (it only ever answers when you message it)", async () => {
-    const bot = await makeBot();
+  // Replaces "works whatever the bot's status" (2026-11-04): a bot answers only while it is switched on.
+  it("only a switched-on bot answers; switched off or paused it refuses before anything is stored or sent", async () => {
+    const bot = (await t.call("POST", "/api/bots", { name: "Scout", model: ref })).body.bot;
     expect(bot.status).toBe("disabled");
+    const off = await chat(bot.id, "Hi");
+    expect(off.status).toBe(409);
+    expect(off.body.error).toBe("bot_not_active");
+    expect(off.body.message).toMatch(/switched off/);
+    expect((await t.call("GET", `/api/bots/${bot.id}/conversations`)).body.conversations).toHaveLength(0);
+
+    expect((await t.call("PATCH", `/api/bots/${bot.id}`, { status: "active" })).status).toBe(200);
     expect((await chat(bot.id, "Hi")).status).toBe(200);
+
     await t.call("PATCH", `/api/bots/${bot.id}`, { status: "paused" });
-    expect((await chat(bot.id, "Hi")).status).toBe(200);
-    expect((await t.call("PATCH", `/api/bots/${bot.id}`, { status: "active" })).status).toBe(409); // still not allowed
+    const paused = await chat(bot.id, "Hi again");
+    expect(paused.status).toBe(409);
+    expect(paused.body.message).toMatch(/paused/);
+    expect(t.provider.calls).toHaveLength(1); // only the one message sent while it was on
   });
 
-  it("explains when no model has been chosen", async () => {
+  it("a bot without a model cannot be switched on, so it cannot chat, and nothing is sent", async () => {
     const bot = (await t.call("POST", "/api/bots", { name: "NoModel" })).body.bot;
+    expect((await t.call("PATCH", `/api/bots/${bot.id}`, { status: "active" })).body.error).toBe("model_required");
     const res = await chat(bot.id, "Hi");
     expect(res.status).toBe(409);
-    expect(res.body.error).toBe("llm_no_model_selected");
+    expect(res.body.error).toBe("bot_not_active");
+    expect(t.provider.calls).toHaveLength(0);
+  });
+
+  it("the central check also stops a run that bypasses the chat page (a task for a bot switched off afterwards)", async () => {
+    const bot = await makeBot();
+    await t.call("PATCH", `/api/bots/${bot.id}`, { status: "disabled" });
+    const res = await t.call("POST", `/api/bots/${bot.id}/tasks`, { instruction: "Do it" });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe("bot_not_active");
     expect(t.provider.calls).toHaveLength(0);
   });
 

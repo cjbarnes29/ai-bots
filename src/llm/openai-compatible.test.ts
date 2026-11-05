@@ -174,6 +174,22 @@ describe("error handling", () => {
     expect((await failure(provider().complete(REQUEST))).retryAfterMs).toBe(3000);
   });
 
+  it("tells a used-up daily quota (or 'limit: 0', no free allowance at all) apart from a short per-minute limit", async () => {
+    for (const [message, quota] of [
+      ["You exceeded your current quota. Quota exceeded for metric generate_content_free_tier_requests, limit: 0, model: gemini-2.5-computer-use-preview", true],
+      ["Quota exceeded for metric ... GenerateRequestsPerDayPerProjectPerModel-FreeTier", true],
+      ["Resource has been exhausted: daily limit reached", true],
+      ["Too many requests, slow down", false],
+    ] as const) {
+      reset();
+      server.setHandler(() => ({ status: 429, body: { error: { message } } }));
+      const err = await failure(provider().complete(REQUEST));
+      expect(err.llmCode, message).toBe("rate_limited");
+      expect(err.quota, message).toBe(quota);
+      expect(err.retryable, message).toBe(!quota); // a daily quota is never worth retrying
+    }
+  });
+
   it("times out when the provider is too slow", async () => {
     reset();
     server.setHandler(() => ({ delayMs: 400, body: {} }));
@@ -251,7 +267,8 @@ describe("listing models", () => {
       },
     }));
     const models = await provider({ plugin: geminiPlugin }).listModels(2000);
-    expect(models.map((m) => m.id)).toEqual(["gemini-2.0-flash", "gemini-2.5-pro"]);
+    // every listed model is returned (so the registry can record it); the ones that are not chat models are flagged and never reach the catalog
+    expect(models.map((m) => [m.id, m.chat])).toEqual([["gemini-2.0-flash", true], ["text-embedding-004", false], ["imagen-3", false], ["gemini-2.5-pro", true]]);
   });
 
   it("explains a bad key or an unreadable list", async () => {

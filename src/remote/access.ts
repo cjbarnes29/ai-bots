@@ -16,6 +16,8 @@ import type { Device, DeviceService } from "./devices.js";
  * trusting it as "local" would let a remote caller skip the pairing.
  */
 export const DEVICE_COOKIE = "awp_device";
+/** The owner's decision-window token, obtained by typing the passphrase at the Guardian. */
+export const PROOF_HEADER = "x-awp-proof";
 export const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const PROXY_HEADERS = ["x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "forwarded", "tailscale-user-login", "tailscale-user-name"];
@@ -65,12 +67,19 @@ const OWNER_ONLY_ROUTES: RegExp[] = [
   /^\/api\/inbound/,
   /^\/api\/manager\/settings/,
   /^\/api\/skills/,
+  /^\/api\/demo\/setup/,
+  /^\/api\/recommendations\/(apply|restore)/,
   /^\/api\/workflows$/,
   /^\/api\/workflows\/:id$/,
   /^\/api\/workflows\/:id\/(enable|disable|archive|unarchive|duplicate)$/,
   /^\/api\/workflows\/runs\/:id\/steps\/:nodeId\/retry$/,
   /^\/api\/bots\/:id\/(skills|tools|pc|integrations|memory)/,
   /^\/api\/memory/,
+  // Inbox notification preferences (they decide how often bots may write) and hiding a project are owner acts. Reading, pinning, muting and renaming stay open.
+  /^\/api\/inbox\/preferences/,
+  // Running a model evaluation sends real requests to a provider: an owner act.
+  /^\/api\/llm\/registry\/evaluate/,
+  /^\/api\/projects\/:id$/,
   /^\/api\/pc\/(workspaces|resume)/,
   /^\/api\/devices\/pairing/,
   /^\/api\/(gmail|gworkspace)\/oauth\/start/,
@@ -83,7 +92,13 @@ const OWNER_ONLY_ROUTES: RegExp[] = [
   /^\/api\/(delegation|automation)\/limits/,
   /^\/api\/bots\/:id\/permissions\//,
   /^\/api\/bots\/:id\/delegation/,
+  // Application and folder approvals: creating or changing them. Revoking, looking, previewing and scanning stay open (taking access away is safe).
+  /^\/api\/desktop\/settings/,
+  /^\/api\/bot-studio\/(templates\/:id\/create|import|draft|bots\/:id\/mode)/,
+  /^\/api\/access\/(applications\/:id(\/session)?|folders(\/:id)?|reset)$/,
 ];
+/** Besides the owner-only list: deciding on an approval is also an owner act that needs the proof when this PC is asked. */
+const STEP_UP_ONLY_ROUTES: RegExp[] = [/^\/api\/approvals\/:id\/approve/, /^\/api\/decisions\/:id\/(approve|choice|reject|assignments(\/:botId\/(start|repair))?$)/];
 /** Stopping things is allowed from the phone; switching them back on is not. */
 const PAUSE_ROUTES = new Set(["/api/llm/pause", "/api/external/pause", "/api/automation/pause"]);
 
@@ -91,6 +106,11 @@ export interface AccessOptions {
   remoteHosts: string[];
   devices: DeviceService;
   audit: AuditLog;
+  /**
+   * When given (a Guardian is configured), every owner-only change made from THIS PC also needs a valid owner proof. Without it, anything on
+   * this PC that sends the dashboard header is treated as the owner, including a script an agent ran. See docs/GUARDIAN.md (S-13).
+   */
+  stepUp?: { check: (token: string) => Promise<boolean> };
 }
 
 export function registerAccess(app: FastifyInstance, options: AccessOptions): void {
@@ -142,6 +162,18 @@ export function registerAccess(app: FastifyInstance, options: AccessOptions): vo
 
   // After the body has been read: the rules that depend on the route and on what is being asked.
   app.addHook("preHandler", async (req, reply) => {
+    // On this PC, owner acts need the passphrase proof when a Guardian is configured. Stopping, pausing and denying never do.
+    if (options.stepUp && req.access.mode === "local" && !SAFE_METHODS.has(req.method)) {
+      const route = req.routeOptions.url ?? "";
+      const switchesOn = PAUSE_ROUTES.has(route) && (req.body as { paused?: unknown } | undefined)?.paused !== true;
+      if (switchesOn || OWNER_ONLY_ROUTES.some((r) => r.test(route)) || STEP_UP_ONLY_ROUTES.some((r) => r.test(route))) {
+        const token = req.headers[PROOF_HEADER];
+        if (typeof token !== "string" || !(await options.stepUp.check(token))) {
+          options.audit.record("owner_proof.refused", { route, method: req.method }, { actor: "local" });
+          return reply.code(403).send({ error: "proof_required", message: "Enter your owner passphrase to do this. It is checked by the Guardian, not by the app." });
+        }
+      }
+    }
     if (req.access.mode !== "remote" || SAFE_METHODS.has(req.method)) return;
     const route = req.routeOptions.url ?? "";
     if (OWNER_ONLY_ROUTES.some((r) => r.test(route))) {

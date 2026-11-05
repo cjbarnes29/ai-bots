@@ -3,6 +3,7 @@ import { z } from "zod";
 import { LlmError } from "../llm/errors.js";
 import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fence = "```";
@@ -49,7 +50,7 @@ describe("the monitoring overview", () => {
   });
 
   it("counts bots, finished and failed tasks, AI calls and tokens, and lists them in the feed", async () => {
-    const bot = (await t.call("POST", "/api/bots", { name: "Worker", model: ref })).body.bot;
+    const bot = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Worker", model: ref }))).body.bot;
     await t.call("POST", `/api/bots/${bot.id}/tasks`, { instruction: "Do the thing" });
     await settle();
     t.provider.script.push(new LlmError("provider_unavailable", "down", { retryable: false }));
@@ -71,7 +72,7 @@ describe("the monitoring overview", () => {
   });
 
   it("shows a waiting approval first in 'needs attention' and in the feed, and updates when it is decided", async () => {
-    const bot = (await t.call("POST", "/api/bots", { name: "Sender", model: ref })).body.bot;
+    const bot = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Sender", model: ref }))).body.bot;
     t.provider.script.push({ ...OK_RESULT, text: `${fence}action\n${JSON.stringify({ connector: "telegram", action: "send_message", args: { chat: "sam", text: "Hi" } })}\n${fence}` }, OK_RESULT);
     await t.call("POST", `/api/bots/${bot.id}/tasks`, { instruction: "Say hi" });
     await settle();
@@ -98,7 +99,7 @@ describe("the monitoring overview", () => {
   });
 
   it("counts schedules that are switched on (new ones start off)", async () => {
-    const bot = (await t.call("POST", "/api/bots", { name: "Auto", model: ref })).body.bot;
+    const bot = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Auto", model: ref }))).body.bot;
     const made = await t.call("POST", "/api/schedules", { name: "Every hour", botId: bot.id, instruction: "x", kind: "interval", intervalMinutes: 60 });
     expect(made.status).toBe(201);
     expect((await overview()).automation.schedulesOn).toBe(0); // created OFF

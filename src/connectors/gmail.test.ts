@@ -6,6 +6,7 @@ import { buildApp } from "../app.js";
 import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { GMAIL_SCOPES, buildRawEmail, createGmailConnector } from "./gmail.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const CLIENT_ID = "fake-client-id.apps.googleusercontent.com";
@@ -78,7 +79,7 @@ describe("the real app's connector list", () => {
     const app = await buildApp({ dbPath: ":memory:" });
     try {
       const status = (await app.inject({ method: "GET", url: "/api/external/status" })).json();
-      expect(status.connectors.map((c: any) => c.id)).toEqual(["telegram", "browser", "gmail", "pc", "documents", "memory", "business", "github", "notion", "n8n", "mcp", "gworkspace"]);
+      expect(status.connectors.map((c: any) => c.id)).toEqual(["telegram", "browser", "gmail", "pc", "documents", "desktop", "memory", "business", "github", "notion", "n8n", "mcp", "gworkspace"]);
       expect(status.connectors[2].notReady).toMatch(/client ID/);
       expect((await app.inject({ method: "GET", url: "/api/gmail/status" })).json()).toMatchObject({ hasClient: false, connected: false });
     } finally {
@@ -119,7 +120,7 @@ describe("Gmail sign-in and the approval gate", () => {
     const res = await callback(`code=good-code&state=${url.searchParams.get("state")}`);
     expect(res.statusCode).toBe(200);
   };
-  const mkBot = async () => (await t.call("POST", "/api/bots", { name: "Mailer", model: ref })).body.bot as any;
+  const mkBot = async () => (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Mailer", model: ref }))).body.bot as any;
   const runTask = async (botId: string) => {
     await t.call("POST", `/api/bots/${botId}/tasks`, { instruction: "Do it" });
     await vi.waitFor(async () => expect(((await t.call("GET", "/api/tasks")).body.tasks as any[]).every((x) => ["completed", "failed"].includes(x.status))).toBe(true), { timeout: 3000, interval: 10 });

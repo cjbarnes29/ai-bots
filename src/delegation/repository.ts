@@ -49,6 +49,8 @@ export interface TeamMember {
   role: string;
   responsibilities: string[];
   archived: boolean;
+  /** "active", "paused" or "disabled". Only active teammates are offered work. */
+  status: string;
   model: string | null;
   runtime: Runtime;
 }
@@ -268,7 +270,7 @@ export class TaskRepository {
   listTargets(botId: string): TeamMember[] {
     return this.db
       .prepare(
-        `SELECT b.id, b.name, b.role, b.responsibilities, b.archived, b.model, b.runtime
+        `SELECT b.id, b.name, b.role, b.responsibilities, b.archived, b.status, b.model, b.runtime
          FROM bot_delegation_targets d JOIN bots b ON b.id = d.target_bot_id
          WHERE d.bot_id = ? ORDER BY b.name, b.id`,
       )
@@ -279,6 +281,7 @@ export class TaskRepository {
         role: String(r["role"]),
         responsibilities: JSON.parse(String(r["responsibilities"])) as string[],
         archived: Number(r["archived"]) === 1,
+        status: String(r["status"]),
         model: str(r["model"]),
         runtime: String(r["runtime"]) as Runtime,
       }));

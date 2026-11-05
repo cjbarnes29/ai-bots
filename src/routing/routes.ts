@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { AppError } from "../errors.js";
 import type { ModelCatalogService } from "../llm/catalog.js";
 import type { LlmRepository } from "../llm/repository.js";
 import { CLASS_LABELS, ROUTE_CLASSES, loadRouting, routingPatchSchema, saveRouting } from "./config.js";
@@ -49,6 +50,8 @@ export interface RoutingRoutesDeps {
   repo: LlmRepository;
   now: () => number;
   breakerWaitMs: (providerId: string) => number;
+  /** Models resting after a free-tier rate limit, with the seconds left. */
+  cooldowns: () => { ref: string; secondsLeft: number }[];
   /** Gives every bot that has no model "auto/general". Returns how many were changed. */
   assignUnassigned: () => number;
   audit: { record(kind: string, detail?: Record<string, unknown>, options?: { actor?: string }): void };
@@ -78,6 +81,7 @@ export async function registerRoutingRoutes(app: FastifyInstance, d: RoutingRout
         modelCount: p.modelCount,
         usableModels: models.filter((m) => m.providerId === p.id && m.callable).length,
       })),
+      cooldowns: d.cooldowns(),
       lastRefreshAt: d.repo.getSetting(LAST_REFRESH_KEY) ? new Date(Number(d.repo.getSetting(LAST_REFRESH_KEY))).toISOString() : null,
     };
   };
@@ -86,6 +90,13 @@ export async function registerRoutingRoutes(app: FastifyInstance, d: RoutingRout
 
   app.put("/api/llm/routing", async (req) => {
     const patch = routingPatchSchema.parse(req.body);
+    // A first choice per task must be one real, known, non-blocked model (never "auto/..."); the default for new bots may be either.
+    for (const ref of Object.values(patch.preferred ?? {})) {
+      if (ref === undefined) continue;
+      if (ref.startsWith("auto/")) throw new AppError(400, "invalid_preferred", "Choose a specific model as the first choice for a kind of task.");
+      d.catalog.validateModelRef(ref);
+    }
+    if (patch.defaultModel) d.catalog.validateModelRef(patch.defaultModel);
     saveRouting(d.repo, patch, new Date(d.now()).toISOString());
     d.audit.record("routing.changed", { fields: Object.keys(patch) }, { actor: "owner" });
     return view();

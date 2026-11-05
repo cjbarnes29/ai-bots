@@ -90,6 +90,8 @@ export interface AutomationDeps {
   llm: LlmService;
   getBot: (id: string) => BotRecord;
   now?: () => number;
+  /** The Guardian: a plain-language reason while nothing may start, else null. */
+  startGuard?: () => string | null;
 }
 
 const iso = (ms: number | null): string | null => (ms === null ? null : new Date(ms).toISOString());
@@ -509,7 +511,7 @@ export class AutomationService {
   private pauseReason(): string | null {
     if (this.isPaused()) return "Automation is paused.";
     if (this.deps.llm.isPaused()) return "All AI calls are paused.";
-    return null;
+    return this.deps.startGuard?.() ?? null;
   }
 
   /** Counts a failure, and switches the schedule or trigger off after too many in a row. */

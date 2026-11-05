@@ -19,12 +19,13 @@ export interface TestApp {
 
 export const FAKE_GEMINI_KEY = "AIzaSyFAKEKEYFORTESTSONLY0123456789";
 
-export async function createTestApp(options: { connectors?: ConnectorDefinition[]; googleUrls?: GoogleUrls; remoteHosts?: string[]; dashboardDir?: string; includePc?: boolean; includeMemory?: boolean; includeBusiness?: boolean; businessDir?: string; businessNet?: import("./app.js").BuildAppOptions["businessNet"]; pcStart?: (spec: import("./connectors/pc/runner.js").RunSpec) => import("./connectors/pc/runner.js").PcProcess; pushAllowHost?: (host: string) => boolean } = {}): Promise<TestApp> {
+export async function createTestApp(options: { connectors?: ConnectorDefinition[]; googleUrls?: GoogleUrls; remoteHosts?: string[]; dashboardDir?: string; includePc?: boolean; includeMemory?: boolean; includeBusiness?: boolean; guardian?: import("./guardian-link.js").GuardianGate; enforceFolderGrants?: boolean; includeDesktop?: boolean; hardware?: { ramGb: number; cores: number }; desktop?: import("./app.js").BuildAppOptions["desktop"]; accessTesting?: import("./app.js").BuildAppOptions["accessTesting"]; businessDir?: string; businessNet?: import("./app.js").BuildAppOptions["businessNet"]; pcStart?: (spec: import("./connectors/pc/runner.js").RunSpec) => import("./connectors/pc/runner.js").PcProcess; pushAllowHost?: (host: string) => boolean; verification?: "enforced" | "off" } = {}): Promise<TestApp> {
   const provider = new ScriptedProvider();
   const clock = { t: new Date(2026, 5, 15, 12, 0, 0).getTime() };
   const sleeps: number[] = [];
   const app = await buildApp({
     dbPath: ":memory:",
+    verification: options.verification ?? "off",
     // Older tests expect a new bot to have NO model until one is chosen; routing tests switch automatic assignment back on.
     routingDefaults: { autoAssignNewBots: false },
     managerPollMs: 5,
@@ -37,6 +38,12 @@ export async function createTestApp(options: { connectors?: ConnectorDefinition[
     ...(options.includePc ? { includePc: true } : {}),
     ...(options.includeMemory ? { includeMemory: true } : {}),
     ...(options.includeBusiness ? { includeBusiness: true } : {}),
+    ...(options.guardian ? { guardian: options.guardian } : {}),
+    ...(options.enforceFolderGrants ? { enforceFolderGrants: true } : {}),
+    ...(options.includeDesktop ? { includeDesktop: true } : {}),
+    ...(options.hardware ? { hardware: options.hardware } : {}),
+    ...(options.desktop ? { desktop: options.desktop } : {}),
+    ...(options.accessTesting ? { accessTesting: options.accessTesting } : {}),
     ...(options.businessDir ? { businessDir: options.businessDir } : {}),
     ...(options.businessNet ? { businessNet: options.businessNet } : {}),
     ...(options.pcStart ? { pcStart: options.pcStart } : {}),

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { INBOUND_LIMITS, parseItems } from "./service.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** A pretend Telegram whose "recent messages" the test controls, and which counts how often it was read. */
@@ -41,7 +42,7 @@ beforeEach(async () => {
   feed = { text: "No recent messages.", reads: 0, fail: null };
   t = await createTestApp({ connectors: [fakeTelegram(feed) as any] });
   const ref = await setupGeminiModel(t);
-  botId = (await t.call("POST", "/api/bots", { name: "Reader", model: ref })).body.bot.id;
+  botId = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Reader", model: ref }))).body.bot.id;
 });
 afterEach(async () => {
   await t.app.close();
@@ -93,10 +94,10 @@ describe("setting a source up", () => {
 
   it("allows at most five sources", async () => {
     for (let i = 0; i < INBOUND_LIMITS.maxSources; i++) {
-      const b = (await t.call("POST", "/api/bots", { name: `B${i}` })).body.bot.id;
+      const b = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: `B${i}` }))).body.bot.id;
       expect((await t.call("POST", "/api/inbound", { connector: "telegram", botId: b })).status).toBe(201);
     }
-    const extra = (await t.call("POST", "/api/bots", { name: "Extra" })).body.bot.id;
+    const extra = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Extra" }))).body.bot.id;
     expect((await t.call("POST", "/api/inbound", { connector: "telegram", botId: extra })).status).toBe(409);
   });
 

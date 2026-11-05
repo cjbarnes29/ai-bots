@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FAKE_GEMINI_KEY, createTestApp, setupGeminiModel, setupOllamaModel, type TestApp } from "../test-app.js";
 import { LlmError } from "./errors.js";
 import { modelInfo } from "./test-helpers.js";
+import { switchOn } from "./test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let t: TestApp;
@@ -17,17 +18,17 @@ const provider = async (id: string) =>
   ((await t.call("GET", "/api/llm/providers")).body.providers as any[]).find((p) => p.id === id);
 
 describe("providers", () => {
-  it("lists the five providers, all switched off, unconfirmed, with the approved caps", async () => {
+  it("lists the six providers (five real ones and the built-in simulated demo), all switched off, unconfirmed, with the approved caps", async () => {
     vi.stubEnv("GEMINI_API_KEY", "");
     const res = await t.call("GET", "/api/llm/providers");
     expect(res.status).toBe(200);
-    expect(res.body.providers.map((p: any) => p.id)).toEqual(["gemini", "groq", "openrouter", "ollama", "omniroute"]);
+    expect(res.body.providers.map((p: any) => p.id)).toEqual(["gemini", "groq", "openrouter", "ollama", "omniroute", "demo"]);
     for (const p of res.body.providers) {
       expect(p.enabled).toBe(false);
       expect(p.freeConfirmed).toBe(false);
       expect(p.modelCount).toBe(0);
     }
-    expect(res.body.providers.map((p: any) => p.dailyRequestCap)).toEqual([50, 50, 40, null, 40]);
+    expect(res.body.providers.map((p: any) => p.dailyRequestCap)).toEqual([50, 50, 40, null, 40, null]);
     expect(res.body.providers[0]).toMatchObject({ kind: "cloud", keyEnv: "GEMINI_API_KEY", keyConfigured: false, requiresFreeConfirmation: true });
     expect(res.body.providers[3]).toMatchObject({ kind: "local", keyEnv: null, keyConfigured: true, baseUrlEditable: true });
   });
@@ -203,18 +204,18 @@ describe("bots choose a provider and model", () => {
   it("each bot can use a different provider and model", async () => {
     const gemini = await setupGeminiModel(t);
     const ollama = await setupOllamaModel(t);
-    const a = (await t.call("POST", "/api/bots", { name: "A", model: gemini })).body.bot;
-    const b = (await t.call("POST", "/api/bots", { name: "B", model: ollama })).body.bot;
+    const a = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "A", model: gemini }))).body.bot;
+    const b = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "B", model: ollama }))).body.bot;
     expect([a.model, b.model]).toEqual(["gemini/gemini-test", "ollama/llama3.1:8b"]);
   });
 
   it("rejects models that are unknown or badly written", async () => {
     await setupGeminiModel(t);
-    const id = (await t.call("POST", "/api/bots", { name: "X" })).body.bot.id;
+    const id = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "X" }))).body.bot.id;
     expect((await t.call("PATCH", `/api/bots/${id}`, { model: "gemini/not-listed" })).body.error).toBe("unknown_model");
     expect((await t.call("PATCH", `/api/bots/${id}`, { model: "together/llama-3.3-70b" })).body.error).toBe("unknown_model");
     expect((await t.call("PATCH", `/api/bots/${id}`, { model: "no-slash" })).status).toBe(400);
-    expect((await t.call("POST", "/api/bots", { name: "Y", model: "gemini/nope" })).status).toBe(400);
+    expect((await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Y", model: "gemini/nope" }))).status).toBe(400);
   });
 
   it("rejects a model that is blocked because it is, or became, paid", async () => {
@@ -222,20 +223,20 @@ describe("bots choose a provider and model", () => {
     const free = modelInfo("meta-llama/llama-x:free", { priceInput: 0, priceOutput: 0 });
     t.provider.models = [free];
     await t.call("POST", "/api/llm/providers/openrouter/refresh-models");
-    const id = (await t.call("POST", "/api/bots", { name: "X" })).body.bot.id;
+    const id = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "X" }))).body.bot.id;
     expect((await t.call("PATCH", `/api/bots/${id}`, { model: "openrouter/meta-llama/llama-x:free" })).status).toBe(200);
 
     // The provider starts charging for it: the next refresh blocks it, and no bot can pick it again.
     t.provider.models = [{ ...free, priceInput: 0.000002, priceOutput: 0.000002 }];
     await t.call("POST", "/api/llm/providers/openrouter/refresh-models");
-    const other = (await t.call("POST", "/api/bots", { name: "Y" })).body.bot.id;
+    const other = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Y" }))).body.bot.id;
     const res = await t.call("PATCH", `/api/bots/${other}`, { model: "openrouter/meta-llama/llama-x:free" });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("model_blocked");
   });
 
   it("validates temperature (0 to 2) and max tokens (1 to 4,096)", async () => {
-    const id = (await t.call("POST", "/api/bots", { name: "X" })).body.bot.id;
+    const id = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "X" }))).body.bot.id;
     for (const bad of [{ temperature: -0.1 }, { temperature: 2.1 }, { maxOutputTokens: 0 }, { maxOutputTokens: 4097 }, { maxOutputTokens: 1.5 }, { temperature: "hot" }]) {
       expect((await t.call("PATCH", `/api/bots/${id}`, bad)).status, JSON.stringify(bad)).toBe(400);
     }
@@ -245,7 +246,7 @@ describe("bots choose a provider and model", () => {
 
   it("a model that was valid and later disappears does not block unrelated edits or a restore", async () => {
     const ref = await setupGeminiModel(t);
-    const id = (await t.call("POST", "/api/bots", { name: "Old", model: ref })).body.bot.id;
+    const id = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Old", model: ref }))).body.bot.id;
     t.provider.models = [];
     await t.call("POST", "/api/llm/providers/gemini/refresh-models"); // model is now "removed"
     const edit = await t.call("PATCH", `/api/bots/${id}`, { role: "Still editable" });
@@ -255,7 +256,7 @@ describe("bots choose a provider and model", () => {
 
   it("changing the model never changes permissions", async () => {
     const ref = await setupGeminiModel(t);
-    const bot = (await t.call("POST", "/api/bots", { name: "P" })).body.bot;
+    const bot = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "P" }))).body.bot;
     await t.call("PUT", `/api/bots/${bot.id}/permissions/gmail`, { readEnabled: true });
     const after = (await t.call("PATCH", `/api/bots/${bot.id}`, { model: ref })).body.bot;
     expect(after.permissions.find((p: any) => p.connector === "gmail").readEnabled).toBe(true);

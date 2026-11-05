@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { runRefusal } from "../agent-manager/service.js";
 import type { BotRecord, Runtime } from "../agent-manager/types.js";
 import { AppError } from "../errors.js";
 import { LlmError } from "../llm/errors.js";
@@ -15,7 +16,7 @@ export interface ChatReply {
 
 /**
  * Test chat: you send a message, the bot's runtime answers using its chosen model.
- * Only runs when you send a message, on any bot that is not archived, whatever its status.
+ * Only runs when you send a message, and only for a bot that is switched on (status "active", not archived).
  */
 export class ChatService {
   constructor(
@@ -24,6 +25,8 @@ export class ChatService {
     private readonly runtimeFor: (runtime: Runtime) => AgentRuntime,
     private readonly llm: LlmService,
     private readonly now: () => number = Date.now,
+    /** Optional: the project notes for a conversation, and a way to put a NEW conversation into a project. Supplied by the app. */
+    private readonly projects?: { contextFor(conversationId: string): string | null; contextForProject(projectId: string): string | null; attach(projectId: string, conversationId: string): void },
   ) {}
 
   listConversations(botId: string): ConversationRecord[] {
@@ -40,11 +43,14 @@ export class ChatService {
     return this.repo.listMessages(conversationId);
   }
 
-  async sendMessage(botId: string, input: { message: string; conversationId?: string | undefined }): Promise<ChatReply> {
+  async sendMessage(botId: string, input: { message: string; conversationId?: string | undefined; projectId?: string | undefined }): Promise<ChatReply> {
     const bot = this.getBot(botId);
     if (bot.archived) {
       throw new AppError(409, "bot_archived", "This bot is archived. Unarchive it to chat.");
     }
+    // Checked before anything is stored: a switched-off bot leaves no half conversation behind.
+    const refusal = runRefusal(bot);
+    if (refusal) throw new AppError(409, "bot_not_active", refusal);
 
     const message = input.message.trim();
     const maxChars = this.llm.limits().maxMessageChars;
@@ -73,7 +79,7 @@ export class ChatService {
       : [];
 
     // Ask the model BEFORE saving anything, so a failed call leaves no half-finished conversation.
-    const result = await this.runtimeFor(bot.runtime).run({ bot, history, userMessage: message, conversationId });
+    const result = await this.runtimeFor(bot.runtime).run({ bot, history, userMessage: message, conversationId, projectContext: (conversation ? this.projects?.contextFor(conversationId) : input.projectId ? this.projects?.contextForProject(input.projectId) : null) ?? null });
 
     const createdAt = new Date(this.now()).toISOString();
     const { userId, assistantId } = this.repo.transaction(() => {
@@ -103,6 +109,14 @@ export class ChatService {
       return { userId, assistantId };
     });
 
+    // A conversation started from inside a project is linked to it (after the messages are saved; a failed link never loses the chat).
+    if (!conversation && input.projectId && this.projects) {
+      try {
+        this.projects.attach(input.projectId, conversationId);
+      } catch {
+        /* the chat is kept; the owner can link it later */
+      }
+    }
     const userMessage = this.repo.getMessage(userId);
     const assistantMessage = this.repo.getMessage(assistantId);
     if (!userMessage || !assistantMessage) throw new AppError(500, "internal_error", "Something went wrong");

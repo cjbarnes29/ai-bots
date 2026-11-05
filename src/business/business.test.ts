@@ -6,6 +6,7 @@ import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { AuditError, type HttpResponse } from "./audit.js";
 import type { TransportSpec } from "./netfetch.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fence = "```";
@@ -67,7 +68,7 @@ describe("Business Workforce through the approval gate", () => {
     vi.unstubAllEnvs();
   });
 
-  const mkBot = async (name = "Scout") => (await t.call("POST", "/api/bots", { name, model: ref })).body.bot as any;
+  const mkBot = async (name = "Scout") => (await switchOn(t.call, await t.call("POST", "/api/bots", { name, model: ref }))).body.bot as any;
   const allowWeb = (id: string) => t.call("PUT", `/api/bots/${id}/permissions/browser`, { readEnabled: true });
   const lock = (enabled: boolean) => t.call("PUT", "/api/business/external", { enabled });
   const ask = async (botId: string, blocks: string[]) => {

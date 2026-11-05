@@ -11,8 +11,18 @@ import {
   type PermissionRecord,
 } from "./types.js";
 
-/** Phase 1 has no way to run a bot, so a bot can never be set to "active". */
-const ACTIVATION_AVAILABLE = false;
+/**
+ * What a bot's status means (the owner's decision, 2026-11-04, replacing the Phase 1 lock):
+ * - "active": the bot may run (chat, tasks, teammates, workflows, schedules, the Manager, inbound messages). It needs a model first.
+ * - "paused" and "disabled": the bot does not run at all. New, duplicated, imported and archived bots are always "disabled".
+ * Switching a bot on never grants a permission: connectors, folders, applications and approvals stay exactly as they were.
+ */
+export function runRefusal(bot: Pick<BotRecord, "name" | "status" | "archived">): string | null {
+  if (bot.archived) return `${bot.name} is archived. Unarchive it and switch it on to let it run.`;
+  if (bot.status === "paused") return `${bot.name} is paused. Switch it on (Details tab) to let it run.`;
+  if (bot.status !== "active") return `${bot.name} is switched off. Switch it on (Details tab) to let it run.`;
+  return null;
+}
 
 export interface BotWithPermissions extends BotRecord {
   permissions: PermissionRecord[];
@@ -104,14 +114,6 @@ export class AgentManagerService {
     const bot = this.mustGet(id);
     this.mustBeEditable(bot);
 
-    if (input.status === "active" && !ACTIVATION_AVAILABLE) {
-      throw new AppError(
-        409,
-        "activation_not_available",
-        "Bots cannot be activated yet. Running bots arrives in Phase 2.",
-      );
-    }
-
     // Only a NEW model choice is checked. A model that was valid when chosen, and has since
     // become unavailable, does not block unrelated edits (the chat explains the problem instead).
     if (input.model && input.model !== bot.model) this.validateModel(input.model);
@@ -128,6 +130,14 @@ export class AgentManagerService {
       maxOutputTokens: input.maxOutputTokens !== undefined ? input.maxOutputTokens : bot.maxOutputTokens,
     };
 
+    let nextStatus = input.status ?? bot.status;
+    if (nextStatus === "active" && next.model === null) {
+      if (input.status === "active") {
+        throw new AppError(409, "model_required", "Choose a model for this bot first (Automatic is fine), then switch it on.");
+      }
+      nextStatus = "disabled"; // removing the model of a running bot switches it off: it could not answer anyway
+    }
+
     const now = this.now();
     this.repo.transaction(() => {
       if (!sameContent(bot, next)) {
@@ -135,11 +145,24 @@ export class AgentManagerService {
         this.repo.updateBotContent(id, next, version, now);
         this.repo.insertVersion(id, version, next, input.changeNote ?? null, null, now);
       }
-      if (input.status !== undefined && input.status !== bot.status) {
-        this.repo.setStatus(id, input.status, now);
+      if (nextStatus !== bot.status) {
+        this.repo.setStatus(id, nextStatus, now);
       }
     });
     return this.getBot(id);
+  }
+
+  /** Null when the bot may run; otherwise the plain reason it may not. Unknown bots are refused too. */
+  runRefusal(id: string): string | null {
+    const bot = this.repo.getBot(id);
+    return bot ? runRefusal(bot) : "That bot no longer exists.";
+  }
+
+  /** Throws a clear 409 when the bot may not run. Used where a run is requested (chat, a new task). */
+  assertCanRun(id: string): void {
+    const bot = this.mustGet(id);
+    const reason = runRefusal(bot);
+    if (reason) throw new AppError(409, "bot_not_active", reason);
   }
 
   archiveBot(id: string): BotWithPermissions {

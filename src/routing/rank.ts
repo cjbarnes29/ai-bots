@@ -11,6 +11,8 @@ export interface ModelTraits {
   small: boolean;
   large: boolean;
   billions: number | null;
+  /** Built for one special job (driving a computer, safety filtering, embeddings...), not for answering text. Automatic routing never chooses it; a bot may still be given it by hand. */
+  specialized: boolean;
 }
 
 export function traitsOf(modelId: string, displayName = ""): ModelTraits {
@@ -21,7 +23,8 @@ export function traitsOf(modelId: string, displayName = ""): ModelTraits {
   const reasoning = /(reason|thinking|\br1\b|deepseek-r1|\bo1\b|\bo3\b|qwq|magistral)/.test(text);
   const small = (billions !== null && billions <= 9) || /(flash-lite|\bflash\b|\bmini\b|\blite\b|instant|\bsmall\b|\bnano\b|\btiny\b|haiku)/.test(text);
   const large = (billions !== null && billions >= 30) || /(\bpro\b|\bultra\b|\blarge\b|opus|405b|\bmax\b)/.test(text) || reasoning;
-  return { coding, reasoning, small, large: large && !small, billions };
+  const specialized = /(computer[-_ ]?use|robotics|(?<![a-z])guard(?![a-z])|moderation|embed|rerank|(?<![a-z])tts(?![a-z])|(?<![a-z])whisper(?![a-z])|transcri|speech)/.test(text);
+  return { coding, reasoning, small, large: large && !small, billions, specialized };
 }
 
 export function scoreFor(cls: RouteClass, t: ModelTraits): number {

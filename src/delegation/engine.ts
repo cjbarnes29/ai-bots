@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { runRefusal } from "../agent-manager/service.js";
 import type { BotRecord } from "../agent-manager/types.js";
 import { AppError } from "../errors.js";
 import { LlmError } from "../llm/errors.js";
@@ -78,6 +79,8 @@ export interface EngineDeps {
   promptExtras?: (botId: string) => Promise<string>;
   /** Called after a chain that was started from outside finishes (completed or failed). */
   onRootFinished?: (task: TaskRecord) => void;
+  /** The Guardian: a reason in plain words while nothing new may start or continue (paused, stopped, locked), otherwise null. */
+  startGuard?: () => string | null;
 }
 
 interface Feedback {
@@ -91,8 +94,11 @@ interface Feedback {
  */
 export class TaskEngine {
   private readonly now: () => number;
-  private chain: Promise<void> = Promise.resolve();
+  /** Chains waiting for a place, and how many are running now. */
+  private waiting: string[] = [];
+  private running = 0;
   private queued = 0;
+  private idleWaiters: (() => void)[] = [];
 
   constructor(private readonly deps: EngineDeps) {
     this.now = deps.now ?? Date.now;
@@ -142,6 +148,8 @@ export class TaskEngine {
 
   /** Creates a task for a bot and queues it. Chains run one at a time. */
   submit(botId: string, instruction: string, origin: StartOrigin = { type: "user" }): TaskRecord {
+    const held = this.deps.startGuard?.();
+    if (held) throw new AppError(409, "guardian_paused", held);
     const limits = this.limits();
     const text = instruction.trim();
     if (!text) throw new AppError(400, "empty_instruction", "Describe the task first.");
@@ -181,16 +189,39 @@ export class TaskEngine {
     return this.mustTask(id);
   }
 
+  /**
+   * How many chains may run together right now: the owner's setting, but never more than the model service can serve at once (one slot is kept free for chat).
+   * With the defaults this is 1: chains run one after another exactly as before.
+   */
+  parallelChains(): number {
+    const wanted = this.limits().maxParallelChains;
+    const slots = Math.max(1, this.deps.llm.limits().maxConcurrentCloud - 1);
+    return Math.max(1, Math.min(wanted, slots));
+  }
+
   private enqueue(rootId: string): void {
     this.queued += 1;
-    this.chain = this.chain
-      .then(() => this.runTask(rootId))
-      .catch(() => {
-        /* runTask records its own failures */
-      })
-      .finally(() => {
-        this.queued -= 1;
-      });
+    this.waiting.push(rootId);
+    // Started on the next tick, like the old queue: the caller still sees the task as pending.
+    void Promise.resolve().then(() => this.pump());
+  }
+
+  /** Starts waiting chains while there is room. Each chain is a separate, independent piece of work; nothing is started twice. */
+  private pump(): void {
+    while (this.running < this.parallelChains() && this.waiting.length > 0) {
+      const id = this.waiting.shift()!;
+      this.running += 1;
+      void this.runTask(id)
+        .catch(() => {
+          /* runTask records its own failures */
+        })
+        .finally(() => {
+          this.running -= 1;
+          this.queued -= 1;
+          if (this.queued === 0) for (const w of this.idleWaiters.splice(0)) w();
+          this.pump();
+        });
+    }
   }
 
   /** How many chains from one schedule or trigger are still waiting or working. */
@@ -200,7 +231,7 @@ export class TaskEngine {
 
   /** Resolves when every queued chain has finished. Used by tests. */
   async idle(): Promise<void> {
-    while (this.queued > 0) await this.chain;
+    while (this.queued > 0) await new Promise<void>((resolve) => this.idleWaiters.push(resolve));
   }
 
   cancel(rootId: string): TaskRecord {
@@ -215,6 +246,8 @@ export class TaskEngine {
 
   private assertRunnable(bot: BotRecord): void {
     if (bot.archived) throw new AppError(409, "bot_archived", `${bot.name} is archived. Unarchive it first.`);
+    const refusal = runRefusal(bot);
+    if (refusal) throw new AppError(409, "bot_not_active", refusal);
     if (bot.runtime !== "builtin") {
       throw new AppError(409, "runtime_not_installed", `${bot.name} uses the OpenClaw runtime, which is not installed.`);
     }
@@ -229,6 +262,12 @@ export class TaskEngine {
 
   private event(rootId: string, taskId: string, kind: string, detail: Record<string, unknown>): void {
     this.deps.tasks.insertEvent(taskId, rootId, kind, JSON.stringify(detail), this.iso());
+  }
+
+  /** A safe stopping point: before more work begins, a task that is held by the Guardian stops here instead of continuing. */
+  private stopIfHeld(): void {
+    const held = this.deps.startGuard?.();
+    if (held) throw new TaskFailure("guardian_paused", `Stopped at a safe point. ${held}`);
   }
 
   private throwIfCancelled(taskId: string): void {
@@ -296,7 +335,7 @@ export class TaskEngine {
     // Who this bot may hand work to: its allow-list, minus archived or unusable bots.
     const allowed = this.deps.tasks
       .listTargets(bot.id)
-      .filter((t) => !t.archived && t.model !== null && t.runtime === "builtin");
+      .filter((t) => !t.archived && t.status === "active" && t.model !== null && t.runtime === "builtin");
     const ancestors = this.ancestorBotIds(task);
     const offered = task.depth < limits.maxDepth ? allowed.filter((t) => !ancestors.includes(t.id)) : [];
 
@@ -331,24 +370,31 @@ export class TaskEngine {
 
     // The bot asked for help or for outside actions. Check each request, run the allowed ones one after another.
     const feedback: Feedback[] = [];
+    // What the PLATFORM knows really happened with requests that did not simply succeed. It is added to the result in the platform's own words, so the record is
+    // right whatever a particular model writes in its final answer (models differ, and a model can claim a success that did not happen).
+    const platform: string[] = [];
     let accepted = 0;
     for (const request of parsed.requests) {
       if (!request.ok) {
         feedback.push({ label: "(a request)", text: `REJECTED: ${request.reason}.` });
+        platform.push(`A request for a teammate was rejected and not done: ${request.reason}.`);
         this.event(task.rootId, task.id, "delegation_rejected", { reason: request.reason });
         continue;
       }
       const rejection = this.rejectionFor(task, request.to, allowed, ancestors, accepted, limits);
       if (typeof rejection === "string") {
         feedback.push({ label: request.to, text: `REJECTED: ${rejection}.` });
+        platform.push(`The request to ${request.to} was rejected and not done: ${rejection}.`);
         this.event(task.rootId, task.id, "delegation_rejected", { to: request.to, reason: rejection });
         continue;
       }
       accepted += 1;
+      this.stopIfHeld();
       const child = this.createChild(task, bot, rejection, request.task);
       await this.runTask(child.id);
       this.throwIfCancelled(task.id);
       const done = this.mustTask(child.id);
+      if (done.status !== "completed") platform.push(`${rejection.name} did not finish the work handed to it: ${done.errorMessage ?? "the task did not finish"}.`);
       feedback.push({
         label: rejection.name,
         text:
@@ -363,24 +409,32 @@ export class TaskEngine {
     for (const request of actionRequests) {
       if (!request.ok) {
         feedback.push({ label: "(an action request)", text: `REJECTED: ${request.reason}.` });
+        platform.push(`An outside action request was not valid and nothing was done: ${request.reason}.`);
         continue;
       }
       const name = `${request.connector}.${request.action}`;
       if (!this.deps.actions) {
         feedback.push({ label: name, text: "REJECTED: outside actions are not available." });
+        platform.push(`${name}: not done (outside actions are not available).`);
         continue;
       }
       if (actionsHandled >= MAX_ACTIONS_PER_TASK) {
         feedback.push({ label: name, text: `REJECTED: at most ${MAX_ACTIONS_PER_TASK} outside actions per task.` });
+        platform.push(`${name}: not done (at most ${MAX_ACTIONS_PER_TASK} outside actions per task).`);
         continue;
       }
       actionsHandled += 1;
+      this.stopIfHeld();
       this.throwIfCancelled(task.id);
       const outcome = await this.deps.actions.request(bot.id, task.id, request);
       this.throwIfCancelled(task.id);
       this.event(task.rootId, task.id, "action_requested", { action: name, outcome: outcome.status, ...("approvalId" in outcome ? { approvalId: outcome.approvalId } : {}) });
       feedback.push({ label: name, text: describeActionOutcome(outcome) });
+      if (outcome.status === "pending_approval") platform.push(`${name}: WAITING for the owner's approval. It has NOT happened.`);
+      else if (outcome.status === "denied") platform.push(`${name}: NOT done. ${outcome.reason}`);
+      else if (outcome.status === "failed") platform.push(`${name}: FAILED. ${outcome.reason}`);
     }
+    const withPlatformStatus = (text: string): string => (platform.length === 0 ? text : `${text}\n\n--- What the platform recorded (not written by the AI) ---\n${platform.map((l) => `- ${l}`).join("\n")}`);
 
     const assembled = (note: string): string =>
       [parsed.text, ...feedback.map((f) => `${f.label}: ${f.text}`), note].filter(Boolean).join("\n\n");
@@ -409,7 +463,7 @@ export class TaskEngine {
       },
     ];
     const out2 = await this.call(task, bot, second);
-    return stripActions(stripDelegations(out2.text)) || assembled("");
+    return withPlatformStatus(stripActions(stripDelegations(out2.text)) || assembled(""));
   }
 
   /** Returns the teammate if the request is allowed, or the reason it is not. */
@@ -459,6 +513,7 @@ export class TaskEngine {
 
   /** One model call for a task, counted against the chain's budget. */
   private async call(task: TaskRecord, bot: BotRecord, messages: ChatMessage[]): Promise<CompleteOutput> {
+    this.stopIfHeld();
     this.throwIfCancelled(task.id);
     const limits = this.limits();
     if (this.deps.tasks.callsInChain(task.rootId) >= limits.maxLlmCallsPerChain) {

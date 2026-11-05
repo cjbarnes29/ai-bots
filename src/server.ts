@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { buildApp } from "./app.js";
+import { GuardianLink } from "./guardian-link.js";
 import { parseRemoteHosts } from "./remote/access.js";
 import { dashboardAvailable } from "./remote/dashboard.js";
 
@@ -18,7 +19,17 @@ if (remote.rejected.length > 0) console.warn(`REMOTE_HOSTS ignored (must be a *.
 // The built dashboard (npm --prefix web run build) is served from the same address, if it exists.
 const dashboardDir = fileURLToPath(new URL("../web/dist", import.meta.url));
 
-const app = await buildApp({ dbPath, logger: true, dashboardOrigins, remoteHosts: remote.hosts, ...(dashboardAvailable(dashboardDir) ? { dashboardDir } : {}) });
+// The Guardian (see docs/GUARDIAN.md). Set GUARDIAN_URL (for example http://127.0.0.1:3100) to put the AI Workforce under it. Without it the app
+// runs as before and the dashboard says that owner actions are not protected.
+const guardianUrl = process.env["GUARDIAN_URL"]?.trim();
+const guardian = guardianUrl ? new GuardianLink(guardianUrl.replace(/\/+$/, "")) : undefined;
+if (guardian) {
+  await guardian.refresh();
+  guardian.start();
+  console.log(guardian.held() === null ? "Guardian: connected, running." : `Guardian: ${guardian.held()}`);
+} else console.warn("Guardian: NOT configured (GUARDIAN_URL is not set). Owner approvals are not protected against scripts on this PC and nothing pauses when you leave.");
+
+const app = await buildApp({ dbPath, logger: true, dashboardOrigins, remoteHosts: remote.hosts, ...(guardian ? { guardian } : {}), ...(dashboardAvailable(dashboardDir) ? { dashboardDir } : {}) });
 
 // 127.0.0.1 = reachable from this PC only (not from your network).
 await app.listen({ port, host: "127.0.0.1" });

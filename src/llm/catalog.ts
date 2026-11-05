@@ -3,17 +3,22 @@ import { AppError } from "../errors.js";
 import { LlmError } from "./errors.js";
 import { effectiveBaseUrl, type ProviderFactory } from "./factory.js";
 import { PLUGINS, getPlugin } from "./plugins/index.js";
+import type { ModelRegistry } from "./registry.js";
 import { checkCallable } from "./policy.js";
 import type { LlmRepository, ModelRow, ProviderRow } from "./repository.js";
+import { APP_AUTOMATION_KEY, PROFILES, type ProviderProfile } from "./profiles.js";
 import { hasApiKey } from "./secrets.js";
 import type { UsageRepository } from "./usage.js";
 import { localDay } from "./limits.js";
+import { capabilitiesOf, type CapabilityMap } from "../routing/capabilities.js";
 import { parseModelRef, type FreeStatus, type ModelInfo, type ProviderPlugin } from "./types.js";
 
 export interface ProviderView {
   id: string;
   displayName: string;
   kind: "cloud" | "local";
+  /** The built-in demonstration provider: answers are simulated, not from a real AI. */
+  simulated: boolean;
   connectable: boolean;
   enabled: boolean;
   freeConfirmed: boolean;
@@ -31,6 +36,12 @@ export interface ProviderView {
   modelCount: number;
   enabledModelCount: number;
   requestsToday: number;
+  /** What this provider costs, can do and does with data, verified on a stated date (profiles.ts, docs/SETTINGS-AUDIT.md). */
+  profile: ProviderProfile | null;
+  /** The owner allowed this provider for operating desktop applications. Off by default; no engine uses it yet. */
+  appAutomation: boolean;
+  /** The app's own daily cap (not the provider's real quota). exhausted = nothing more is sent today. */
+  quota: { dailyCap: number | null; requestsToday: number; exhausted: boolean };
 }
 
 export interface ModelView {
@@ -48,12 +59,23 @@ export interface ModelView {
   enabled: boolean;
   availability: string;
   isLlama: boolean;
+  /** Honest tri-state capability facts (yes / no / unknown), a rule of thumb from the name and context size. */
+  capabilities: CapabilityMap;
   /** You confirmed this gateway model is free (it lists no price). */
   ownerVerified: boolean;
   /** You could confirm it: its only problem is that no price is listed. */
   ownerOverridable: boolean;
   callable: boolean;
   blockedReason: string | null;
+  /** What kind of model this is (general chat, reasoning, speech, embedding...). */
+  kind: import("./model-kinds.js").ModelKind;
+  /** Verified / unverified / unavailable, from the model registry. */
+  verification: import("./registry.js").Eligibility;
+  verificationReasons: string[];
+  /** Automatic routing may use it, and a bot may be given it. */
+  routable: boolean;
+  /** The provider confirmed it is retired. */
+  retired: boolean;
 }
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
@@ -83,6 +105,7 @@ export interface ProviderUpdate {
   freeConfirmed?: boolean | undefined;
   dailyRequestCap?: number | null | undefined;
   baseUrl?: string | undefined;
+  appAutomation?: boolean | undefined;
 }
 
 /** Providers and models: what exists, what is free, what may be used. */
@@ -94,6 +117,15 @@ export class ModelCatalogService {
     private readonly now: () => number = Date.now,
     private readonly audit?: { record(kind: string, detail?: Record<string, unknown>, options?: { actor?: string }): void },
   ) {}
+
+  private registry: ModelRegistry | null = null;
+  /** Connects the model registry (verification, kinds, retirement). Without it every callable model is routable (older behaviour, used by a few tests). */
+  setRegistry(registry: ModelRegistry): void {
+    this.registry = registry;
+  }
+  getRegistry(): ModelRegistry | null {
+    return this.registry;
+  }
 
   private iso(): string {
     return new Date(this.now()).toISOString();
@@ -114,10 +146,12 @@ export class ModelCatalogService {
 
   private providerView(provider: ProviderRow, plugin: ProviderPlugin, models: ModelRow[]): ProviderView {
     const mine = models.filter((m) => m.providerId === provider.id);
+    const requestsToday = this.usage.totals({ providerId: provider.id, day: localDay(this.now()) }).requests;
     return {
       id: provider.id,
       displayName: plugin.displayName,
       kind: plugin.kind,
+      simulated: plugin.simulated === true,
       connectable: plugin.connectable,
       enabled: provider.enabled,
       freeConfirmed: provider.freeConfirmed,
@@ -133,8 +167,21 @@ export class ModelCatalogService {
       lastCheckedAt: provider.lastCheckedAt,
       modelCount: mine.length,
       enabledModelCount: mine.filter((m) => m.enabled).length,
-      requestsToday: this.usage.totals({ providerId: provider.id, day: localDay(this.now()) }).requests,
+      requestsToday,
+      profile: PROFILES[plugin.id] ?? null,
+      appAutomation: this.appAutomationIds().includes(plugin.id),
+      quota: { dailyCap: provider.dailyRequestCap, requestsToday, exhausted: provider.dailyRequestCap !== null && requestsToday >= provider.dailyRequestCap },
     };
+  }
+
+  /** Providers the owner allowed for application automation (stored in the existing settings table). */
+  appAutomationIds(): string[] {
+    try {
+      const v = JSON.parse(this.repo.getSetting(APP_AUTOMATION_KEY) ?? "[]") as unknown;
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
   }
 
   listProviders(): ProviderView[] {
@@ -191,6 +238,15 @@ export class ModelCatalogService {
     }
     // Withdrawing the "no billing" confirmation also switches the provider off.
     if (changes.freeConfirmed === false) nextEnabled = false;
+    // Switching a provider off also takes it out of application automation.
+    let allowed = this.appAutomationIds();
+    if (patch.appAutomation === true) {
+      if (!nextEnabled) throw new AppError(409, "provider_off", `Switch ${plugin.displayName} on first.`);
+      if (!allowed.includes(id)) allowed = [...allowed, id];
+    } else if (patch.appAutomation === false || !nextEnabled) {
+      allowed = allowed.filter((x) => x !== id);
+    }
+    if (JSON.stringify(allowed) !== JSON.stringify(this.appAutomationIds())) this.repo.setSetting(APP_AUTOMATION_KEY, JSON.stringify(allowed), this.iso());
     if (nextEnabled !== provider.enabled) changes.enabled = nextEnabled;
 
     this.repo.updateProvider(id, changes, this.iso());
@@ -203,16 +259,35 @@ export class ModelCatalogService {
     const now = this.iso();
     if (!plugin.connectable) throw new AppError(409, "not_connectable", `${plugin.displayName} cannot be tested.`);
     if (plugin.kind === "cloud" && !hasApiKey(plugin)) {
-      this.repo.setStatus(id, "key_missing", `No key found. Add ${plugin.apiKeyEnv} to your .env file and restart.`, now);
+      this.repo.setStatus(id, "key_missing", `No key saved yet. Open the Integrations Center, press Connect on ${plugin.displayName} and paste your key (it is saved as ${plugin.apiKeyEnv}).`, now);
       return this.getProviderView(id);
     }
     try {
       const models = await this.factory(provider, plugin).listModels(timeoutMs);
-      this.repo.setStatus(id, "connected", `Connected. The provider lists ${models.length} models.`, now);
+      this.repo.setStatus(id, "connected", `Connected. The provider lists ${models.filter((m) => m.chat !== false).length} models.`, now);
     } catch (err) {
       this.repo.setStatus(id, this.statusFor(err), err instanceof Error ? err.message : "Connection failed.", now);
     }
     return this.getProviderView(id);
+  }
+
+  /**
+   * Keeps the shown provider status honest after REAL calls, not only after "Test connection". A provider-level failure (key refused,
+   * unreachable, rate-limited, outage) replaces "connected"; the next successful call restores it. Model-level problems (one model
+   * missing) and refusals made by this app (limits, pause) do not change the provider's status. Writes only when the status changes.
+   */
+  noteCallOutcome(id: string, err: LlmError | null): void {
+    const provider = this.repo.getProvider(id);
+    if (!provider) return;
+    if (err === null) {
+      if (provider.lastStatus !== "connected") this.repo.setStatus(id, "connected", "Connected. The last request succeeded.", this.iso());
+      return;
+    }
+    const providerLevel: string[] = ["auth_failed", "quota_exceeded", "rate_limited", "network", "timeout", "provider_unavailable"];
+    if (!providerLevel.includes(err.llmCode)) return;
+    const status = err.llmCode === "provider_unavailable" ? "unavailable" : this.statusFor(err);
+    const message = `The last request failed: ${err.message}`.slice(0, 300);
+    if (provider.lastStatus !== status || provider.lastMessage !== message) this.repo.setStatus(id, status, message, this.iso());
   }
 
   private statusFor(err: unknown): string {
@@ -242,18 +317,21 @@ export class ModelCatalogService {
     if (plugin.kind === "cloud" && !hasApiKey(plugin)) {
       throw new LlmError(
         "key_missing",
-        `No API key found for ${plugin.displayName}. Add ${plugin.apiKeyEnv} to your .env file and restart.`,
+        `No API key saved for ${plugin.displayName}. Open the Integrations Center, press Connect on ${plugin.displayName} and paste your key.`,
       );
     }
 
-    let listed: ModelInfo[];
+    let everything: ModelInfo[];
     try {
-      listed = await this.factory(provider, plugin).listModels(timeoutMs);
+      everything = await this.factory(provider, plugin).listModels(timeoutMs);
     } catch (err) {
       this.repo.setStatus(id, this.statusFor(err), err instanceof Error ? err.message : "Connection failed.", this.iso());
       throw err;
     }
 
+    // Every model the provider lists is recorded in the registry (with its kind); only chat-capable ones enter the catalog that bots can use.
+    this.registry?.noteDiscovery(id, everything.map((m) => ({ id: m.id, ...(m.native ? { native: m.native } : {}) })));
+    const listed = everything.filter((m) => m.chat !== false);
     const now = this.iso();
     this.repo.transaction(() => {
       const present: string[] = [];
@@ -307,7 +385,14 @@ export class ModelCatalogService {
   }
 
   private modelView(model: ModelRow, provider: ProviderRow, plugin: ProviderPlugin): ModelView {
-    const block = checkCallable(provider, plugin, model);
+    const policyBlock = checkCallable(provider, plugin, model);
+    const ref = `${model.providerId}/${model.modelId}`;
+    const retired = this.registry?.retiredInfo(ref) ?? null;
+    const block = policyBlock ?? (retired ? { code: "model_unavailable" as const, message: `Retired: ${retired.reason}` } : null);
+    const reg = this.registry?.ensure(model.providerId, model.modelId) ?? null;
+    const ctx = { callable: policyBlock === null, blockedReason: policyBlock?.message ?? null, availability: model.availability, contextWindow: model.contextWindow };
+    const judged = reg && this.registry ? this.registry.judge(reg, ctx) : null;
+    const routable = this.registry ? this.registry.eligibility(model.providerId, model.modelId, ctx).ok : block === null;
     return {
       id: model.id,
       providerId: model.providerId,
@@ -322,10 +407,16 @@ export class ModelCatalogService {
       enabled: model.enabled,
       availability: model.availability,
       isLlama: model.isLlama,
+      capabilities: capabilitiesOf({ modelId: model.modelId, displayName: model.displayName, contextWindow: model.contextWindow }),
       ownerVerified: model.ownerVerified,
       ownerOverridable: model.ownerOverridable,
       callable: block === null,
       blockedReason: block?.message ?? null,
+      kind: reg?.kind ?? "chat",
+      verification: judged?.status ?? (block === null ? "verified" : "unavailable"),
+      verificationReasons: judged?.reasons ?? [],
+      routable: routable && block === null,
+      retired: retired !== null,
     };
   }
 
@@ -393,6 +484,14 @@ export class ModelCatalogService {
     }
     if (model.freeStatus === "blocked") {
       throw new AppError(400, "model_blocked", "That model is blocked (paid or unverified). Only free models can be used.");
+    }
+    // A bot may only be given a model that is verified for bot use. (Unchanged assignments are not re-checked, so existing bots keep working.)
+    if (this.registry?.enforce) {
+      const view = this.listModels().find((m) => m.ref === ref);
+      if (view && !view.routable) {
+        const why = view.blockedReason ?? view.verificationReasons.join(" ");
+        throw new AppError(400, view.verification === "unavailable" ? "model_unavailable" : "model_not_verified", `That model cannot be given to a bot yet: ${why || "it has not been verified."}`);
+      }
     }
   }
 

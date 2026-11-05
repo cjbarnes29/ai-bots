@@ -1,4 +1,6 @@
 import { LlmError } from "../errors.js";
+import { stripReasoning } from "../reasoning.js";
+import { foldInstructionsIntoUserTurn, isInstructionRoleRefusal, modelLacksInstructionRole } from "./instructions.js";
 import type {
   CompletionRequest,
   CompletionResult,
@@ -9,12 +11,14 @@ import type {
 
 const MAX_BODY_CHARS = 2_000_000;
 const MAX_ERROR_CHARS = 300;
+/** A provider answer that says, about the model, that it has been retired. Needs the word "model" nearby so an unrelated "deprecated parameter" is not mistaken for it. */
+const RETIRED = /model[\s\S]{0,120}?(no longer (available|supported)|decommission|has been (deprecated|retired|shut ?down|discontinued)|is (deprecated|retired|discontinued))|model_decommissioned/i;
 
 export interface OpenAiCompatibleOptions {
   baseUrl: string;
   /** Null for providers that need no key (local). */
   apiKey: string | null;
-  plugin: Pick<ProviderPlugin, "normalizeModelId" | "isTextModel">;
+  plugin: Pick<ProviderPlugin, "normalizeModelId" | "isTextModel" | "capabilities" | "nativeModels">;
   /** Removes API keys from text before it is put in an error message. */
   redact: (text: string) => string;
   fetchImpl?: typeof fetch;
@@ -65,24 +69,44 @@ function parseRetryAfter(header: string | null): number | undefined {
  * It never sends tools, functions, fallback model lists or routing options.
  */
 export class OpenAiCompatibleProvider implements LlmProvider {
+  /** Models that refused a system/developer message in this run: from then on their instructions go inside the first user turn. */
+  private readonly noInstructionRole = new Set<string>();
+
   constructor(private readonly options: OpenAiCompatibleOptions) {}
 
   async complete(request: CompletionRequest): Promise<CompletionResult> {
-    const body = {
+    const caps = this.options.plugin.capabilities;
+    const hasImages = request.messages.some((m) => (m.images?.length ?? 0) > 0);
+    if (hasImages && (!request.imagesApproved || !caps?.vision)) {
+      throw new LlmError("blocked_by_policy", "Pictures are not sent: the provider is not set up for images, or the picture policy did not approve this request.");
+    }
+    const tools = request.tools && request.tools.length > 0 && caps?.toolCalling ? request.tools : null;
+    const build = (messages: CompletionRequest["messages"]) => ({
       model: request.model,
-      messages: request.messages,
+      // only role and content leave this program: any other field of a message (including pictures that were not approved) is dropped here
+      messages: messages.map((m) =>
+        m.images && m.images.length > 0
+          ? { role: m.role, content: [{ type: "text", text: m.content }, ...m.images.map((i) => ({ type: "image_url", image_url: { url: `data:${i.mime};base64,${i.dataBase64}` } }))] }
+          : { role: m.role, content: m.content },
+      ),
+      ...(tools ? { tools: tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } })) } : {}),
       temperature: request.temperature,
       max_tokens: request.maxOutputTokens,
       stream: false,
-    };
-    const { status, text, retryAfter } = await this.send(
-      "POST",
-      "chat/completions",
-      body,
-      request.timeoutMs,
-    );
+    });
+    const hasInstructions = request.messages.some((m) => m.role === "system");
+    // A model with no instruction role gets the SAME instructions inside the first user turn (see instructions.ts); nothing is dropped.
+    const mode = request.instructionRole;
+    const folded = hasInstructions && (mode === "folded" || (mode === undefined && (modelLacksInstructionRole(request.model) || this.noInstructionRole.has(request.model))));
+    let { status, text, retryAfter } = await this.send("POST", "chat/completions", build(folded ? foldInstructionsIntoUserTurn(request.messages) : request.messages), request.timeoutMs);
+    // A model we did not know about refuses the role: remember it and ask once more, with the instructions folded in. Only this exact refusal is retried.
+    // (Only when the way to send instructions was not fixed by a test: a test of the native role must see the refusal, not have it hidden.)
+    if (mode === undefined && !folded && hasInstructions && status === 400 && isInstructionRoleRefusal(this.providerMessage(text))) {
+      this.noInstructionRole.add(request.model);
+      ({ status, text, retryAfter } = await this.send("POST", "chat/completions", build(foldInstructionsIntoUserTurn(request.messages)), request.timeoutMs));
+    }
     if (status < 200 || status >= 300) throw this.errorForStatus(status, text, retryAfter);
-    return this.parseCompletion(text);
+    return this.parseCompletion(text, request.model);
   }
 
   async listModels(timeoutMs: number): Promise<ModelInfo[]> {
@@ -110,8 +134,9 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       const rawId = typeof rec?.["id"] === "string" ? rec["id"] : typeof rec?.["name"] === "string" ? rec["name"] : null;
       if (!rec || !rawId) continue;
       const id = this.options.plugin.normalizeModelId(rawId);
-      if (!id || seen.has(id) || !this.options.plugin.isTextModel(id)) continue;
+      if (!id || seen.has(id)) continue;
       seen.add(id);
+      const chat = this.options.plugin.isTextModel(id);
       const pricing = asRecord(rec["pricing"]);
       const price = (v: unknown): number | null => {
         if (v === null || v === undefined || v === "") return null;
@@ -120,6 +145,12 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       };
       models.push({
         id,
+        chat,
+        native: {
+          ...(typeof rec["active"] === "boolean" ? { active: rec["active"] as boolean } : {}),
+          ...(typeof rec["owned_by"] === "string" ? { ownedBy: rec["owned_by"] as string } : {}),
+          ...(numberOrNull(rec["max_completion_tokens"]) !== null ? { maxOutputTokens: numberOrNull(rec["max_completion_tokens"]) } : {}),
+        },
         displayName: typeof rec["name"] === "string" && rec["name"] ? rec["name"] : id,
         contextWindow: numberOrNull(rec["context_length"]) ?? numberOrNull(rec["context_window"]),
         priceInput: price(pricing?.["prompt"] ?? pricing?.["input"]),
@@ -128,7 +159,52 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         ...(Object.keys(pricingFieldsOf(rec)).length > 0 ? { pricingFields: pricingFieldsOf(rec) } : {}),
       });
     }
+    await this.addNativeFacts(models, timeoutMs);
     return models;
+  }
+
+  /**
+   * Gemini: asks the provider's own listing (one GET, no tokens) which operations each model supports and how large its windows are, and adds those
+   * facts to the models already listed (and any model only the native listing knows). A failure here never fails discovery: the id-based rules still apply.
+   */
+  private async addNativeFacts(models: ModelInfo[], timeoutMs: number): Promise<void> {
+    const cfg = this.options.plugin.nativeModels;
+    if (!cfg || !this.options.apiKey) return;
+    try {
+      const root = this.options.baseUrl.replace(/\/openai\/?$/, "");
+      const res = await (this.options.fetchImpl ?? fetch)(joinUrl(root, cfg.path), { method: "GET", headers: { accept: "application/json", [cfg.header]: this.options.apiKey }, signal: AbortSignal.timeout(timeoutMs) });
+      if (!res.ok) return;
+      const json = asRecord(JSON.parse(await res.text()));
+      const list = Array.isArray(json?.["models"]) ? (json?.["models"] as unknown[]) : [];
+      const byId = new Map(models.map((m) => [m.id, m]));
+      for (const item of list) {
+        const rec = asRecord(item);
+        const rawName = typeof rec?.["name"] === "string" ? rec["name"] : null;
+        if (!rec || !rawName) continue;
+        const id = this.options.plugin.normalizeModelId(rawName);
+        const methods = Array.isArray(rec["supportedGenerationMethods"]) ? (rec["supportedGenerationMethods"] as unknown[]).filter((x): x is string => typeof x === "string") : null;
+        const native = {
+          ...(methods ? { methods } : {}),
+          ...(numberOrNull(rec["inputTokenLimit"]) !== null ? { contextWindow: numberOrNull(rec["inputTokenLimit"]) } : {}),
+          ...(numberOrNull(rec["outputTokenLimit"]) !== null ? { maxOutputTokens: numberOrNull(rec["outputTokenLimit"]) } : {}),
+          ...(typeof rec["thinking"] === "boolean" ? { thinking: rec["thinking"] as boolean } : {}),
+          ...(typeof rec["version"] === "string" ? { version: rec["version"] as string } : {}),
+          ...(typeof rec["description"] === "string" ? { description: (rec["description"] as string).slice(0, 200) } : {}),
+        };
+        const known = byId.get(id);
+        if (known) {
+          known.native = { ...(known.native ?? {}), ...native };
+          if (known.contextWindow === null && native.contextWindow) known.contextWindow = native.contextWindow;
+          // The provider's own operation list wins over the id rule: a model that cannot generate text is not a chat model.
+          if (methods && methods.length > 0 && !methods.some((m) => /generateContent|generateMessage/i.test(m))) known.chat = false;
+        } else {
+          const chat = this.options.plugin.isTextModel(id) && (!methods || methods.some((m) => /generateContent|generateMessage/i.test(m)));
+          models.push({ id, chat, native, displayName: typeof rec["displayName"] === "string" ? rec["displayName"] : id, contextWindow: native.contextWindow ?? null, priceInput: null, priceOutput: null });
+        }
+      }
+    } catch {
+      /* optional enrichment */
+    }
   }
 
   // ---- internals ----
@@ -200,6 +276,10 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         `The provider says payment or credits are required. This platform only uses free models, so the call was stopped.${suffix}`,
       );
     }
+    // A CONFIRMED retirement: the provider says, about the model, that it is gone. A bare 404 or a temporary error is never read this way.
+    if ((status === 404 || status === 410 || status === 400) && RETIRED.test(this.options.redact(text).slice(0, 3000))) {
+      return new LlmError("model_not_found", `The provider says this model is no longer available.${suffix}`, { retired: true });
+    }
     if (status === 404) {
       return new LlmError("model_not_found", `The provider does not know that model or address.${suffix}`);
     }
@@ -208,8 +288,11 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     }
     if (status === 429) {
       const retryAfterMs = parseRetryAfter(retryAfter);
+      // A used-up daily quota (or "limit: 0", no free allowance for this model at all) will not clear in seconds, so it is flagged and never retried.
+      const quota = /per[ _-]?day|daily|limit:\s*0\b|PerDay/i.test(detail);
       return new LlmError("rate_limited", `The provider says too many requests were sent (free-tier limit).${suffix}`, {
-        retryable: true,
+        retryable: !quota,
+        quota,
         ...(retryAfterMs !== undefined ? { retryAfterMs } : {}),
       });
     }
@@ -221,7 +304,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     return new LlmError("bad_request", `The provider refused the request (HTTP ${status}).${suffix}`);
   }
 
-  private parseCompletion(text: string): CompletionResult {
+  private parseCompletion(text: string, model: string): CompletionResult {
     let json: unknown;
     try {
       json = JSON.parse(text);
@@ -248,10 +331,16 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       throw new LlmError("bad_response", "The model returned an empty reply.");
     }
 
+    // Internal reasoning is never an answer. Only a block at the very start is removed; a reply that is nothing but reasoning is a failed call, not a success.
+    const cleaned = stripReasoning(content, model);
+    if (cleaned.reasoningOnly && !toolCallsIgnored) {
+      throw new LlmError("bad_output", `${model} answered with only its internal reasoning${cleaned.incomplete ? " (cut off before it reached an answer)" : ""}, so there is no answer to use.`);
+    }
     const usage = asRecord(root["usage"]);
     const cost = numberOrNull(usage?.["cost"]);
     return {
-      text: content,
+      text: cleaned.text,
+      ...(cleaned.removed ? { reasoningRemoved: true } : {}),
       inputTokens: numberOrNull(usage?.["prompt_tokens"]),
       outputTokens: numberOrNull(usage?.["completion_tokens"]),
       finishReason,

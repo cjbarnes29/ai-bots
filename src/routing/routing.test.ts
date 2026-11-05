@@ -3,9 +3,12 @@ import { buildApp } from "../app.js";
 import { LlmError } from "../llm/errors.js";
 import { OK_RESULT, ScriptedProvider, makeCaller, modelInfo } from "../llm/test-helpers.js";
 import { RoutingMaintenance } from "./routes.js";
+import { geminiPlugin } from "../llm/plugins/gemini.js";
+import { groqPlugin } from "../llm/plugins/groq.js";
 import { failoverKind } from "./router.js";
 import { parseAutoRef } from "./config.js";
 import { scoreFor, traitsOf } from "./rank.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Providers = Record<string, ScriptedProvider>;
@@ -26,6 +29,7 @@ async function start(modelLists: Record<string, any[]> = {}, routingDefaults: Re
   providers["ollama"]!.models = modelLists["ollama"] ?? [FREE("llama3.2:3b")];
   app = await buildApp({
     dbPath: ":memory:",
+    verification: "off",
     connectors: [],
     clock: () => clock.t,
     sleep: async (ms) => void (clock.t += ms),
@@ -47,7 +51,7 @@ afterEach(async () => {
 
 const preview = async () => (await call("GET", "/api/llm/routing")).body.preview as Record<string, { ref: string }[]>;
 const top = async (cls: string) => (await preview())[cls]!.map((m) => m.ref);
-const mkBot = async (model: string | null = "auto/general") => (await call("POST", "/api/bots", { name: `Bot${Math.random()}`, ...(model ? { model } : {}) })).body.bot as any;
+const mkBot = async (model: string | null = "auto/general") => (await switchOn(call, await call("POST", "/api/bots", { name: `Bot${Math.random()}`, ...(model ? { model } : {}) }))).body.bot as any;
 const chat = (botId: string, message = "hi") => call("POST", `/api/bots/${botId}/chat`, { message });
 const usageModels = async () => ((await call("GET", "/api/llm/usage?days=1")).body.usage as any);
 
@@ -250,7 +254,7 @@ describe("failover", () => {
   });
 
   it("classifies failures: provider-level, model-level, or stop", () => {
-    expect(failoverKind(new LlmError("rate_limited", "x"))).toBe("provider");
+    expect(failoverKind(new LlmError("rate_limited", "x"))).toBe("model"); // free-tier quotas belong to one model
     expect(failoverKind(new LlmError("quota_exceeded", "x"))).toBe("provider");
     expect(failoverKind(new LlmError("limit_exceeded", "x", { limitKey: "providerDailyRequests" }))).toBe("provider");
     expect(failoverKind(new LlmError("limit_exceeded", "x", { limitKey: "globalDailyRequests" }))).toBe("stop");
@@ -261,21 +265,115 @@ describe("failover", () => {
   });
 });
 
+describe("a model that is out of free-tier quota", () => {
+  const limited = () => new LlmError("rate_limited", "quota", { retryable: true });
+  const geminiOnly = { allowedProviders: ["gemini"] };
+
+  it("is rested on its own: its sibling models are still tried, the provider stays healthy, and nothing is wasted afterwards", async () => {
+    await start({}, geminiOnly);
+    expect((await top("general"))[0]).toBe("gemini/gemini-2.5-pro");
+    providers["gemini"]!.script.push(limited()); // the first call (Pro) is out of quota
+    const bot = await mkBot();
+    const res = await chat(bot.id);
+    expect(res.status).toBe(200);
+    expect(providers["gemini"]!.calls.map((c) => c.model)).toEqual(["gemini-2.5-pro", "gemini-2.5-flash"]); // one wasted call, then the sibling answered
+    expect(res.body.assistantMessage.modelId).toBe("gemini-2.5-flash");
+    expect((await call("GET", "/api/llm/providers")).body.providers.find((p: any) => p.id === "gemini").status).not.toBe("rate_limited");
+    expect((await call("GET", "/api/llm/routing")).body.cooldowns).toEqual([{ ref: "gemini/gemini-2.5-pro", secondsLeft: 60 }]); // the dashboard can show it
+
+    providers["gemini"]!.calls.length = 0;
+    for (let i = 0; i < 3; i++) expect((await chat(bot.id)).status).toBe(200);
+    expect(providers["gemini"]!.calls.map((c) => c.model)).toEqual(["gemini-2.5-flash", "gemini-2.5-flash", "gemini-2.5-flash"]); // Pro was not asked again while it rests
+    expect((await top("general")).includes("gemini/gemini-2.5-pro")).toBe(false);
+
+    providers["gemini"]!.calls.length = 0;
+    clock.t += 61_000; // its rest is over: it gets one fresh try
+    expect((await chat(bot.id)).status).toBe(200);
+    expect(providers["gemini"]!.calls[0]!.model).toBe("gemini-2.5-pro");
+  });
+
+  it("two different models limited in one request escalate to the whole provider: its third model is not tried", async () => {
+    await start({ gemini: [FREE("gemini-2.5-pro"), FREE("gemini-2.5-flash"), FREE("gemini-2.5-flash-lite")] }, geminiOnly);
+    providers["gemini"]!.script.push(limited(), limited());
+    const res = await chat((await mkBot()).id);
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(providers["gemini"]!.calls).toHaveLength(2); // two limited models = the provider is out of allowance; no third request
+    expect(providers["groq"]!.calls).toHaveLength(0); // and Groq stayed out of it because the owner limited routing to Gemini
+  });
+
+  it("with another provider allowed, that provider answers after the first limited model", async () => {
+    await start({ gemini: [FREE("gemini-2.5-pro"), FREE("gemini-2.5-flash")] }, { providerOrder: ["gemini", "groq"] });
+    providers["gemini"]!.script.push(limited(), limited());
+    const res = await chat((await mkBot("auto/research")).id);
+    expect(res.status).toBe(200);
+    expect(providers["gemini"]!.calls.length).toBeLessThanOrEqual(2);
+    expect(res.body.assistantMessage.modelId).toBeTruthy();
+  });
+
+  it("when every model is resting it says so, with the time left, and sends nothing (not 'connect a provider')", async () => {
+    await start({}, geminiOnly);
+    providers["gemini"]!.script.push(limited(), limited()); // both Gemini models limited
+    const bot = await mkBot();
+    const first = await chat(bot.id);
+    expect(first.status).toBeGreaterThanOrEqual(400);
+    providers["gemini"]!.calls.length = 0;
+    const second = await chat(bot.id);
+    expect(providers["gemini"]!.calls).toHaveLength(0);
+    expect(second.status).toBe(429);
+    expect(second.body.message).toMatch(/resting after hitting its free-tier limit.*in about \d+ seconds/);
+    expect(second.body.message).not.toMatch(/Connect a provider/);
+    clock.t += 61_000;
+    expect((await chat(bot.id)).status).toBe(200);
+  });
+
+  it("never picks a model built for another job (computer control, filtering, embeddings) for automatic routing", async () => {
+    await start({ gemini: [FREE("gemini-2.5-computer-use-preview-10-2025"), FREE("gemini-2.5-flash")], groq: [FREE("llama-guard-4-12b"), FREE("llama-3.1-8b-instant")] });
+    for (const cls of ["general", "coding", "research", "light"]) expect((await top(cls)).filter((r) => /computer-use|guard/.test(r))).toEqual([]);
+    expect(traitsOf("gemini-2.5-computer-use-preview-10-2025").specialized).toBe(true);
+    expect(traitsOf("gemini-2.5-pro").specialized).toBe(false);
+    expect(geminiPlugin.isTextModel("gemini-2.5-computer-use-preview-10-2025")).toBe(false);
+    expect(geminiPlugin.isTextModel("gemini-2.5-flash")).toBe(true);
+  });
+
+  it("speech models (transcription) are not chat models: not listed, not routed (real case: gemini-3.5-transcribe answered chat with HTTP 400 twice)", async () => {
+    await start({ gemini: [FREE("gemini-3.5-transcribe"), FREE("gemini-2.5-flash")], groq: [FREE("whisper-large-v3"), FREE("distil-whisper-large"), FREE("playai-speech-1"), FREE("llama-3.1-8b-instant")] });
+    // the real adapter drops these from the provider's model list (the scripted provider used here does not, so the plugin filters are asserted directly)
+    for (const id of ["gemini-3.5-transcribe", "gemini-2.5-flash-preview-tts"]) expect(geminiPlugin.isTextModel(id)).toBe(false);
+    for (const id of ["whisper-large-v3", "distil-whisper-large", "playai-speech-1"]) expect(groqPlugin.isTextModel(id)).toBe(false);
+    expect(groqPlugin.isTextModel("llama-3.1-8b-instant")).toBe(true);
+    expect(traitsOf("gemini-3.5-transcribe").specialized).toBe(true); // also ruled out by the router if a provider lists it some other way
+    expect(traitsOf("gemini-2.5-flash").specialized).toBe(false);
+    expect(geminiPlugin.isTextModel("gemini-3.5-transcribe")).toBe(false);
+    for (const cls of ["general", "coding", "research", "light"]) expect((await top(cls)).filter((r) => /transcri|whisper|speech/.test(r))).toEqual([]);
+  });
+
+  it("does not change the free-only rules: no paid or blocked model becomes eligible while others rest", async () => {
+    await start({}, geminiOnly);
+    const models = (await call("GET", "/api/llm/models")).body.models as any[];
+    const flash = models.find((m) => m.ref === "gemini/gemini-2.5-flash");
+    await call("PATCH", `/api/llm/models/${flash.id}`, { enabled: false }); // the owner switched Flash off
+    providers["gemini"]!.script.push(limited());
+    const res = await chat((await mkBot()).id);
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(providers["gemini"]!.calls.map((c) => c.model)).toEqual(["gemini-2.5-pro"]); // Flash stayed off
+  });
+});
+
 describe("new and existing bots", () => {
   it("a new bot with no model gets automatic routing when a free model is available", async () => {
     await start({}, { autoAssignNewBots: true });
-    const bot = (await call("POST", "/api/bots", { name: "Fresh" })).body.bot;
+    const bot = (await switchOn(call, await call("POST", "/api/bots", { name: "Fresh" }))).body.bot;
     expect(bot.model).toBe("auto/general");
     expect((await chat(bot.id)).status).toBe(200);
   });
 
   it("but not when none is available, nor when you chose a model, nor when the setting is off", async () => {
     await start({}, { autoAssignNewBots: true, allowedProviders: ["openrouter"] });
-    expect((await call("POST", "/api/bots", { name: "None" })).body.bot.model).toBeNull();
+    expect((await switchOn(call, await call("POST", "/api/bots", { name: "None" }))).body.bot.model).toBeNull();
     await call("PUT", "/api/llm/routing", { allowedProviders: [] });
-    expect((await call("POST", "/api/bots", { name: "Own", model: "groq/llama-3.1-8b-instant" })).body.bot.model).toBe("groq/llama-3.1-8b-instant");
+    expect((await switchOn(call, await call("POST", "/api/bots", { name: "Own", model: "groq/llama-3.1-8b-instant" }))).body.bot.model).toBe("groq/llama-3.1-8b-instant");
     await call("PUT", "/api/llm/routing", { autoAssignNewBots: false });
-    expect((await call("POST", "/api/bots", { name: "Off" })).body.bot.model).toBeNull();
+    expect((await switchOn(call, await call("POST", "/api/bots", { name: "Off" }))).body.bot.model).toBeNull();
   });
 
   it("one click gives automatic routing to bots without a model and leaves the others alone", async () => {
@@ -291,7 +389,7 @@ describe("new and existing bots", () => {
 
   it("rejects made-up automatic choices", async () => {
     await start();
-    expect((await call("POST", "/api/bots", { name: "X", model: "auto/fastest" })).status).toBe(400);
+    expect((await switchOn(call, await call("POST", "/api/bots", { name: "X", model: "auto/fastest" }))).status).toBe(400);
   });
 });
 
@@ -364,7 +462,8 @@ describe("who may change the routing", () => {
   });
 
   it("a phone is refused (owner only)", async () => {
-    const phone = await buildApp({ dbPath: ":memory:", connectors: [], remoteHosts: ["my-pc.tail1234.ts.net"] });
+    const phone = await buildApp({ dbPath: ":memory:",
+    verification: "off", connectors: [], remoteHosts: ["my-pc.tail1234.ts.net"] });
     const pcCall = makeCaller(phone);
     const { body } = await pcCall("POST", "/api/devices/pairing");
     const h = { host: "my-pc.tail1234.ts.net", origin: "https://my-pc.tail1234.ts.net", "x-awp-client": "dashboard" };
@@ -379,3 +478,29 @@ describe("who may change the routing", () => {
 });
 
 beforeEach(() => undefined);
+
+describe("sharing work between providers (spreadLoad, off by default)", () => {
+  it("off: equally good models are tried in the provider order every time", async () => {
+    await start({ gemini: [FREE("model-a-8b")], groq: [FREE("model-b-8b")] });
+    const bot = await mkBot("auto/light");
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) seen.push((await chat(bot.id)).body.assistantMessage.providerId);
+    expect(seen).toEqual(["gemini", "gemini", "gemini", "gemini"]);
+  });
+
+  it("on: they take turns, a failed or resting model is still skipped, and the chosen order never ignores quality", async () => {
+    await start({ gemini: [FREE("model-a-8b")], groq: [FREE("model-b-8b"), FREE("big-70b-versatile")] });
+    await call("PUT", "/api/llm/routing", { spreadLoad: true });
+    const bot = await mkBot("auto/light");
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) seen.push((await chat(bot.id)).body.assistantMessage.modelId);
+    // tied small models alternate; the larger model scores differently for a light task and is not mixed into the rotation
+    expect(new Set(seen)).toEqual(new Set(["model-a-8b", "model-b-8b"]));
+    expect(seen[0]).not.toBe(seen[1]);
+    expect(seen[0]).toBe(seen[2]);
+    // a model that fails drops out of that call, the other answers
+    providers["gemini"]!.script.push(new LlmError("provider_unavailable", "down"));
+    const r = await chat(bot.id);
+    expect(r.status).toBe(200);
+  });
+});

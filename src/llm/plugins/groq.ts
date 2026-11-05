@@ -13,7 +13,7 @@ export const groqPlugin: ProviderPlugin = {
   baseUrlEditable: false,
   defaultDailyRequestCap: 50,
   normalizeModelId: (id) => id,
-  isTextModel: (id) => !/whisper|tts|orpheus|guard|embed|distil-whisper/i.test(id),
+  isTextModel: (id) => !/whisper|tts|orpheus|guard|embed|distil-whisper|transcri|speech/i.test(id),
   classifyModel: () => ({
     status: "free_tier",
     source: "Groq free plan. Free only if no payment method is added to the account (you confirm this).",

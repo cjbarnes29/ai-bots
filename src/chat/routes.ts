@@ -7,6 +7,7 @@ const idSchema = z.string().uuid();
 const chatBodySchema = z.strictObject({
   message: z.string(),
   conversationId: z.string().uuid().optional(),
+  projectId: z.string().uuid().optional(),
 });
 
 function parseId(value: unknown, code: string, message: string): string {

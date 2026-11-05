@@ -16,6 +16,8 @@ export function openDatabase(path: string): DatabaseSync {
   }
   const db = new DatabaseSync(path);
   db.exec("PRAGMA foreign_keys = ON");
+  // INSERT OR REPLACE deletes the old row without firing delete triggers unless this is on, which would let it rewrite append-only history (migration 019 review, finding C1).
+  db.exec("PRAGMA recursive_triggers = ON");
   if (!inMemory) {
     db.exec("PRAGMA journal_mode = WAL");
   }

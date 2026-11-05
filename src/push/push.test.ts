@@ -6,6 +6,7 @@ import { z } from "zod";
 import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { PUSH_LIMITS, checkEndpoint, isPushServiceHost } from "./push.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fence = "```";
@@ -51,7 +52,7 @@ beforeEach(async () => {
   ps = await startPushService();
   t = await createTestApp({ connectors: [connector as any], remoteHosts: [HOST], pushAllowHost: (h) => h === "127.0.0.1" });
   ref = await setupGeminiModel(t);
-  botId = (await t.call("POST", "/api/bots", { name: "Sender", model: ref })).body.bot.id;
+  botId = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Sender", model: ref }))).body.bot.id;
 });
 afterEach(async () => {
   await t.app.close();

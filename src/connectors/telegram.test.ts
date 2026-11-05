@@ -5,6 +5,7 @@ import { buildApp } from "../app.js";
 import { OK_RESULT } from "../llm/test-helpers.js";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
 import { TELEGRAM_BASE_URL, createTelegramConnector } from "./telegram.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const TOKEN = "123456789:AAFakeTokenForTestsOnly_0123456789abc";
@@ -76,7 +77,7 @@ describe("Telegram through the approval gate", () => {
   });
 
   const saveToken = (value = TOKEN) => t.call("PUT", "/api/vault/TELEGRAM_BOT_TOKEN", { value });
-  const mkBot = async () => (await t.call("POST", "/api/bots", { name: "Helper", model: ref })).body.bot as any;
+  const mkBot = async () => (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Helper", model: ref }))).body.bot as any;
   const runTask = async (botId: string) => {
     await t.call("POST", `/api/bots/${botId}/tasks`, { instruction: "Do it" });
     await vi.waitFor(async () => expect(((await t.call("GET", "/api/tasks")).body.tasks as any[]).every((x) => ["completed", "failed"].includes(x.status))).toBe(true), { timeout: 3000, interval: 10 });

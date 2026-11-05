@@ -1,3 +1,4 @@
+import { DemoProvider } from "./providers/demo.js";
 import { OpenAiCompatibleProvider } from "./providers/openai-compatible.js";
 import { redactKnownSecrets } from "./plugins/index.js";
 import type { ProviderRow } from "./repository.js";
@@ -13,7 +14,7 @@ export function effectiveBaseUrl(provider: ProviderRow, plugin: ProviderPlugin):
 }
 
 export const defaultProviderFactory: ProviderFactory = (provider, plugin) =>
-  new OpenAiCompatibleProvider({
+  plugin.simulated ? new DemoProvider() : new OpenAiCompatibleProvider({
     baseUrl: effectiveBaseUrl(provider, plugin),
     apiKey: readApiKey(plugin),
     plugin,

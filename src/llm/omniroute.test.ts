@@ -7,6 +7,7 @@ import { OpenAiCompatibleProvider } from "./providers/openai-compatible.js";
 import { classifyOmniRouteModel, isRoutingModelId, omniRoutePlugin } from "./plugins/omniroute.js";
 import { redactKnownSecrets } from "./plugins/index.js";
 import { LlmError } from "./errors.js";
+import { switchOn } from "./test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const KEY = "omni-test-key-0123456789abcdefXYZ";
@@ -171,7 +172,8 @@ describe("OmniRoute through the whole app (pretend OmniRoute on this PC)", () =>
   let call: ReturnType<typeof makeCaller>;
   beforeEach(async () => {
     om = await startFakeOmniRoute();
-    app = await buildApp({ dbPath: ":memory:", connectors: [], sleep: async () => undefined });
+    app = await buildApp({ dbPath: ":memory:",
+    verification: "off", connectors: [], sleep: async () => undefined });
     call = makeCaller(app);
   });
   afterEach(async () => {
@@ -197,7 +199,7 @@ describe("OmniRoute through the whole app (pretend OmniRoute on this PC)", () =>
     await connect();
     await refresh();
     await enable();
-    return (await call("POST", "/api/bots", { name: "Gate", model: `omniroute/${FREE}` })).body.bot as any;
+    return (await switchOn(call, await call("POST", "/api/bots", { name: "Gate", model: `omniroute/${FREE}` }))).body.bot as any;
   };
   const chat = (botId: string, message = "hi") => call("POST", `/api/bots/${botId}/chat`, { message });
 
@@ -424,7 +426,7 @@ describe("OmniRoute through the whole app (pretend OmniRoute on this PC)", () =>
       expect(res.body.model).toMatchObject({ freeStatus: "free_tier", ownerVerified: true, enabled: false, callable: false });
       expect(res.body.model.freeSource).toMatch(/You confirmed/);
       expect((await enable(UNPRICED)).status).toBe(200);
-      const bot = (await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` })).body.bot;
+      const bot = (await switchOn(call, await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` }))).body.bot;
       expect((await chat(bot.id)).status).toBe(200);
       expect(om.chats()[0]!.body.model).toBe(UNPRICED);
       expect(JSON.stringify((await call("GET", "/api/audit?limit=100")).body)).toContain("model.owner_free_confirmed");
@@ -458,7 +460,7 @@ describe("OmniRoute through the whole app (pretend OmniRoute on this PC)", () =>
       await refresh();
       await confirm(UNPRICED);
       await enable(UNPRICED);
-      const bot = (await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` })).body.bot;
+      const bot = (await switchOn(call, await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` }))).body.bot;
       expect((await confirm(UNPRICED, false)).status).toBe(200);
       expect(await find(UNPRICED)).toMatchObject({ freeStatus: "blocked", ownerVerified: false, enabled: false, callable: false });
       expect((await chat(bot.id)).status).toBeGreaterThanOrEqual(400);
@@ -470,7 +472,7 @@ describe("OmniRoute through the whole app (pretend OmniRoute on this PC)", () =>
       await refresh();
       await confirm(UNPRICED);
       await enable(UNPRICED);
-      const bot = (await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` })).body.bot;
+      const bot = (await switchOn(call, await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` }))).body.bot;
       om.mode.returnModel = "paid/gpt-x";
       expect((await chat(bot.id)).body.error).toBe("llm_model_mismatch");
       expect(await find(UNPRICED)).toMatchObject({ freeStatus: "blocked", ownerVerified: false, enabled: false });
@@ -483,7 +485,7 @@ describe("OmniRoute through the whole app (pretend OmniRoute on this PC)", () =>
       await refresh();
       await confirm(UNPRICED);
       await enable(UNPRICED);
-      const bot = (await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` })).body.bot;
+      const bot = (await switchOn(call, await call("POST", "/api/bots", { name: "Mine", model: `omniroute/${UNPRICED}` }))).body.bot;
       om.mode.cost = 0.01;
       await chat(bot.id);
       expect(await find(UNPRICED)).toMatchObject({ freeStatus: "blocked", ownerVerified: false, enabled: false });

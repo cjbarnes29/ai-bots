@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { AppError } from "../errors.js";
 import type { ModelCatalogService } from "./catalog.js";
 import { limitsUpdateSchema } from "./limits.js";
 import type { LlmService } from "./service.js";
@@ -10,6 +11,7 @@ const providerPatchSchema = z.strictObject({
   freeConfirmed: z.boolean().optional(),
   dailyRequestCap: z.number().int().min(1).max(100_000).nullable().optional(),
   baseUrl: z.string().trim().min(1).max(200).optional(),
+  appAutomation: z.boolean().optional(),
 });
 
 const modelPatchSchema = z.strictObject({ enabled: z.boolean() });
@@ -19,6 +21,7 @@ const usageQuerySchema = z.strictObject({
   days: z.coerce.number().int().min(1).max(90).default(14),
 });
 const modelsQuerySchema = z.strictObject({ providerId: z.string().max(40).optional() });
+const trySchema = z.strictObject({ message: z.string().trim().min(1).max(500) });
 
 export interface LlmRoutesDeps {
   catalog: ModelCatalogService;
@@ -81,6 +84,24 @@ export async function registerLlmRoutes(app: FastifyInstance, deps: LlmRoutesDep
     const id = Number(req.params.id);
     const body = ownerVerifySchema.parse(req.body);
     return { model: catalog.setOwnerVerified(Number.isInteger(id) ? id : -1, body.verified) };
+  });
+
+  // The setup wizard's "Test chat": ONE short message to ONE chosen model, owner-started, with no bot. It is an ordinary call through the
+  // service, so the pause switch, free-only policy, daily caps, breaker and usage records all apply. Nothing is stored except the usage record.
+  app.post<{ Params: { id: string } }>("/api/llm/models/:id/try", async (req) => {
+    const id = Number(req.params.id);
+    const body = trySchema.parse(req.body);
+    const model = catalog.listModels().find((m) => m.id === id);
+    if (!Number.isInteger(id) || !model) throw new AppError(404, "model_not_found", "Model not found");
+    const out = await llm.complete({
+      botId: null,
+      conversationId: null,
+      modelRef: model.ref,
+      messages: [{ role: "user", content: body.message }],
+      temperature: 0.2,
+      maxOutputTokens: 200,
+    });
+    return { reply: out.text.slice(0, 2000), providerId: out.providerId, modelId: out.modelId, latencyMs: out.latencyMs, inputTokens: out.inputTokens, outputTokens: out.outputTokens };
   });
 
   app.get("/api/llm/usage", async (req) => {
