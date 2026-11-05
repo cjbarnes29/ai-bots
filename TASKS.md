@@ -97,3 +97,10 @@ Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-C
 - [x] Workforce Board from the real records (filters, inspector, history, saved layouts, phone list); browser e2e 44/44 with fake providers incl. automatic provider switching inside a group
 - [ ] A group's own `model_ref` is stored but not applied to tasks; bots do not hand work to each other by themselves (owner/Manager starts every handoff)
 - [owner] Switch groups on; real-provider checks of group answers and of the Manager loop (P-29-style approved requests)
+
+## Real-world task (docs/REAL-TASK.md, D-066, P-34)
+- [x] Audit of what is operational / partial / missing
+- [x] Local email draft with real attachments (`documents.create_email_draft`); rehearsal of the whole task with simulated parts (passes)
+- [ ] [owner] Approve the exact real requests (P-34) and run `scripts/e2e/real-task.mjs` with your own free key; then record the evidence
+- [ ] Desktop application control (Excel, Word, Outlook): not tried, not claimed (NV-14)
+- [ ] Gmail drafts/attachments (Google sign-in unverified, NV-4)

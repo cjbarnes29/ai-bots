@@ -4,6 +4,7 @@ import { z } from "zod";
 import { LIMITS, blockSchema, chartSchema, diagramSchema, documentSchema, presentationSchema, sheetSchema } from "../documents/spec.js";
 import { writeDocx, writePptx, writeXlsx } from "../documents/office.js";
 import { writePdf } from "../documents/pdf.js";
+import { ATTACHMENT_EXTENSIONS, EMAIL_RE, EML_LIMITS, buildEml } from "../documents/eml.js";
 import { parseCsv, summarizeTable, writeCsv, writeHtml, writeMarkdown } from "../documents/render.js";
 import { chartSvg, diagramSvg } from "../documents/svg.js";
 import { resolveInRoots } from "./pc/paths.js";
@@ -101,6 +102,42 @@ export function createDocumentsConnector(pc: PcService, folders?: FolderGate): C
       args: diagramFile as unknown as ActionSpec["args"],
       summarize: (a) => `Create the diagram ${String(a["path"])} (${(a["nodes"] as unknown[]).length} boxes)`,
       execute: async (a, ctx) => save(String(a["path"]), diagramSvg({ title: String(a["title"] ?? ""), nodes: a["nodes"] as z.infer<typeof diagramSchema>["nodes"], edges: a["edges"] as z.infer<typeof diagramSchema>["edges"] }), a["overwrite"] as boolean | undefined, "create_diagram", ctx.botId, "SVG diagram"),
+    },
+    create_email_draft: {
+      kind: "write",
+      description: "Prepare an email DRAFT as a .eml file in a workspace, with up to 5 files from the workspace attached (pdf, xlsx, csv, docx, pptx, txt, md, html, svg). It is NOT sent: the owner opens the file in the mail program, checks it and sends it. The attachments must already exist",
+      args: withExt(
+        z.strictObject({
+          path: pathArg,
+          to: z.array(z.string().max(254).regex(EMAIL_RE, "must be an email address")).max(EML_LIMITS.recipients).default([]),
+          subject: z.string().min(1).max(EML_LIMITS.subject).regex(/^[^\r\n]*$/, "must be one line"),
+          body: z.string().min(1).max(EML_LIMITS.body),
+          attachments: z.array(pathArg).min(1).max(EML_LIMITS.attachments),
+          overwrite: z.boolean().optional(),
+        }),
+        () => "eml",
+      ) as unknown as ActionSpec["args"],
+      summarize: (a) => `Prepare the email draft ${String(a["path"])} "${String(a["subject"]).slice(0, 80)}" to ${((a["to"] as string[]) ?? []).join(", ") || "(no recipient yet)"} with ${(a["attachments"] as string[]).length} attachment(s): ${(a["attachments"] as string[]).join(", ")}. It is not sent.`,
+      execute: async (a, ctx) => {
+        const files: { filename: string; data: Buffer }[] = [];
+        let total = 0;
+        for (const p of a["attachments"] as string[]) {
+          const r = resolveInRoots(pc.roots(), p, pc.roots()[0] ?? ".");
+          if (!r.ok) throw new Error(r.reason);
+          const ext = r.abs.split(".").pop()?.toLowerCase() ?? "";
+          if (!(ATTACHMENT_EXTENSIONS as readonly string[]).includes(ext)) throw new Error(`Files of type .${ext} cannot be attached (allowed: ${ATTACHMENT_EXTENSIONS.join(", ")}).`);
+          folders?.require({ subject: "workforce", path: r.abs, op: "read" });
+          if (!existsSync(r.abs) || statSync(r.abs).isDirectory()) throw new Error(`The attachment ${p} does not exist yet. Create it first (and wait for it to be approved).`);
+          const size = statSync(r.abs).size;
+          if (size > EML_LIMITS.attachmentBytes) throw new Error(`The attachment ${p} is larger than ${EML_LIMITS.attachmentBytes / 1_000_000} MB.`);
+          total += size;
+          if (total > EML_LIMITS.totalBytes) throw new Error(`The attachments together are larger than ${EML_LIMITS.totalBytes / 1_000_000} MB.`);
+          files.push({ filename: r.abs.split(/[\\/]/).pop()!, data: readFileSync(r.abs) });
+          pc.log({ botId: ctx.botId, action: "create_email_draft", command: `attach ${r.abs}`, status: "ok", output: `${size} bytes` });
+        }
+        const eml = buildEml({ to: (a["to"] as string[]) ?? [], subject: String(a["subject"]), body: String(a["body"]), attachments: files });
+        return save(String(a["path"]), eml, a["overwrite"] as boolean | undefined, "create_email_draft", ctx.botId, `Email draft "${String(a["subject"]).slice(0, 60)}" with ${files.length} attachment(s) (NOT sent)`);
+      },
     },
     summarize_data: {
       kind: "read",
