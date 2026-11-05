@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMonitor } from "../api/hooks";
-import type { ActivityLevel } from "../api/types";
+import type { ActivityLevel, MonitorOverview } from "../api/types";
+import { ActivityLog, Resources, RunningWork } from "../components/MonitorViews";
+import { TabPanel, Tabs } from "../components/ui/Tabs";
 
 const LEVEL_STYLE: Record<ActivityLevel, string> = {
   info: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
@@ -19,15 +22,43 @@ function Stat({ label, value, hint }: { label: string; value: string | number; h
   );
 }
 
+type TabId = "overview" | "log" | "running" | "resources";
+const PANEL_LABEL: Record<TabId, string> = { overview: "Overview", log: "Activity log", running: "Running work", resources: "Resources" };
+
 export function Monitor() {
   const monitor = useMonitor();
   const o = monitor.data;
+  const [tab, setTab] = useState<TabId>("overview");
   if (monitor.isError) return <p role="alert">Could not load the overview.</p>;
   if (!o) return <p role="status">Loading…</p>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       <h1 className="text-2xl font-bold">Activity &amp; Logs</h1>
+      <Tabs
+        label="Activity views"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "overview", label: "Overview" },
+          { id: "log", label: "Activity log", badge: o.activity.length || undefined },
+          { id: "running", label: "Running work", badge: o.tasks.running || undefined },
+          { id: "resources", label: "Resources" },
+        ]}
+      />
+      <TabPanel label={PANEL_LABEL[tab]}>
+        {tab === "overview" && <Overview o={o} />}
+        {tab === "log" && <ActivityLog o={o} />}
+        {tab === "running" && <RunningWork />}
+        {tab === "resources" && <Resources o={o} />}
+      </TabPanel>
+    </div>
+  );
+}
+
+function Overview({ o }: { o: MonitorOverview }) {
+  return (
+    <div className="space-y-8">
 
       <section aria-labelledby="attention-heading" className="space-y-2">
         <h2 id="attention-heading" className="text-lg font-semibold">

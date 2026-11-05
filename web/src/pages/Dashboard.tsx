@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useExternalStatus, useMonitor, useProviders, useWorkflows } from "../api/hooks";
 import type { ActivityLevel } from "../api/types";
 import { AiOverview } from "../components/AiOverview";
 import { DemoCard } from "../components/DemoCard";
+import { Panel, StackedBar, StatCard, StatusDot, type Tone } from "../components/ui/Stats";
 
 const RUN_WORD: Record<string, string> = { queued: "waiting its turn", running: "running", waiting: "waiting for you", completed: "finished", failed: "failed", cancelled: "cancelled", interrupted: "interrupted by a restart" };
 
@@ -15,32 +15,12 @@ const LEVEL_STYLE: Record<ActivityLevel, string> = {
 const LEVEL_WORD: Record<ActivityLevel, string> = { info: "Info", warn: "Look", error: "Problem" };
 const DAY_MS = 24 * 3_600_000;
 
-type Tone = "ok" | "warn" | "bad" | "idle";
-const TONE_RING: Record<Tone, string> = {
-  ok: "",
-  warn: "border-amber-400 dark:border-amber-600",
-  bad: "border-red-400 dark:border-red-600",
-  idle: "",
-};
-
-function StatCard({ title, value, hint, to, tone = "idle" }: { title: string; value: ReactNode; hint?: ReactNode; to: string; tone?: Tone }) {
-  return (
-    <Link to={to} className={`card block space-y-1 transition-colors hover:border-indigo-400 ${TONE_RING[tone]}`}>
-      <p className="text-sm text-slate-600 dark:text-slate-400">{title}</p>
-      <p className="text-2xl font-bold">{value}</p>
-      {hint && <p className="hint">{hint}</p>}
-    </Link>
-  );
-}
-
-const DOT: Record<Tone, string> = { ok: "bg-emerald-500", warn: "bg-amber-500", bad: "bg-red-500", idle: "bg-slate-400" };
-
 /** A coloured dot AND a word, so the state never depends on colour alone. */
 function HealthRow({ label, state, tone, to }: { label: string; state: string; tone: Tone; to: string }) {
   return (
     <li>
-      <Link to={to} className="flex min-h-11 items-center gap-3 rounded-md px-1 py-1 hover:bg-slate-50 dark:hover:bg-slate-800">
-        <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${DOT[tone]}`} />
+      <Link to={to} className="awp-hover flex min-h-11 items-center gap-3 rounded-md px-1 py-1 hover:bg-slate-50 dark:hover:bg-slate-800">
+        <StatusDot tone={tone} />
         <span className="flex-1 text-sm">{label}</span>
         <span className="text-sm font-medium">{state}</span>
       </Link>
@@ -199,6 +179,66 @@ export function Dashboard() {
           />
         </div>
       </section>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel
+          id="exec-heading"
+          title="Task execution (24 h)"
+          action={
+            <Link to="/tasks" className="text-sm underline">
+              All tasks
+            </Link>
+          }
+        >
+          <div className="card space-y-2">
+            {m ? (
+              <StackedBar
+                label="Tasks in the last 24 hours"
+                empty="No task has run in the last 24 hours."
+                parts={[
+                  { label: "finished", value: m.tasks.completed24h, tone: "ok" },
+                  { label: "failed", value: m.tasks.failed24h, tone: "bad" },
+                  { label: "running now", value: m.tasks.running, tone: "idle" },
+                ]}
+              />
+            ) : (
+              <p className="hint">Loading…</p>
+            )}
+            {m && m.tasks.running > 0 && (
+              <p className="flex items-center gap-2 text-sm">
+                <StatusDot tone="ok" live />
+                {m.tasks.running} task{m.tasks.running === 1 ? " is" : "s are"} working right now.
+              </p>
+            )}
+          </div>
+        </Panel>
+
+        <Panel
+          id="apps-heading"
+          title="Application connections"
+          action={
+            <Link to="/integrations" className="text-sm underline">
+              Integrations Center
+            </Link>
+          }
+        >
+          {!ext ? (
+            <p className="hint">Loading…</p>
+          ) : connectors.length === 0 ? (
+            <p className="hint">No outside service is available.</p>
+          ) : (
+            <ul className="card grid gap-x-6 py-2 sm:grid-cols-2">
+              {connectors.slice(0, 8).map((c) => (
+                <li key={c.id} className="flex min-h-9 items-center gap-2 text-sm">
+                  <StatusDot tone={c.notReady ? "idle" : "ok"} />
+                  <span className="flex-1 truncate">{c.label}</span>
+                  <span className="text-slate-600 dark:text-slate-400">{c.notReady ? "Not set up" : "Set up"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </div>
 
       <AiOverview />
       <DemoCard compact />

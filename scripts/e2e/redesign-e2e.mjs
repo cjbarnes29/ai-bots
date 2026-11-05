@@ -76,6 +76,21 @@ try {
     // section tabs reachable (scrollable on small screens) and every tab target big enough on touch sizes
     const tabs = await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Workflows sections"] a')].map((a) => ({ t: a.textContent, h: Math.round(a.getBoundingClientRect().height) })));
     check(`${size.name}: the Workflows section shows its 4 tabs${size.width < 768 ? " with touch-sized height" : ""}`, tabs.length === 4 && (size.width >= 768 || tabs.every((x) => x.h >= 44)), JSON.stringify(tabs));
+    // phase 2: Dashboard boxes and every Monitoring tab, no overflow, tabs reachable by touch-sized buttons
+    await page.goto(base + "/", { waitUntil: "networkidle" });
+    const boxes = await page.evaluate(() => ["Task execution (24 h)", "Application connections", "Your AI right now"].map((n) => !![...document.querySelectorAll("h2")].find((h) => h.textContent.trim() === n)));
+    check(`${size.name}: the Dashboard shows the task, application and AI boxes`, boxes.every(Boolean), JSON.stringify(boxes));
+    await page.goto(base + "/monitor", { waitUntil: "networkidle" });
+    const tabOverflow = [];
+    for (const t of ["Overview", "Activity log", "Running work", "Resources"]) {
+      await page.click(`[role=tab]:has-text("${t}")`);
+      await page.waitForTimeout(350);
+      const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth, h: document.querySelector("[role=tab][aria-selected=true]").getBoundingClientRect().height }));
+      if (o.sw > o.iw + 1) tabOverflow.push(`${t} (${o.sw}>${o.iw})`);
+      if (size.width < 768 && o.h < 44) tabOverflow.push(`${t} tab only ${o.h}px tall`);
+    }
+    check(`${size.name}: the four Monitoring tabs fit and are touch-sized`, tabOverflow.length === 0, tabOverflow.join(", "));
+    await page.screenshot({ path: path.join(SHOTS, `monitor-resources-${size.width}.png`) });
     check(`${size.name}: no console errors across the pages`, errors.length === 0, errors.slice(0, 2).join(" | "));
     await page.goto(base + "/", { waitUntil: "networkidle" });
     await page.screenshot({ path: path.join(SHOTS, `dashboard-${size.width}.png`) });

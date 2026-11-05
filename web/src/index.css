@@ -104,3 +104,10 @@
   }
   .awp-lift:hover { transform: none; }
 }
+
+/* Shared pieces (components/ui) */
+.awp-value { animation: awp-pop-in var(--awp-dur-micro) var(--awp-ease) both; }
+.awp-bar { transition: width var(--awp-dur-panel) var(--awp-ease); }
+.awp-skeleton { animation: awp-pulse 1.4s ease-in-out infinite; }
+/* Stagger for a row of cards: set style={{ "--i": index }} on each. Capped so long lists never wait. */
+.awp-stagger { animation: awp-workspace-in var(--awp-dur-workspace) var(--awp-ease) both; animation-delay: calc(min(var(--i, 0), 8) * 30ms); }
