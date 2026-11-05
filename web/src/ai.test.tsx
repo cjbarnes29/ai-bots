@@ -24,13 +24,13 @@ const field = (id: string) => document.getElementById(id) as HTMLInputElement;
 const card = (name: string) => screen.getByRole("listitem", { name });
 
 describe("navigation", () => {
-  it("has links to Dashboard, Agents & Teams and Settings", async () => {
+  it("has links to Dashboard, AI Agents and Settings", async () => {
     const user = userEvent.setup();
     const { router } = renderApp(createFakeApi());
     const nav = within(await screen.findByRole("navigation", { name: "Main" }));
     await user.click(nav.getByRole("link", { name: "Settings" }));
     expect(router.state.location.pathname).toBe("/settings");
-    await user.click(nav.getByRole("link", { name: "Agents & Teams" }));
+    await user.click(nav.getByRole("link", { name: "AI Agents" }));
     expect(router.state.location.pathname).toBe("/agents");
     await user.click(nav.getByRole("link", { name: "Dashboard" }));
     expect(router.state.location.pathname).toBe("/");

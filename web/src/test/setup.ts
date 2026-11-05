@@ -7,5 +7,6 @@ configure({ asyncUtilTimeout: 4000 });
 
 afterEach(() => {
   cleanup();
+  if (typeof sessionStorage !== "undefined") sessionStorage.clear(); // the open-workspaces strip remembers pages per browser tab; tests must not share that
   vi.unstubAllGlobals();
 });

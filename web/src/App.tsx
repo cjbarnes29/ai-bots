@@ -7,6 +7,7 @@ import { BotEditor } from "./pages/BotEditor";
 import { BotList } from "./pages/BotList";
 import { BotStudio } from "./pages/BotStudio";
 import { Business } from "./pages/Business";
+import { Creative } from "./pages/Creative";
 import { Dashboard } from "./pages/Dashboard";
 import { Decisions } from "./pages/Decisions";
 import { Groups } from "./pages/Groups";
@@ -45,6 +46,7 @@ export const routes: RouteObject[] = [
       { path: "/bots/:id", element: <BotEditor /> },
       { path: "/studio", element: <BotStudio /> },
       { path: "/knowledge", element: <Knowledge /> },
+      { path: "/creative", element: <Creative /> },
       { path: "/workflows", element: <Workflows /> },
       { path: "/business", element: <Business /> },
       { path: "/integrations", element: <Integrations /> },

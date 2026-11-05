@@ -267,12 +267,12 @@ describe("Task detail", () => {
 });
 
 describe("navigation and teamwork limits", () => {
-  it("reaches Tasks through Activity & Logs", async () => {
+  it("reaches Tasks through Monitoring", async () => {
     const user = userEvent.setup();
     const { router } = renderApp(createFakeApi(), "/");
-    await user.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("link", { name: "Activity & Logs" }));
+    await user.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("link", { name: "Monitoring" }));
     expect(router.state.location.pathname).toBe("/monitor");
-    await user.click(within(await screen.findByRole("navigation", { name: "Activity sections" })).getByRole("link", { name: "Tasks" }));
+    await user.click(within(await screen.findByRole("navigation", { name: "Monitoring sections" })).getByRole("link", { name: "Tasks" }));
     expect(router.state.location.pathname).toBe("/tasks");
   });
 

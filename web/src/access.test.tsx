@@ -143,8 +143,8 @@ describe("Access > Applications", () => {
 
 describe("Access in the menu", () => {
   it("has its own entry", async () => {
-    renderApp(createFakeApi(), "/");
-    expect((await screen.findAllByRole("link", { name: /^Access$/ })).length).toBeGreaterThan(0);
+    renderApp(createFakeApi(), "/integrations");
+    expect(await within(await screen.findByRole("navigation", { name: "Apps & Integrations sections" })).findByRole("link", { name: "Access" })).toHaveAttribute("href", "/access");
   });
 });
 

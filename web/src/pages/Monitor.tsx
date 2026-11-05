@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { ActivityTabs } from "../components/SectionTabs";
 import { useMonitor } from "../api/hooks";
 import type { ActivityLevel } from "../api/types";
 
@@ -28,7 +27,6 @@ export function Monitor() {
 
   return (
     <div className="space-y-8">
-      <ActivityTabs />
       <h1 className="text-2xl font-bold">Activity &amp; Logs</h1>
 
       <section aria-labelledby="attention-heading" className="space-y-2">

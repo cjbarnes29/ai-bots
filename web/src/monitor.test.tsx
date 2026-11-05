@@ -49,7 +49,7 @@ describe("the Monitor page", () => {
   });
 
   it("is in the main menu", async () => {
-    renderApp(createFakeApi(), "/");
-    expect(await screen.findByRole("link", { name: "Activity & Logs" })).toHaveAttribute("href", "/monitor");
+    renderApp(createFakeApi(), "/monitor");
+    expect(await within(await screen.findByRole("navigation", { name: "Monitoring sections" })).findByRole("link", { name: "Activity & Logs" })).toHaveAttribute("href", "/monitor");
   });
 });

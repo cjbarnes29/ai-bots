@@ -16,6 +16,10 @@ const PATHS = {
   back: "M15 18l-6-6 6-6",
   search: "M11 19a8 8 0 100-16 8 8 0 000 16z M21 21l-4.3-4.3",
   next: "M9 18l6-6-6-6",
+  cpu: "M6 6h12v12H6z M9 9h6v6H9z M9 2v4 M15 2v4 M9 18v4 M15 18v4 M2 9h4 M2 15h4 M18 9h4 M18 15h4",
+  palette: "M12 3a9 9 0 100 18c1.5 0 2-1 2-2 0-1.5-1-1.5-1-3s1-2 2.5-2H18a3 3 0 003-3c0-4.4-4-8-9-8z M7.5 11h0 M10 7.5h0 M14.5 7.5h0",
+  book: "M4 4h6a3 3 0 013 3v13a2 2 0 00-2-2H4z M20 4h-6a3 3 0 00-3 3v13a2 2 0 012-2h7z",
+  sidebar: "M3 4h18v16H3z M9 4v16",
 } as const;
 
 export type IconName = keyof typeof PATHS;

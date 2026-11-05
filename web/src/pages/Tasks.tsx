@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { ActivityTabs } from "../components/SectionTabs";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { ManagerPanel } from "../components/ManagerPanel";
@@ -109,7 +108,6 @@ export function TaskList() {
   const tasks = useTasks();
   return (
     <div className="space-y-6">
-      <ActivityTabs />
       <h1 className="text-2xl font-bold">Tasks</h1>
       <ManagerPanel />
       <NewTaskForm />

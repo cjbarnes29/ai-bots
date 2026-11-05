@@ -61,9 +61,10 @@ describe("Business Workforce page", () => {
   it("is in the menu and opens with the safety lock OFF and explained", async () => {
     renderApp(createFakeApi(), "/");
     const nav = within(await screen.findByRole("navigation", { name: "Main" }));
-    expect(nav.getByRole("link", { name: "Business Workforce" })).toHaveAttribute("href", "/business");
+    expect(nav.getByRole("link", { name: "Apps & Integrations" })).toHaveAttribute("href", "/integrations");
     renderApp(createFakeApi());
     expect(await screen.findByRole("heading", { level: 1, name: "Business Workforce" })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Apps & Integrations sections" })).getByRole("link", { name: "Business Workforce" })).toHaveAttribute("aria-current", "page");
     const lock = within(await screen.findByRole("region", { name: "Outside requests" }));
     expect(lock.getByText("OFF")).toBeInTheDocument();
     expect(lock.getByText(/no map search is made and no website is contacted/)).toBeInTheDocument();

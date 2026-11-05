@@ -48,3 +48,59 @@
 @utility hint {
   @apply mt-1 text-xs text-slate-500 dark:text-slate-400;
 }
+
+/* ---- Motion (owner decision D-075) ----
+   Durations follow the brief: micro 120-200 ms, hover 150-250 ms, panel 200-300 ms, workspace 250-400 ms.
+   Only transform and opacity are animated for movement, so nothing reflows. One easing curve everywhere. */
+:root {
+  --awp-ease: cubic-bezier(0.2, 0, 0, 1);
+  --awp-dur-micro: 160ms;
+  --awp-dur-hover: 200ms;
+  --awp-dur-panel: 260ms;
+  --awp-dur-workspace: 300ms;
+}
+@keyframes awp-workspace-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes awp-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes awp-sheet-up {
+  from { opacity: 0.6; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes awp-pop-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes awp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.awp-workspace-in { animation: awp-workspace-in var(--awp-dur-workspace) var(--awp-ease) both; }
+.awp-fade-in { animation: awp-fade-in var(--awp-dur-panel) var(--awp-ease) both; }
+.awp-sheet-up { animation: awp-sheet-up var(--awp-dur-panel) var(--awp-ease) both; }
+.awp-tab-in, .awp-pop-in { animation: awp-pop-in var(--awp-dur-micro) var(--awp-ease) both; }
+.awp-hover { transition: background-color var(--awp-dur-hover) var(--awp-ease), border-color var(--awp-dur-hover) var(--awp-ease), color var(--awp-dur-hover) var(--awp-ease), box-shadow var(--awp-dur-hover) var(--awp-ease), transform var(--awp-dur-hover) var(--awp-ease); }
+/* Sidebar fold: the content's left padding and the sidebar's width move together. */
+.awp-layout { transition: padding-left var(--awp-dur-panel) var(--awp-ease), width var(--awp-dur-panel) var(--awp-ease); }
+/* A live indicator for work in progress (use only while something is actually running). */
+.awp-live { animation: awp-pulse 1.4s ease-in-out infinite; }
+/* Interactive cards lift a little on hover (devices with a pointer only; nothing depends on hover). */
+@media (hover: hover) {
+  .awp-lift { transition: transform var(--awp-dur-hover) var(--awp-ease), box-shadow var(--awp-dur-hover) var(--awp-ease), border-color var(--awp-dur-hover) var(--awp-ease); }
+  .awp-lift:hover { transform: translateY(-2px); box-shadow: 0 6px 16px -6px rgb(15 23 42 / 0.25); }
+}
+
+/* Reduced motion: no movement and no looping animation; state changes still happen, instantly. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .awp-lift:hover { transform: none; }
+}

@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { AgentsTabs } from "../components/SectionTabs";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useBots, useCreateBot } from "../api/hooks";
@@ -67,7 +66,6 @@ export function BotList() {
 
   return (
     <div className="space-y-5">
-      <AgentsTabs />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Agents &amp; Teams</h1>
         <div className="flex items-center gap-4">

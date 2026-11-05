@@ -68,7 +68,8 @@ describe("the safety panel", () => {
   it("has a nav link", async () => {
     const user = userEvent.setup();
     const { router } = renderApp(createFakeApi(), "/");
-    await user.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("link", { name: "Schedules" }));
+    await user.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("link", { name: "Workflows" }));
+    await user.click(within(await screen.findByRole("navigation", { name: "Workflows sections" })).getByRole("link", { name: "Schedules" }));
     expect(router.state.location.pathname).toBe("/automation");
   });
 });

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useMatches } from "react-router-dom";
 import { useExternalStatus } from "../../api/hooks";
 import { GuardianBanner } from "../GuardianBanner";
 import { Icon } from "../Icon";
 import { OwnerProofDialog } from "../OwnerProofDialog";
+import { Breadcrumbs } from "./Breadcrumbs";
+import { SectionTabs } from "../SectionTabs";
+import { WorkspaceTabs } from "./WorkspaceTabs";
 import { NAV, isActive, type NavEntry } from "./nav";
 
 const SAFETY_KEY = "awp-safety-note-dismissed";
@@ -17,14 +20,34 @@ const SAFETY_KEY = "awp-safety-note-dismissed";
  */
 export function AppShell() {
   const { pathname } = useLocation();
+  // The page-change animation restarts when the route changes, not when only an id in the address changes (bot A to bot B keeps its state).
+  const matches = useMatches();
+  const routeKey = matches[matches.length - 1]?.id ?? pathname;
   const external = useExternalStatus();
   const waiting = external.data?.pendingCount ?? 0;
   const [moreOpen, setMoreOpen] = useState(false);
+  // Wide screens can fold the sidebar down to icons. Remembered in this browser only.
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleSidebar = () =>
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem(SIDEBAR_KEY, c ? "0" : "1");
+      } catch {
+        /* ignore */
+      }
+      return !c;
+    });
 
   useEffect(() => setMoreOpen(false), [pathname]);
 
   return (
-    <div className="min-h-screen md:pl-16 lg:pl-60">
+    <div className={`awp-layout min-h-screen md:pl-16 ${collapsed ? "lg:pl-16" : "lg:pl-60"}`}>
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 md:hidden">
         <Link to="/" className="text-lg font-bold">
           AI Workforce Studio
@@ -33,17 +56,30 @@ export function AppShell() {
 
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-slate-800 dark:bg-slate-900 md:inset-y-0 md:right-auto md:w-16 md:flex-col md:gap-1 md:overflow-y-auto md:border-r md:border-t-0 md:px-2 md:py-3 lg:w-60 lg:px-3"
+        className={`awp-layout fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-slate-800 dark:bg-slate-900 md:inset-y-0 md:right-auto md:w-16 md:flex-col md:gap-1 md:overflow-y-auto md:border-r md:border-t-0 md:px-2 md:py-3 ${
+          collapsed ? "lg:w-16" : "lg:w-60 lg:px-3"
+        }`}
       >
         <Link to="/" className="mb-2 hidden items-center gap-2 px-2 py-2 text-lg font-bold md:flex" aria-label="AI Workforce Studio home">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-600 text-sm text-white" aria-hidden="true">
             AI
           </span>
-          <span className="hidden lg:inline">Workforce Studio</span>
+          <span className={collapsed ? "hidden" : "hidden lg:inline"}>Workforce Studio</span>
         </Link>
         {NAV.map((entry) => (
-          <NavItem key={entry.to} entry={entry} active={isActive(entry, pathname)} waiting={entry.to === "/approvals" ? waiting : 0} />
+          <NavItem key={entry.to} entry={entry} collapsed={collapsed} active={isActive(entry, pathname)} waiting={entry.to === "/monitor" ? waiting : 0} />
         ))}
+        <button
+          type="button"
+          className={`${itemBase} mt-auto max-lg:hidden ${collapsed ? "lg:justify-center lg:px-0" : ""} ${idleStyle}`}
+          aria-pressed={collapsed}
+          aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
+          title={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
+          onClick={toggleSidebar}
+        >
+          <Icon name="sidebar" />
+          <span className={collapsed ? "sr-only" : ""}>Collapse</span>
+        </button>
         <button
           type="button"
           className={`${itemBase} md:hidden ${NAV.some((e) => !e.primary && isActive(e, pathname)) ? activeStyle : idleStyle}`}
@@ -62,14 +98,22 @@ export function AppShell() {
       <OwnerProofDialog />
       <SafetyNote />
       <main className="mx-auto max-w-6xl px-4 py-6 pb-28 md:pb-8">
-        <Outlet />
+        <WorkspaceTabs />
+        <Breadcrumbs />
+        <div className="mb-5 empty:mb-0">
+          <SectionTabs />
+        </div>
+        <div key={routeKey} className="awp-workspace-in">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
 }
 
+const SIDEBAR_KEY = "awp-sidebar-collapsed";
 const itemBase =
-  "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium " +
+  "awp-hover relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium " +
   "md:min-h-11 md:flex-none md:flex-row md:justify-center md:gap-3 md:rounded-lg md:px-0 md:text-sm lg:justify-start lg:px-3";
 const activeStyle = "text-indigo-700 dark:text-indigo-300 md:bg-indigo-100 md:dark:bg-indigo-950";
 const idleStyle = "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white md:hover:bg-slate-100 md:dark:hover:bg-slate-800";
@@ -86,16 +130,16 @@ function Badge({ count }: { count: number }) {
   );
 }
 
-function NavItem({ entry, active, waiting }: { entry: NavEntry; active: boolean; waiting: number }) {
+function NavItem({ entry, active, waiting, collapsed }: { entry: NavEntry; active: boolean; waiting: number; collapsed: boolean }) {
   return (
     <Link
       to={entry.to}
       title={entry.label}
       aria-current={active ? "page" : undefined}
-      className={`${itemBase} ${entry.primary ? "" : "hidden md:flex"} ${active ? activeStyle : idleStyle}`}
+      className={`${itemBase} ${entry.primary ? "" : "hidden md:flex"} ${collapsed ? "lg:justify-center lg:px-0" : ""} ${active ? activeStyle : idleStyle}`}
     >
       <Icon name={entry.icon} />
-      <span className="md:sr-only lg:not-sr-only">{entry.label}</span>
+      <span className={collapsed ? "md:sr-only" : "md:sr-only lg:not-sr-only"}>{entry.label}</span>
       {waiting > 0 && <span className="sr-only">, {waiting} waiting</span>}
       <Badge count={waiting} />
     </Link>
@@ -138,13 +182,13 @@ function MoreSheet({ pathname, waiting, onClose }: { pathname: string; waiting: 
 
   return (
     <div className="fixed inset-0 z-40 md:hidden">
-      <button type="button" tabIndex={-1} aria-label="Close menu" className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <button type="button" tabIndex={-1} aria-label="Close menu" className="awp-fade-in absolute inset-0 bg-black/40" onClick={onClose} />
       <div
         ref={box}
         role="dialog"
         aria-modal="true"
         aria-label="More"
-        className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-xl dark:bg-slate-900"
+        className="awp-sheet-up absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-xl dark:bg-slate-900"
       >
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-lg font-semibold">More</h2>
@@ -158,7 +202,7 @@ function MoreSheet({ pathname, waiting, onClose }: { pathname: string; waiting: 
               <Link to={e.to} aria-current={isActive(e, pathname) ? "page" : undefined} className="flex min-h-12 items-center gap-3 px-1 text-base">
                 <Icon name={e.icon} />
                 <span className="flex-1">{e.label}</span>
-                {e.to === "/approvals" && waiting > 0 ? <span className="text-sm font-semibold">{waiting}</span> : null}
+                {e.to === "/monitor" && waiting > 0 ? <span className="text-sm font-semibold">{waiting}</span> : null}
                 <Icon name="next" className="h-4 w-4 text-slate-400" />
               </Link>
             </li>

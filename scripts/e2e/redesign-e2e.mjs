@@ -1,0 +1,137 @@
+// Real-browser check of the Studio redesign shell (owner decision D-075, phase 1): the REAL app (src/server.ts) on a scratch database and
+// a REAL Edge browser. No model, no internet, no keys, never touches data/app.db. Nothing is sent anywhere.
+// Checks navigation, section tabs, breadcrumbs, the open-workspace tabs, the sidebar fold, the Creative Studio page, motion (and reduced motion),
+// and at six screen sizes: no sideways overflow on any section's pages, and the navigation shape that belongs to that size.
+// Usage: npm --prefix web run build && node scripts/e2e/redesign-e2e.mjs      (needs port 3111)
+import { spawn } from "node:child_process";
+import { mkdtempSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const SHOTS = process.env.SHOTS_DIR ?? path.join(tmpdir(), "awp-redesign-shots");
+mkdirSync(SHOTS, { recursive: true });
+const { chromium } = createRequire(path.join(ROOT, "web/package.json"))("playwright-core");
+const EDGE = process.env.EDGE_PATH ?? "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe";
+const PORT = 3111;
+const base = `http://127.0.0.1:${PORT}`;
+const results = [];
+const check = (name, ok, detail = "") => { results.push({ name, ok: !!ok, detail }); console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  -> " + detail : ""}`); };
+
+const dir = mkdtempSync(path.join(tmpdir(), "awp-redesign-e2e-"));
+mkdirSync(path.join(dir, "data"));
+const srv = spawn(process.execPath, ["--import", "tsx", "src/server.ts"], {
+  cwd: ROOT,
+  env: { ...process.env, PORT: String(PORT), DATABASE_PATH: path.join(dir, "data", "scratch.db"), GUARDIAN_URL: "", GROQ_API_KEY: "", GEMINI_API_KEY: "", OPENROUTER_API_KEY: "" },
+  stdio: ["ignore", "pipe", "pipe"],
+});
+let log = "";
+srv.stdout.on("data", (d) => (log += d));
+srv.stderr.on("data", (d) => (log += d));
+const ready = async () => { for (let i = 0; i < 80; i++) { try { if ((await fetch(base + "/api/llm/status")).ok) return true; } catch {} await new Promise((r) => setTimeout(r, 500)); } return false; };
+
+const SIZES = [
+  { name: "small phone", width: 360, height: 740, shape: "bottom" },
+  { name: "large phone", width: 430, height: 932, shape: "bottom" },
+  { name: "tablet portrait", width: 768, height: 1024, shape: "rail" },
+  { name: "small laptop", width: 1024, height: 768, shape: "sidebar" },
+  { name: "desktop", width: 1440, height: 900, shape: "sidebar" },
+  { name: "large desktop", width: 1920, height: 1080, shape: "sidebar" },
+];
+const PAGES = ["/", "/agents", "/studio", "/groups", "/workforce", "/workflows", "/automation", "/decisions", "/projects", "/settings/ai-models", "/integrations", "/pc", "/access", "/business", "/creative", "/knowledge", "/monitor", "/tasks", "/approvals", "/inbox", "/settings"];
+
+let browser;
+try {
+  check("app started on a scratch database", await ready());
+  browser = await chromium.launch({ executablePath: EDGE, headless: true });
+
+  // ---- every page at every size: no sideways overflow, and the right navigation shape
+  for (const size of SIZES) {
+    const ctx = await browser.newContext({ viewport: { width: size.width, height: size.height }, hasTouch: size.width < 1024, isMobile: size.width < 768 });
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
+    const overflow = [];
+    for (const p of PAGES) {
+      await page.goto(base + p, { waitUntil: "networkidle" });
+      await page.waitForSelector("h1", { timeout: 8000 }).catch(() => {});
+      const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
+      if (o.sw > o.iw + 1) overflow.push(`${p} (${o.sw}>${o.iw})`);
+    }
+    check(`${size.name} ${size.width}px: no sideways overflow on ${PAGES.length} pages`, overflow.length === 0, overflow.join(", "));
+    // navigation shape
+    await page.goto(base + "/workflows", { waitUntil: "networkidle" });
+    const nav = await page.evaluate(() => {
+      const n = document.querySelector('nav[aria-label="Main"]');
+      const r = n.getBoundingClientRect();
+      const items = [...n.querySelectorAll("a")].filter((a) => a.getBoundingClientRect().width > 0);
+      return { atBottom: Math.abs(r.bottom - window.innerHeight) < 2 && r.width >= window.innerWidth - 2, atLeft: r.left <= 0 && r.height >= window.innerHeight - 2, width: Math.round(r.width), minH: Math.min(...items.map((a) => a.getBoundingClientRect().height)), minW: Math.min(...items.map((a) => a.getBoundingClientRect().width)) };
+    });
+    if (size.shape === "bottom") check(`${size.name}: navigation is a bar along the bottom with touch-sized items`, nav.atBottom && nav.minH >= 44 && nav.minW >= 44, JSON.stringify(nav));
+    if (size.shape === "rail") check(`${size.name}: navigation is a slim rail`, nav.atLeft && nav.width <= 70, JSON.stringify(nav));
+    if (size.shape === "sidebar") check(`${size.name}: navigation is the full sidebar`, nav.atLeft && nav.width >= 220, JSON.stringify(nav));
+    // section tabs reachable (scrollable on small screens) and every tab target big enough on touch sizes
+    const tabs = await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Workflows sections"] a')].map((a) => ({ t: a.textContent, h: Math.round(a.getBoundingClientRect().height) })));
+    check(`${size.name}: the Workflows section shows its 4 tabs${size.width < 768 ? " with touch-sized height" : ""}`, tabs.length === 4 && (size.width >= 768 || tabs.every((x) => x.h >= 44)), JSON.stringify(tabs));
+    check(`${size.name}: no console errors across the pages`, errors.length === 0, errors.slice(0, 2).join(" | "));
+    await page.goto(base + "/", { waitUntil: "networkidle" });
+    await page.screenshot({ path: path.join(SHOTS, `dashboard-${size.width}.png`) });
+    await page.goto(base + "/creative", { waitUntil: "networkidle" });
+    await page.screenshot({ path: path.join(SHOTS, `creative-${size.width}.png`) });
+    await ctx.close();
+  }
+
+  // ---- behaviour on a desktop
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  await page.goto(base + "/", { waitUntil: "networkidle" });
+  const mainLinks = await page.$$eval('nav[aria-label="Main"] > a', (as) => as.map((a) => a.getAttribute("title") ?? a.textContent));
+  check("the sidebar lists the 9 sections (and the logo link)", mainLinks.length === 10, mainLinks.join(", "));
+  await page.click('nav[aria-label="Main"] a[title="Workflows"]');
+  await page.waitForSelector('h1:has-text("Workflow Studio")');
+  await page.click('nav[aria-label="Workflows sections"] a:has-text("Schedules")');
+  await page.waitForSelector('h1:has-text("Schedules and triggers")');
+  check("a section tab opens its page and the breadcrumb follows", (await page.textContent('nav[aria-label="Breadcrumb"]')).replace(/\s+/g, "").includes("Home/Workflows/Schedules"));
+  check("the open-workspaces strip shows both pages", (await page.$$eval('nav[aria-label="Open workspaces"] a', (as) => as.map((a) => a.textContent.trim()))).join("|") === "Dashboard|Workflow Studio|Schedules");
+  await page.reload({ waitUntil: "networkidle" });
+  check("open workspaces survive a reload of the same browser tab", (await page.$$('nav[aria-label="Open workspaces"] a')).length === 3);
+  const stored = await page.evaluate(() => ({ s: sessionStorage.getItem("awp-open-workspaces"), l: localStorage.getItem("awp-open-workspaces") }));
+  check("they are stored for the session only, as addresses and names", stored.l === null && JSON.parse(stored.s).every((o) => Object.keys(o).sort().join() === "label,path"));
+  const w0 = (await page.locator('nav[aria-label="Main"]').boundingBox()).width;
+  await page.click('button[aria-label="Collapse the sidebar"]');
+  await page.waitForTimeout(450);
+  const w1 = (await page.locator('nav[aria-label="Main"]').boundingBox()).width;
+  check("the sidebar folds to icons and its width animates", w0 >= 220 && w1 <= 70, `${w0} -> ${w1}`);
+  await page.reload({ waitUntil: "networkidle" });
+  check("the fold is remembered", (await page.locator('nav[aria-label="Main"]').boundingBox()).width <= 70);
+  await page.click('button[aria-label="Expand the sidebar"]');
+  // approvals still work from the Monitoring section
+  await page.click('nav[aria-label="Main"] a[title="Monitoring"]');
+  await page.click('nav[aria-label="Monitoring sections"] a:has-text("Approvals")');
+  check("Approvals is reachable from Monitoring", await page.waitForSelector('h1:has-text("Approvals")').then(() => true, () => false));
+  // creative studio honesty
+  await page.goto(base + "/creative", { waitUntil: "networkidle" });
+  const cards = await page.$$eval("li.card", (lis) => lis.map((li) => ({ t: li.querySelector("span")?.textContent, notConnected: li.textContent.includes("Not connected"), actions: li.querySelectorAll("a,button").length })));
+  check("Creative Studio: image, video and audio are 'Not connected' with no button", ["Image generation", "Video editing", "Audio and music"].every((n) => { const c = cards.find((x) => x.t?.includes(n)); return c && c.notConnected && c.actions === 0; }), JSON.stringify(cards.map((c) => c.t)));
+  // motion: the page change animation runs; with reduced motion it is off
+  const anim = await page.evaluate(() => { const el = document.querySelector(".awp-workspace-in"); const s = getComputedStyle(el); return { name: s.animationName, dur: s.animationDuration }; });
+  check("page change animation runs at 300 ms", anim.name === "awp-workspace-in" && anim.dur === "0.3s", JSON.stringify(anim));
+  await ctx.close();
+  const rctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+  const rpage = await rctx.newPage();
+  await rpage.goto(base + "/creative", { waitUntil: "networkidle" });
+  const ranim = await rpage.evaluate(() => { const s = getComputedStyle(document.querySelector(".awp-workspace-in")); return { dur: s.animationDuration }; });
+  check("with 'reduce motion' on, animations last 0.01 ms (effectively off)", ranim.dur === "0.00001s" || ranim.dur === "1e-05s", JSON.stringify(ranim));
+  await rctx.close();
+} catch (e) {
+  check("script finished without an error", false, String(e).slice(0, 300));
+} finally {
+  await browser?.close();
+  srv.kill();
+}
+const failed = results.filter((r) => !r.ok);
+console.log(`\n${results.length - failed.length}/${results.length} passed. Screenshots: ${SHOTS}`);
+if (failed.length) { console.log(log.slice(-600)); process.exit(1); }
