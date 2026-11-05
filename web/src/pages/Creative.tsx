@@ -1,5 +1,7 @@
+import { useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { Icon, type IconName } from "../components/Icon";
+import { TabPanel, Tabs } from "../components/ui/Tabs";
 
 type Status = "available" | "partial" | "not-connected";
 
@@ -63,34 +65,102 @@ const AREAS: Area[] = [
   },
 ];
 
-export function Creative() {
+type TabId = "overview" | "documents" | "drafting" | "media";
+const TAB_LABEL: Record<TabId, string> = { overview: "Overview", documents: "Documents", drafting: "Content drafting", media: "Image, video & audio" };
+
+function Steps({ title, steps }: { title: string; steps: { text: string; to?: string; link?: string }[] }) {
   return (
-    <div className="space-y-5">
+    <section aria-label={title} className="card space-y-3">
+      <h2 className="font-semibold">{title}</h2>
+      <ol className="list-decimal space-y-2 pl-5 text-sm">
+        {steps.map((s) => (
+          <li key={s.text}>
+            {s.text}
+            {s.to && (
+              <>
+                {" "}
+                <Link to={s.to} className="underline">
+                  {s.link}
+                </Link>
+              </>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function AreaCards({ areas }: { areas: Area[] }) {
+  return (
+    <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {areas.map((a, i) => (
+        <li key={a.title} className="card awp-lift awp-stagger flex flex-col gap-3" style={{ "--i": i } as CSSProperties}>
+          <div className="flex items-start justify-between gap-2">
+            <span className="flex items-center gap-2 font-semibold">
+              <Icon name={a.icon} className="h-5 w-5 text-indigo-600 dark:text-indigo-300" />
+              {a.title}
+            </span>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${BADGE[a.status].style}`}>{BADGE[a.status].text}</span>
+          </div>
+          <p className="flex-1 text-sm text-slate-600 dark:text-slate-400">{a.text}</p>
+          {a.link && (
+            <Link to={a.link.to} className="btn-secondary self-start">
+              {a.link.label}
+            </Link>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function Creative() {
+  const [tab, setTab] = useState<TabId>("overview");
+  const media = AREAS.filter((a) => a.status === "not-connected");
+  return (
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Creative Studio</h1>
         <p className="hint">
           This workspace shows what can be created today and what is not connected yet. Nothing here pretends to work: a card without a button has no feature behind it.
         </p>
       </div>
-      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {AREAS.map((a) => (
-          <li key={a.title} className="card awp-lift flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-2">
-              <span className="flex items-center gap-2 font-semibold">
-                <Icon name={a.icon} className="h-5 w-5 text-indigo-600 dark:text-indigo-300" />
-                {a.title}
-              </span>
-              <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${BADGE[a.status].style}`}>{BADGE[a.status].text}</span>
-            </div>
-            <p className="flex-1 text-sm text-slate-600 dark:text-slate-400">{a.text}</p>
-            {a.link && (
-              <Link to={a.link.to} className="btn-secondary self-start">
-                {a.link.label}
-              </Link>
-            )}
-          </li>
-        ))}
-      </ul>
+      <Tabs label="Creative areas" value={tab} onChange={setTab} tabs={(Object.keys(TAB_LABEL) as TabId[]).map((id) => ({ id, label: TAB_LABEL[id] }))} />
+      <TabPanel label={TAB_LABEL[tab]}>
+        {tab === "overview" && <AreaCards areas={AREAS} />}
+        {tab === "documents" && (
+          <>
+            <Steps
+              title="Make a document today"
+              steps={[
+                { text: "Approve a folder the files may go in.", to: "/access", link: "Open Access" },
+                { text: "On the agent's Permissions tab, switch on documents.", to: "/agents", link: "Open Agents" },
+                { text: 'Ask the agent in its chat or give it a task, for example "Make a spreadsheet of these costs".' },
+                { text: "The file is created only after you approve the request.", to: "/approvals", link: "Open Approvals" },
+              ]}
+            />
+            <p className="hint">Formats: Word, PDF, Excel, CSV, PowerPoint, web page and SVG chart. There is no editor in this app; open the file in your own program.</p>
+          </>
+        )}
+        {tab === "drafting" && (
+          <Steps
+            title="Draft content today"
+            steps={[
+              { text: "Create an agent with a role such as Writer.", to: "/agents", link: "Open Agents" },
+              { text: "Put the work in a project so agents share notes and results.", to: "/projects", link: "Open Projects" },
+              { text: "Give the agent a task; it uses a free model and saves the result in the project." },
+              { text: "Keep what you like as a shared note.", to: "/knowledge", link: "Open Knowledge Center" },
+            ]}
+          />
+        )}
+        {tab === "media" && (
+          <>
+            <p className="hint">These three have no service behind them. Connecting one needs your approval first (free and verified services only; nothing is bought for you).</p>
+            <AreaCards areas={media} />
+          </>
+        )}
+      </TabPanel>
     </div>
   );
 }

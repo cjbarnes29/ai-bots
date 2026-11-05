@@ -2,6 +2,8 @@ import { useState, type ChangeEvent } from "react";
 import { ApiError } from "../api/client";
 import { useBots, useCreateNote, useMemoryNotes, useNoteAction, useUpdateNote } from "../api/hooks";
 import type { MemoryNote } from "../api/types";
+import { KnowledgeFiles } from "../components/KnowledgeFiles";
+import { TabPanel, Tabs } from "../components/ui/Tabs";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 const MAX_FILE_CHARS = 4000;
@@ -10,6 +12,7 @@ const MAX_FILE_CHARS = 4000;
 export function Knowledge() {
   const bots = useBots(false);
   const [scope, setScope] = useState<"shared" | "bot">("shared");
+  const [tab, setTab] = useState<"shared" | "agents" | "files">("shared");
   const [botId, setBotId] = useState("");
   const [q, setQ] = useState("");
   const [archived, setArchived] = useState(false);
@@ -42,109 +45,131 @@ export function Knowledge() {
         Notes your bots can use. Shared notes are for every bot you allow; private notes belong to one bot. Passwords, keys and tokens are never stored. Turn memory on or off per bot on its Permissions tab.
       </p>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="text-sm">
-          <span className="label">Show</span>
-          <select aria-label="Which notes" value={scope} onChange={(e) => setScope(e.target.value as "shared" | "bot")}>
-            <option value="shared">Shared knowledge</option>
-            <option value="bot">One bot's private notes</option>
-          </select>
-        </label>
-        {scope === "bot" && (
-          <label className="text-sm">
-            <span className="label">Bot</span>
-            <select aria-label="Bot" value={botId} onChange={(e) => setBotId(e.target.value)}>
-              <option value="">Choose a bot…</option>
-              {(bots.data ?? [])
-                .filter((b) => !b.archived)
-                .map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
+      <Tabs
+        label="Knowledge areas"
+        value={tab}
+        onChange={(t) => {
+          setTab(t);
+          if (t === "shared") setScope("shared");
+          if (t === "agents") setScope("bot");
+        }}
+        tabs={[
+          { id: "shared", label: "Shared notes" },
+          { id: "agents", label: "Agent knowledge" },
+          { id: "files", label: "Files & documents" },
+        ]}
+      />
+      <TabPanel label={{ shared: "Shared notes", agents: "Agent knowledge", files: "Files & documents" }[tab]}>
+        {tab === "files" ? (
+          <KnowledgeFiles />
+        ) : (
+          <>
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="text-sm">
+                  <span className="label">Show</span>
+                  <select aria-label="Which notes" value={scope} onChange={(e) => setScope(e.target.value as "shared" | "bot")}>
+                    <option value="shared">Shared knowledge</option>
+                    <option value="bot">One bot's private notes</option>
+                  </select>
+                </label>
+                {scope === "bot" && (
+                  <label className="text-sm">
+                    <span className="label">Bot</span>
+                    <select aria-label="Bot" value={botId} onChange={(e) => setBotId(e.target.value)}>
+                      <option value="">Choose a bot…</option>
+                      {(bots.data ?? [])
+                        .filter((b) => !b.archived)
+                        .map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                )}
+                <label className="min-w-48 flex-1 text-sm">
+                  <span className="label">Search</span>
+                  <input aria-label="Search notes" value={q} onChange={(e) => setQ(e.target.value)} className="w-full" />
+                </label>
+                <label className="flex items-center gap-1 text-sm">
+                  <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Show archived
+                </label>
+              </div>
+
+              {error && (
+                <p role="alert" className="rounded-md bg-red-100 p-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+                  {error}
+                </p>
+              )}
+
+              <section aria-label="Add a note" className="card space-y-2">
+                <h2 className="font-semibold">Add a note {scope === "shared" ? "to the shared knowledge" : "for this bot"}</h2>
+                <input aria-label="Note title" placeholder="Title" maxLength={100} value={title} onChange={(e) => setTitle(e.target.value)} className="w-full" />
+                <textarea aria-label="Note text" placeholder="Text" rows={4} maxLength={MAX_FILE_CHARS} value={content} onChange={(e) => setContent(e.target.value)} className="w-full" />
+                <input aria-label="Tags" placeholder="Tags, separated by commas (optional)" value={tags} onChange={(e) => setTags(e.target.value)} className="w-full" />
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-1 text-sm">
+                    <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} /> Pin (add to the bot's instructions)
+                  </label>
+                  <label className="text-sm">
+                    <span className="label">Or load a text file</span>
+                    <input aria-label="Load a text file" type="file" accept=".txt,.md,.csv,text/*" onChange={readFile} />
+                  </label>
+                  <button
+                    className="btn-primary"
+                    disabled={!canAdd || create.isPending}
+                    onClick={() =>
+                      create.mutate(
+                        {
+                          scope,
+                          ...(scope === "bot" ? { botId } : {}),
+                          title: title.trim(),
+                          content: content.trim(),
+                          tags: tags
+                            .split(",")
+                            .map((t) => t.trim())
+                            .filter(Boolean),
+                          pinned,
+                        },
+                        {
+                          onSuccess: () => {
+                            setTitle("");
+                            setContent("");
+                            setTags("");
+                            setPinned(false);
+                          },
+                        },
+                      )
+                    }
+                  >
+                    Save note
+                  </button>
+                </div>
+              </section>
+
+              {notes.data?.length === 0 && <p className="hint">No notes here.</p>}
+              <ul className="space-y-2">
+                {notes.data?.map((n) => (
+                  <NoteRow
+                    key={n.id}
+                    note={n}
+                    editing={editing === n.id}
+                    draft={draft}
+                    setDraft={setDraft}
+                    onEdit={() => {
+                      setEditing(n.id);
+                      setDraft({ title: n.title, content: n.content });
+                    }}
+                    onSave={() => update.mutate({ id: n.id, patch: draft }, { onSuccess: () => setEditing(null) })}
+                    onCancel={() => setEditing(null)}
+                    onPin={() => update.mutate({ id: n.id, patch: { pinned: !n.pinned } })}
+                    onAction={(a) => action.mutate({ id: n.id, action: a })}
+                  />
                 ))}
-            </select>
-          </label>
+              </ul>
+          </>
         )}
-        <label className="min-w-48 flex-1 text-sm">
-          <span className="label">Search</span>
-          <input aria-label="Search notes" value={q} onChange={(e) => setQ(e.target.value)} className="w-full" />
-        </label>
-        <label className="flex items-center gap-1 text-sm">
-          <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Show archived
-        </label>
-      </div>
-
-      {error && (
-        <p role="alert" className="rounded-md bg-red-100 p-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
-          {error}
-        </p>
-      )}
-
-      <section aria-label="Add a note" className="card space-y-2">
-        <h2 className="font-semibold">Add a note {scope === "shared" ? "to the shared knowledge" : "for this bot"}</h2>
-        <input aria-label="Note title" placeholder="Title" maxLength={100} value={title} onChange={(e) => setTitle(e.target.value)} className="w-full" />
-        <textarea aria-label="Note text" placeholder="Text" rows={4} maxLength={MAX_FILE_CHARS} value={content} onChange={(e) => setContent(e.target.value)} className="w-full" />
-        <input aria-label="Tags" placeholder="Tags, separated by commas (optional)" value={tags} onChange={(e) => setTags(e.target.value)} className="w-full" />
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-1 text-sm">
-            <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} /> Pin (add to the bot's instructions)
-          </label>
-          <label className="text-sm">
-            <span className="label">Or load a text file</span>
-            <input aria-label="Load a text file" type="file" accept=".txt,.md,.csv,text/*" onChange={readFile} />
-          </label>
-          <button
-            className="btn-primary"
-            disabled={!canAdd || create.isPending}
-            onClick={() =>
-              create.mutate(
-                {
-                  scope,
-                  ...(scope === "bot" ? { botId } : {}),
-                  title: title.trim(),
-                  content: content.trim(),
-                  tags: tags
-                    .split(",")
-                    .map((t) => t.trim())
-                    .filter(Boolean),
-                  pinned,
-                },
-                {
-                  onSuccess: () => {
-                    setTitle("");
-                    setContent("");
-                    setTags("");
-                    setPinned(false);
-                  },
-                },
-              )
-            }
-          >
-            Save note
-          </button>
-        </div>
-      </section>
-
-      {notes.data?.length === 0 && <p className="hint">No notes here.</p>}
-      <ul className="space-y-2">
-        {notes.data?.map((n) => (
-          <NoteRow
-            key={n.id}
-            note={n}
-            editing={editing === n.id}
-            draft={draft}
-            setDraft={setDraft}
-            onEdit={() => {
-              setEditing(n.id);
-              setDraft({ title: n.title, content: n.content });
-            }}
-            onSave={() => update.mutate({ id: n.id, patch: draft }, { onSuccess: () => setEditing(null) })}
-            onCancel={() => setEditing(null)}
-            onPin={() => update.mutate({ id: n.id, patch: { pinned: !n.pinned } })}
-            onAction={(a) => action.mutate({ id: n.id, action: a })}
-          />
-        ))}
-      </ul>
+      </TabPanel>
     </div>
   );
 }

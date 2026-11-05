@@ -110,6 +110,24 @@ try {
     check(`${size.name}: the workflow editor opens in ${size.width < 768 ? "list" : "drawing"} view`, ed.list === (size.width < 768) && ed.toggle === (size.width < 768), JSON.stringify(ed));
     check(`${size.name}: resize divider ${size.width >= 1024 ? "visible" : "hidden"}, no sideways overflow in the editor`, ed.sep === (size.width >= 1024) && ed.sw <= ed.iw + 1, JSON.stringify(ed));
     if (size.width < 768) check(`${size.name}: list-view buttons are touch-sized`, ed.minBtn >= 44, String(ed.minBtn));
+    // phase 5: Knowledge and Creative tabs, and every Settings category, fit at this size
+    const tabIssues = [];
+    for (const [url, tabs] of [["/knowledge", ["Shared notes", "Agent knowledge", "Files & documents"]], ["/creative", ["Overview", "Documents", "Content drafting", "Image, video & audio"]]]) {
+      await page.goto(base + url, { waitUntil: "networkidle" });
+      for (const t of tabs) {
+        await page.click(`[role=tab]:has-text("${t}")`);
+        await page.waitForTimeout(300);
+        const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth, h: document.querySelector("[role=tab][aria-selected=true]").getBoundingClientRect().height }));
+        if (o.sw > o.iw + 1) tabIssues.push(`${url} ${t} (${o.sw}>${o.iw})`);
+        if (size.width < 768 && o.h < 44) tabIssues.push(`${url} ${t} tab ${o.h}px`);
+      }
+    }
+    for (const c of ["general", "recommended", "ai-models", "integrations", "agents", "workflows", "pc", "security", "notifications", "advanced"]) {
+      await page.goto(base + `/settings/${c}`, { waitUntil: "networkidle" });
+      const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
+      if (o.sw > o.iw + 1) tabIssues.push(`settings/${c} (${o.sw}>${o.iw})`);
+    }
+    check(`${size.name}: Knowledge and Creative tabs and all 10 Settings categories fit, tabs touch-sized`, tabIssues.length === 0, tabIssues.join(", "));
     check(`${size.name}: no console errors across the pages`, errors.length === 0, errors.slice(0, 2).join(" | "));
     await page.goto(base + "/", { waitUntil: "networkidle" });
     await page.screenshot({ path: path.join(SHOTS, `dashboard-${size.width}.png`) });

@@ -67,7 +67,7 @@ export function SettingsLayout() {
                     <Link
                       to={`/settings/${c.id}`}
                       aria-current={on ? "page" : undefined}
-                      className={`flex min-h-12 items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium ${
+                      className={`awp-hover flex min-h-12 items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium ${
                         on ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200" : "hover:bg-slate-100 dark:hover:bg-slate-800"
                       }`}
                     >
@@ -113,7 +113,7 @@ export function SettingsCategoryPage() {
     );
   }
   return (
-    <div className="space-y-6">
+    <div key={c.id} className="awp-fade-in space-y-6">
       <div className="space-y-1">
         <Link to="/settings" className="inline-flex min-h-11 items-center gap-1 text-sm text-indigo-700 hover:underline dark:text-indigo-400 lg:hidden">
           <Icon name="back" className="h-4 w-4" /> All settings
