@@ -1,6 +1,6 @@
 # AI Workforce Studio redesign: inspection and implementation plan
 
-Status: **APPROVED 2026-11-06 (D-075). Phases 1 (e56f27d), 2 (91e3100) committed; phases 3 (ec4c4fe), 4 (f7f8e6a) committed; phase 5 built; phase 6 not built.** The owner later approved all remaining phases, commits included, within the stated approval boundaries. Written from the code in `web/src` at commit `a43b685`. Not a screenshot audit; no browser was opened for this plan. Requires the owner's approval before any build (see "Decisions needed").
+Status: **COMPLETE 2026-11-06 (D-075): all six phases built and committed** (e56f27d, 91e3100, ec4c4fe, f7f8e6a, 8c6335a, and the phase 6 commit). See 'Result' at the end.
 
 ## 1. What exists today (from the code)
 
@@ -77,3 +77,25 @@ No backend change unless a card needs data the API lacks (then listed for approv
 3. **Tabs of open workspaces:** session-only (recommended, no storage) or remembered across restarts?
 4. **Order and size:** one phase at a time with a review after each (recommended).
 5. **Mobile workflow editing:** simplified list/step editor on phones (recommended) rather than the drag canvas.
+
+## 8. Result (2026-11-06)
+
+**Built (dashboard only; no backend change, no dependency, no migration):**
+1. Navigation: nine sections from one list (`web/src/components/shell/nav.ts`), section tabs, breadcrumbs, open-workspace tabs (session only), foldable sidebar, motion system with reduced-motion support, honest Creative Studio.
+2. Dashboard boxes (task execution bar, application connections) and Monitoring as four tabs; shared `components/ui` (Tabs, StatCard, StatusDot, StackedBar, Skeleton, Panel).
+3. AI Models workspace (`/models`, five tabs, original components), agent History tab and list search/filter, Integrations search/filter.
+4. Workflows: SplitPane, run map with animated followed arrows, phone list editor.
+5. Knowledge Center tabs (incl. Files & documents pointers), Creative Studio tabs, Settings fade.
+6. Touch targets, skip link, one-h1 rule, documentation.
+
+**Tests:** backend 1,766 (unchanged); dashboard 384 (was 339); browser scripts: redesign 89/89 (21+ pages at 360, 430, 768, 1024, 1440, 1920 px), workspace 32/32, groups 44/44, demo 16/16, routing 40/40.
+
+## 9. Limits and outstanding (stated plainly)
+
+- **Creative Studio has no image, video or audio features** (no backend, no FFmpeg). Connecting one needs the owner's approval; nothing was bought or installed.
+- **Not built because nothing real sits behind it:** a toast/notification system (no feature emits events to show), a file browser or document editor, CPU/memory meters, workflow templates, agent communication visualisation, a separate agent builder (the existing Details/Permissions tabs remain), global search across agents.
+- **Shared components not extracted:** `Modal`, `Drawer`, `Dropdown`. `ConfirmDialog`, `OwnerProofDialog` and the More sheet each keep their own tested focus handling; extracting them was judged riskier than useful.
+- **Settings > AI Models and the `/models` workspace both exist** (same components; the settings page links to the workspace). Settings > AI Models can be reduced to a link later.
+- **Not verified:** real phones/tablets and touch hardware, a screen reader, a contrast tool run, behaviour with real providers, long-session performance. The checks use Edge headless at fixed sizes against the real app with fake or no providers.
+- **Known flake (not caused by the redesign):** `src/desktop/real-windows.test.ts` can fail under load (different test each time) and passes alone 25/25; re-run `npm run check`.
+- **Navigation test changes:** the navigation tests were rewritten for the new link names (8 files) and one check ignores search boxes; no assertion was removed.

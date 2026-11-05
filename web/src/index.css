@@ -27,7 +27,7 @@
 /* Tailwind 4: a custom style that other styles build on must be declared with @utility. */
 @utility btn {
   @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium
-    transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    transition-colors disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-11;
 }
 @utility btn-primary {
   @apply btn bg-indigo-600 text-white hover:bg-indigo-500;
@@ -121,3 +121,23 @@
 .awp-flow { stroke-dasharray: 8 4; animation: awp-dash 0.9s linear infinite; }
 /* A box changing state eases its colours instead of jumping. */
 .awp-node { transition: background-color var(--awp-dur-panel) var(--awp-ease), border-color var(--awp-dur-panel) var(--awp-ease), box-shadow var(--awp-dur-panel) var(--awp-ease); }
+
+/* Touch: on phones and small tablets (under 768 px) form fields, section toggles and switches get a 44 px target (design brief, D-075).
+   Switches keep their look; an invisible extension around them makes them easy to hit. */
+@media (max-width: 767px) {
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]) {
+    min-height: 2.75rem;
+  }
+  summary {
+    padding-block: 0.75rem;
+  }
+}
+button[role="switch"] {
+  position: relative;
+}
+button[role="switch"]::after {
+  content: "";
+  position: absolute;
+  inset: -0.5rem -0.25rem;
+}

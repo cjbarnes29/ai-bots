@@ -1,6 +1,6 @@
 # AI Workforce Studio: UI/UX, responsive design and integration audit
 
-Status: **AUDIT AND PLAN ONLY. Nothing has been implemented.** Written 2026-11-04 against commit `170544b` + uncommitted Gmail test-email work.
+Status: **SUPERSEDED IN PART (2026-11-06): the redesign this audit planned has been built; see `docs/REDESIGN-PLAN.md` for what exists now. The text below is the original 2026-11-04 audit and is kept unchanged.** Original status: **AUDIT AND PLAN ONLY. Nothing has been implemented.** Written 2026-11-04 against commit `170544b` + uncommitted Gmail test-email work.
 Method: read the dashboard source (`web/src`, 8.6k lines excluding tests), the backend route/feature list, `docs/PROGRESS.md` and `docs/PROVIDERS.md`.
 NOT done: no screenshots were taken and no new viewport tests were run for this audit. Responsive findings below come from reading the code
 (breakpoint usage, fixed pixel sizes, markup), so they are labelled "from code". The viewport matrix in section 12 is the plan to prove them.

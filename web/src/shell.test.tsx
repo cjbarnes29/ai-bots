@@ -195,8 +195,15 @@ describe("motion", () => {
   });
   it("uses the durations from the design brief and animates only transform and opacity", () => {
     for (const name of ["micro", "hover", "panel", "workspace"]) expect(css).toContain("--awp-dur-" + name);
-    const frames = css.match(/@keyframes awp-[\s\S]*?\n\}/g) ?? [];
-    expect(frames.length).toBeGreaterThan(3);
+    // read each @keyframes block up to its own closing brace (counting braces, so one-line and multi-line blocks both work)
+    const frames: string[] = [];
+    for (const m of css.matchAll(/@keyframes awp-[\w-]+\s*\{/g)) {
+      let depth = 1;
+      let i = (m.index ?? 0) + m[0].length;
+      while (depth > 0 && i < css.length) depth += css[i] === "{" ? 1 : css[i] === "}" ? -1 : 0, i++;
+      frames.push(css.slice(m.index, i));
+    }
+    expect(frames.length).toBeGreaterThan(4);
     for (const fr of frames) expect(fr).not.toMatch(/\b(width|height|top|left|margin|padding)\s*:/);
   });
 

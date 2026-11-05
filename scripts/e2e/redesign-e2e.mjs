@@ -55,12 +55,34 @@ try {
     page.on("pageerror", (e) => errors.push(String(e)));
     page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
     const overflow = [];
+    const h1issues = [];
+    const smallIssues = [];
     for (const p of PAGES) {
       await page.goto(base + p, { waitUntil: "networkidle" });
       await page.waitForSelector("h1", { timeout: 8000 }).catch(() => {});
       const o = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
       if (o.sw > o.iw + 1) overflow.push(`${p} (${o.sw}>${o.iw})`);
+      // phase 6: one h1 per page; on phones every button, field, tab and section toggle is at least 44px tall
+      // (switches get an invisible 44px extension, and inline underlined text buttons sit inside sentences: neither is measured by its box)
+      const a11y = await page.evaluate(() => {
+        const skipEl = (e) => e.getAttribute("role") === "switch" || (e.tagName === "BUTTON" && String(e.className).split(" ").includes("underline"));
+        const small = [];
+        for (const e of document.querySelectorAll("button, a.btn-primary, a.btn-secondary, input:not([type=checkbox]):not([type=radio]):not([type=file]), select, [role=tab], summary")) {
+          const b = e.getBoundingClientRect();
+          if (b.width === 0 || b.height === 0 || skipEl(e)) continue;
+          if (b.height < 43.5) small.push(`${e.tagName.toLowerCase()} "${(e.textContent || e.getAttribute("aria-label") || "").trim().slice(0, 24)}" ${Math.round(b.height)}px`);
+        }
+        return { h1: document.querySelectorAll("h1").length, small };
+      });
+      if (a11y.h1 !== 1) h1issues.push(`${p} (${a11y.h1} h1)`);
+      if (size.width < 768 && a11y.small.length) smallIssues.push(`${p}: ${a11y.small.slice(0, 2).join("; ")}`);
     }
+    check(`${size.name}: every page has exactly one h1`, h1issues.length === 0, h1issues.join(", "));
+    if (size.width < 768) check(`${size.name}: no button, field, tab or toggle under 44px tall on ${PAGES.length} pages`, smallIssues.length === 0, smallIssues.slice(0, 3).join(" | "));
+    await page.goto(base + "/", { waitUntil: "networkidle" });
+    await page.keyboard.press("Tab");
+    const first = await page.evaluate(() => ({ text: document.activeElement?.textContent?.trim(), href: document.activeElement?.getAttribute("href"), visible: (() => { const b = document.activeElement.getBoundingClientRect(); return b.width > 0 && b.top >= 0; })() }));
+    check(`${size.name}: the first Tab stop is a visible skip link to the content`, first.href === "#main" && first.visible, JSON.stringify(first));
     check(`${size.name} ${size.width}px: no sideways overflow on ${PAGES.length} pages`, overflow.length === 0, overflow.join(", "));
     // navigation shape
     await page.goto(base + "/workflows", { waitUntil: "networkidle" });

@@ -15,6 +15,7 @@ A personal AI workforce: agents, a Manager, workflows, integrations behind an ap
 - Prefer small changes that reuse what exists. No new dependency and no database migration without the owner's approval.
 - `npm run check` = typecheck + all tests + builds for both parts. Run the relevant tests while working and the full check before presenting anything for a commit.
 - Never rewrite files with PowerShell `Get-Content`/`Set-Content` (it corrupts characters). Use the editing tools.
+- Dashboard layout: the nine-section navigation lives in ONE list, `web/src/components/shell/nav.ts` (sidebar, phone bar, tabs and breadcrumbs all read it); redesign record `docs/REDESIGN-PLAN.md` (D-075). New pages must be added there, keep one h1, 44 px touch targets and the reduced-motion rule. Browser check: `scripts/e2e/redesign-e2e.mjs`.
 - Windows machine. Bash and PowerShell are both available; there is no FFmpeg and no real Python.
 
 ## 4. Git rules

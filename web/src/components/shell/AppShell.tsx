@@ -48,6 +48,9 @@ export function AppShell() {
 
   return (
     <div className={`awp-layout min-h-screen md:pl-16 ${collapsed ? "lg:pl-16" : "lg:pl-60"}`}>
+      <a href="#main" className="sr-only z-50 rounded-md bg-indigo-700 px-4 py-3 text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3">
+        Skip to the page content
+      </a>
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 md:hidden">
         <Link to="/" className="text-lg font-bold">
           AI Workforce Studio
@@ -97,7 +100,7 @@ export function AppShell() {
       <GuardianBanner />
       <OwnerProofDialog />
       <SafetyNote />
-      <main className="mx-auto max-w-6xl px-4 py-6 pb-28 md:pb-8">
+      <main id="main" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-6 pb-28 outline-none md:pb-8">
         <WorkspaceTabs />
         <Breadcrumbs />
         <div className="mb-5 empty:mb-0">
@@ -232,7 +235,7 @@ function SafetyNote() {
         </p>
         <button
           type="button"
-          className="shrink-0 rounded-md px-2 py-1 text-sm font-medium text-amber-900 underline dark:text-amber-200"
+          className="min-h-11 shrink-0 rounded-md px-2 py-1 text-sm font-medium text-amber-900 underline dark:text-amber-200"
           onClick={() => {
             try {
               localStorage.setItem(SAFETY_KEY, "1");
