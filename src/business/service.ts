@@ -1,7 +1,7 @@
 import type { AuditLog } from "../audit/audit.js";
 import type { LookupAll } from "../connectors/browser/netguard.js";
 import { AuditError, auditSite, AllowanceUsedUpError, ExternalDisabledError, failureText, type AuditOutcome, type Fetcher } from "./audit.js";
-import { DISCOVERY_LIMITS, DiscoveryClient, overpassPost, type DiscoveryDeps } from "./discovery.js";
+import { DEFAULT_ENDPOINT, DISCOVERY_LIMITS, DiscoveryClient, OVERPASS_ENDPOINTS, isEndpointId, overpassPost, type DiscoveryDeps, type EndpointId } from "./discovery.js";
 import { mergeLeads, rowsHash, type Lead } from "./leads.js";
 import { getMarket, resolveCategories, resolveRegion, categoryLabel } from "./markets.js";
 import { createGuardedFetcher, type Transport } from "./netfetch.js";
@@ -38,6 +38,10 @@ export interface BusinessDeps {
   transport?: Transport;
   lookup?: LookupAll;
   post?: DiscoveryDeps["post"];
+  get?: DiscoveryDeps["get"];
+  /** Which map service the owner chose (a stored setting). Absent = the default. */
+  getEndpoint?: () => string | null;
+  setEndpoint?: (id: EndpointId) => void;
   sleep?: (ms: number) => Promise<void>;
 }
 
@@ -108,6 +112,8 @@ export class BusinessService {
     });
     this.discovery = new DiscoveryClient({
       post: d.post ?? overpassPost,
+      ...(d.get ? { get: d.get } : {}),
+      endpoint: () => OVERPASS_ENDPOINTS[this.endpointId()],
       allowed: () => this.externalEnabled(),
       now: d.now,
       sleep: d.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))),
@@ -137,6 +143,30 @@ export class BusinessService {
     if (left === null) return;
     if (left <= 0) throw new AllowanceUsedUpError(kind);
     this.allowance[kind] = left - 1;
+  }
+
+  // ---- which map service (the owner chooses; the app never switches by itself) ----
+  endpointId(): EndpointId {
+    const v = this.d.getEndpoint?.() ?? null;
+    return isEndpointId(v) ? v : DEFAULT_ENDPOINT;
+  }
+  mapService() {
+    return {
+      selected: this.endpointId(),
+      endpoints: Object.values(OVERPASS_ENDPOINTS).map((e) => ({ id: e.id, label: e.label, host: e.host, statusUrl: e.status, verified: e.verified })),
+      health: this.discovery.health(),
+      note: "The app never switches map service by itself. A status check is ONE request and counts against the approved map allowance.",
+    };
+  }
+  selectEndpoint(id: string): void {
+    if (!isEndpointId(id)) throw new Error(`Unknown map service "${id}". Known: ${Object.keys(OVERPASS_ENDPOINTS).join(", ")}.`);
+    if (!this.d.setEndpoint) throw new Error("Choosing a map service is not available here.");
+    this.d.setEndpoint(id);
+    this.d.audit.record("business.map_endpoint_selected", { endpoint: id, host: OVERPASS_ENDPOINTS[id].host }, { actor: "owner" });
+  }
+  /** ONE status request to the chosen service (owner act). Uses the switch, the allowance and the daily limit like any map request. */
+  async mapStatusCheck() {
+    return this.discovery.statusCheck();
   }
 
   private dayStart(): number {

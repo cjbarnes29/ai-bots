@@ -92,6 +92,8 @@ const OWNER_ONLY_ROUTES: RegExp[] = [
   /^\/api\/gmail\/test-email/,
   /^\/api\/integrations\/:id\/verify/,
   /^\/api\/business\/external/,
+  // Choosing the map service and sending a status request to it are owner acts.
+  /^\/api\/business\/map/,
   /^\/api\/business\/leads\/:id/,
   /^\/api\/business\/team/,
   /^\/api\/llm\/(providers|models|limits|routing)/,

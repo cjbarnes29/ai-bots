@@ -63,3 +63,6 @@ Run by a one-off script that calls the same code directly (no agent, no LLM, no 
 2. **Pipeline check on a neutral site: 1 request.** `GET https://example.com/` (the IANA example site), to see the website check work end to end without touching any business.
 3. **Up to 3 businesses' own websites from test 1: at most 9 requests** (each check is 1 request, up to 3 if it has to try plain http or follow redirects). One GET of the home page each, User-Agent `Mozilla/5.0 (compatible; AIWorkforceSiteCheck/1.0; read-only homepage check)`.
 Total: at most 11 external requests. Nothing is sent to anyone, nothing is saved unless you approve a save, and the results are printed for you to read.
+
+## Map service choice (P-37, D-070)
+The map data comes from one service on a fixed list: `overpass-api.de` (default) or the public mirror `overpass.kumi.systems` (not verified). The owner chooses on `PUT /api/business/map`; the app never switches by itself. `POST /api/business/map/status-check` sends one status request to the chosen service and counts as one map request against the approved allowance and the daily limit. Details: `docs/REAL-TASK.md` section 0d.

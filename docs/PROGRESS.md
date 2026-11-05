@@ -554,3 +554,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ### P-36 map service diagnosis (2026-11-05; D-069; `docs/REAL-TASK.md` section 0c)
 - One read-only GET to the Overpass status page, 0 provider requests: no answer within 40 s (TimeoutError, no error code); no proxy configured. Groq and Google answered from the same runtime, so the cause is that overpass-api.de does not answer this PC, not query size. Next: owner browser check and an owner-approved mirror (P-37). Milestone NOT complete.
+
+### P-37 configurable map service (2026-11-05; D-070; `docs/REAL-TASK.md` section 0d)
+- Fixed list of map services (default overpass-api.de; mirror overpass.kumi.systems, not contacted). Owner-only choice, no automatic switching, health record, one-request status check that counts against the approved allowance, timeout reasons. 12 tests with fakes; no network request made. Next: P-38 (one status request to the mirror) needs the owner's approval.

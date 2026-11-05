@@ -52,6 +52,25 @@ export async function registerBusinessRoutes(app: FastifyInstance, svc: Business
 
   app.get("/api/business/status", async () => status());
 
+  // ---- which map service; its health; one status request. Choosing and checking are owner acts (owner-only on a phone, owner proof on this PC). ----
+  app.get("/api/business/map", async () => svc.mapService());
+  app.put("/api/business/map", async (req) => {
+    const { endpoint } = z.strictObject({ endpoint: z.string().max(20) }).parse(req.body);
+    try {
+      svc.selectEndpoint(endpoint);
+    } catch (e) {
+      throw new AppError(400, "unknown_map_service", e instanceof Error ? e.message : "Unknown map service.");
+    }
+    return svc.mapService();
+  });
+  app.post("/api/business/map/status-check", async () => {
+    try {
+      return { health: await svc.mapStatusCheck(), map: svc.mapService() };
+    } catch (e) {
+      throw new AppError(409, "map_request_refused", e instanceof Error ? e.message : "The request was refused.");
+    }
+  });
+
   app.put("/api/business/external", async (req) => {
     // allowance: an exact number of outside requests approved for this session (counted down in the platform; memory only)
     const { enabled, allowance } = z.strictObject({ enabled: z.boolean(), allowance: z.strictObject({ map: z.number().int().min(0).max(1000).nullable().optional(), website: z.number().int().min(0).max(5000).nullable().optional() }).optional() }).parse(req.body);

@@ -54,6 +54,20 @@ Goal: prove the workforce can do a real task with real AI providers and real too
 
 No further search and no new real task will be run without approval.
 
+## 0d. P-37: configurable map service (2026-11-05, implemented; nothing contacted)
+**Audit before the change:** one constant address (`overpass-api.de`); searches could only POST there; the approved allowance and the daily limit were counted at the moment a request starts; there was no record of whether the service answered, and the timeout reason was worked out inline.
+
+**What changed** (`src/business/discovery.ts`, `service.ts`, `routes.ts`):
+- A **fixed list** of map services: `main` = `https://overpass-api.de/api/interpreter` (**still the default**) and `kumi` = `https://overpass.kumi.systems/api/interpreter` (public mirror, **not contacted, not verified**). Nothing an agent or a website says can add an address; the real request functions refuse anything not on the list.
+- The **owner chooses**: `GET /api/business/map` shows the choice and health; `PUT /api/business/map {endpoint}` changes it (owner-only on a phone, owner proof on this PC when a Guardian is set up; audited). **The app never switches by itself**: a failed search on the chosen service is not retried on the other one.
+- **Health status:** every search and status check records the service, HTTP status, time, and a reason from a fixed vocabulary (memory only).
+- **Status check:** `POST /api/business/map/status-check` sends ONE GET to the chosen service's status page (15-second limit, 4 KB cap, never retried). It needs the outside-request switch, **counts against the same approved map allowance** (counted down as the request starts) and the daily limit, exactly like a search.
+- **Timeouts:** searches 40 s, status 15 s; both named in the error ("no answer within N seconds").
+- Allowances, countdown enforcement, the outside-request switch, daily limits and the Guardian's owner-proof rule are unchanged and apply to both services.
+- Tests: `src/business/mapEndpoint.test.ts` (12, fakes only; `fetch` is replaced by a spy that fails the test if called). No request was sent to either service while building this.
+
+**Proposed next diagnostic (P-38, NOT run):** exactly ONE read-only `GET https://overpass.kumi.systems/api/status`, 15-second limit, no retry, 0 provider requests, no search, no configuration change (the mirror is not selected). Command for the owner or for me after approval: `$env:AWP_APPROVED_STATUS_REQUESTS = "1"; node scripts/e2e/overpass-status-check.mjs kumi`. The script refuses without that approval and names only addresses from the fixed list.
+
 ### Still open
 - A third attempt needs the owner's approval of one more map request (P-35). Until a real run produces the Excel, the PDF and the draft, **this milestone is not complete**.
 - The Manager still marks a step "completed" when the bot's tool call failed but the bot wrote an honest explanation (the platform adds a "What the platform recorded" note). A reviewer can catch this; a stricter step status is a possible improvement.

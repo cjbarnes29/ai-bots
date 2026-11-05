@@ -191,7 +191,7 @@ export interface BuildAppOptions {
   /** Where the leads file lives. Default: workspace/business-workforce/leads/ inside the project folder. */
   businessDir?: string;
   /** Tests only: pretend network pieces for discovery and website checks (the real ones only run while the owner has switched outside requests on). */
-  businessNet?: Pick<import("./business/service.js").BusinessDeps, "transport" | "lookup" | "post" | "sleep">;
+  businessNet?: Pick<import("./business/service.js").BusinessDeps, "transport" | "lookup" | "post" | "get" | "sleep">;
   /** Tests: start programs with a fake instead of the real thing. */
   pcStart?: (spec: import("./connectors/pc/runner.js").RunSpec) => import("./connectors/pc/runner.js").PcProcess;
   /** Tailscale names (*.ts.net) the phone may use. Empty = remote access is off and only this PC can connect. */
@@ -398,6 +398,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     audit,
     getFlag: () => approvalRepo.getSetting(BUSINESS_FLAG) === "true",
     setFlag: (on) => approvalRepo.setSetting(BUSINESS_FLAG, on ? "true" : "false", new Date(now()).toISOString()),
+    getEndpoint: () => approvalRepo.getSetting("business.map_endpoint"),
+    setEndpoint: (id) => approvalRepo.setSetting("business.map_endpoint", id, new Date(now()).toISOString()),
     ...(options.businessNet ?? {}),
   });
   const access = new AccessService({
