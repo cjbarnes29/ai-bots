@@ -80,6 +80,12 @@ const OWNER_ONLY_ROUTES: RegExp[] = [
   // Running a model evaluation sends real requests to a provider: an owner act.
   /^\/api\/llm\/registry\/evaluate/,
   /^\/api\/projects\/:id$/,
+  // Groups: the switch, creating, editing, archiving, members and responsibilities are owner acts. Writing in a group and handing work over work like chat and stay open.
+  /^\/api\/workforce\/bots\/:botId$/,
+  /^\/api\/groups\/enabled/,
+  /^\/api\/groups$/,
+  /^\/api\/groups\/:id$/,
+  /^\/api\/groups\/:id\/(archive|members|responsibilities)/,
   /^\/api\/pc\/(workspaces|resume)/,
   /^\/api\/devices\/pairing/,
   /^\/api\/(gmail|gworkspace)\/oauth\/start/,

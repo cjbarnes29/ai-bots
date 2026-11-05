@@ -9,6 +9,8 @@ import { BotStudio } from "./pages/BotStudio";
 import { Business } from "./pages/Business";
 import { Dashboard } from "./pages/Dashboard";
 import { Decisions } from "./pages/Decisions";
+import { Groups } from "./pages/Groups";
+import { Workforce } from "./pages/Workforce";
 import { Inbox } from "./pages/Inbox";
 import { Integrations } from "./pages/Integrations";
 import { Projects } from "./pages/Projects";
@@ -52,6 +54,8 @@ export const routes: RouteObject[] = [
       { path: "/integrations/ai-setup", element: <AiSetupAssistant /> },
       { path: "/inbox", element: <Inbox /> },
       { path: "/decisions", element: <Decisions /> },
+      { path: "/groups", element: <Groups /> },
+      { path: "/workforce", element: <Workforce /> },
       { path: "/projects", element: <Projects /> },
       { path: "/automation", element: <Automation /> },
       { path: "/approvals", element: <Approvals /> },

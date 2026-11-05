@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { AppError } from "../errors.js";
+import type { DecisionInsights } from "./collaboration.js";
 import type { DecisionService } from "./service.js";
 
 const uuid = z.string().uuid();
@@ -16,7 +17,7 @@ const option = z.strictObject({ title: z.string(), details: z.string().optional(
  * rejecting also need the owner proof on the PC (see remote/access.ts). Bots contribute only through the model calls that inquire() and reviewRound()
  * make on the owner's request, and through the reports written from their real tasks.
  */
-export async function registerDecisionRoutes(app: FastifyInstance, decisions: DecisionService): Promise<void> {
+export async function registerDecisionRoutes(app: FastifyInstance, decisions: DecisionService, insights?: DecisionInsights): Promise<void> {
   app.get("/api/decisions", async (req) => {
     const q = z.object({ status: z.enum(["open", "chosen", "approved", "in_progress", "done", "rejected", "archived"]).optional(), projectId: z.string().max(80).optional() }).parse(req.query);
     return { decisions: decisions.list({ ...(q.status ? { status: q.status } : {}), ...(q.projectId ? { projectId: q.projectId } : {}) }) };
@@ -109,4 +110,23 @@ export async function registerDecisionRoutes(app: FastifyInstance, decisions: De
   });
   app.post<{ Params: { id: string; botId: string } }>("/api/decisions/:id/assignments/:botId/start", async (req) => ({ outcome: decisions.start(did(req.params.id), req.params.botId) }));
   app.post<{ Params: { id: string; botId: string } }>("/api/decisions/:id/assignments/:botId/repair", async (req) => ({ outcome: decisions.repair(did(req.params.id), req.params.botId) }));
+
+  if (insights) {
+    // Versions of an option's wording (the original, then each owner edit with its exact changes) and which one was approved.
+    app.get<{ Params: { id: string; optionId: string } }>("/api/decisions/:id/options/:optionId/versions", async (req) => {
+      const id = did(req.params.id);
+      return { versions: insights.optionVersions(id, req.params.optionId), approved: insights.approvedVersion(id) };
+    });
+    // What each bot was actually told and what came back.
+    app.get<{ Params: { id: string } }>("/api/decisions/:id/execution", async (req) => ({ execution: insights.executionRecord(did(req.params.id)), approved: insights.approvedVersion(did(req.params.id)) }));
+    // Whether the bots agree, from their recorded views only. Reading never writes; POST records the outcome in the decision history.
+    app.get<{ Params: { id: string } }>("/api/decisions/:id/consensus", async (req) => ({ consensus: insights.evaluate(did(req.params.id)), outcome: insights.lastOutcome(did(req.params.id)) }));
+    app.post<{ Params: { id: string } }>("/api/decisions/:id/consensus", async (req) => ({ consensus: insights.record(did(req.params.id)) }));
+    // The Manager's loop: review rounds (at most two in total), consensus check after each, then escalate to the owner. Starts only when the owner asks.
+    app.post<{ Params: { id: string } }>("/api/decisions/:id/collaborate", async (req) => {
+      const id = did(req.params.id);
+      const out = await insights.collaborate(id);
+      return { ...out, decision: decisions.get(id) };
+    });
+  }
 }

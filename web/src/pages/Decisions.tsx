@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
+import { AddOptionForm, ApprovalPlanner, ConsensusPanel, ExecutionPanel, OptionEditor } from "../components/DecisionExtras";
 import { useDecision, useDecisionAct, useDecisions, useInquire, type DecisionDetail, type DecisionDraft, type DecisionStatus } from "../api/workHooks";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
@@ -88,6 +89,7 @@ function Detail({ id }: { id: string }) {
                 {v.botName} ({v.stance}, round {v.round}): {v.reasoning}
               </p>
             ))}
+            <OptionEditor decision={d} option={o} />
             {canChoose && o.id !== d.chosenOptionId && (
               <button className="btn-secondary mt-2" aria-label={`Choose ${o.title}`} disabled={act.isPending} onClick={() => act.mutate({ op: "choose", id, optionId: o.id, ...(note ? { note } : {}) })}>
                 Choose this
@@ -96,6 +98,9 @@ function Detail({ id }: { id: string }) {
           </li>
         ))}
       </ul>
+      <AddOptionForm decision={d} />
+      <ConsensusPanel decision={d} />
+      <ApprovalPlanner decision={d} onApproved={() => undefined} />
 
       {canChoose && (
         <div className="space-y-2">
@@ -107,16 +112,11 @@ function Detail({ id }: { id: string }) {
             <button className="btn-secondary" disabled={act.isPending} onClick={() => act.mutate({ op: "review", id })}>
               Ask the agents to review each other (one round)
             </button>
-            {d.status === "chosen" && (
-              <button className="btn-primary" disabled={act.isPending} onClick={() => act.mutate({ op: "approve", id })}>
-                Approve "{chosen?.title}"
-              </button>
-            )}
             <button className="btn-secondary" disabled={act.isPending} onClick={() => act.mutate({ op: "reject", id, ...(note ? { note } : {}) })}>
               Reject
             </button>
           </div>
-          {d.status === "chosen" && <p className="hint">Approving creates a project and starts one normal task for each assigned agent (by default, whoever proposed this option). It grants no permission, folder, program or secret; every outside action still waits in Approvals.</p>}
+          {d.status === "chosen" && <p className="hint">Approving (above) creates a project and starts one normal task for each assigned agent (by default, whoever proposed this option). It grants no permission, folder, program or secret; every outside action still waits in Approvals.</p>}
         </div>
       )}
       {d.status === "rejected" && (
@@ -157,6 +157,7 @@ function Detail({ id }: { id: string }) {
           </ul>
         </div>
       )}
+      <ExecutionPanel decision={d} />
       {d.reports.length > 0 && (
         <div>
           <h3 className="font-semibold">Reports</h3>

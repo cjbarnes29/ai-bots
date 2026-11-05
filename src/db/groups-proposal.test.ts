@@ -116,7 +116,7 @@ describe("0. revision 2 is the applied migration, and groups stay switched off",
     for (const t of NEW.filter((t) => t !== "group_messages_fts")) expect(db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get()!["n"]).toBe(0);
     db.close();
   });
-  it("no application code reads or writes the group tables yet (group messaging stays off until its service is built and tested)", () => {
+  it("only the groups service touches the group tables (it refuses everything until the owner switches groups on, see src/groups/groups.test.ts)", () => {
     const files: string[] = [];
     const walk = (d: string) => {
       for (const e of readdirSync(d, { withFileTypes: true })) {
@@ -127,7 +127,7 @@ describe("0. revision 2 is the applied migration, and groups stay switched off",
     };
     walk(SRC);
     const users = files.filter((f) => /\b(bot_groups|group_members|group_messages|group_message_mentions|group_memory|group_events)\b/.test(readFileSync(f, "utf8")));
-    expect(users.map((f) => relative(SRC, f))).toEqual([]);
+    expect(users.map((f) => relative(SRC, f).split("\\").join("/"))).toEqual(["groups/service.ts"]);
   });
 });
 

@@ -365,4 +365,36 @@ describe("PAUSE blocks new work and stops running work at a safe point", () => {
       await g.close();
     }
   });
+  it("Groups: while the Guardian is PAUSED nothing is posted and no bot turn or handoff starts; enabling groups and creating one need the owner proof; after resume it works", async () => {
+    const g = await startGuardian(dir);
+    const t = await createTestApp({ guardian: g.link });
+    try {
+      const proof = await g.resume();
+      const asOwner = owner(t, proof);
+      const ref = await setupGeminiModel(asOwner);
+      const a = (await switchOn(asOwner.call, await asOwner.call("POST", "/api/bots", { name: "Alpha", model: ref }))).body.bot;
+      const b = (await switchOn(asOwner.call, await asOwner.call("POST", "/api/bots", { name: "Beta", model: ref }))).body.bot;
+      // a script on this PC (header only) cannot switch groups on or create one
+      expect((await t.call("PUT", "/api/groups/enabled", { on: true })).body.error).toBe("proof_required");
+      expect((await asOwner.call("PUT", "/api/groups/enabled", { on: true })).status).toBe(200);
+      expect((await t.call("POST", "/api/groups", { name: "Team" })).body.error).toBe("proof_required");
+      const grp = (await asOwner.call("POST", "/api/groups", { name: "Team", botIds: [a.id, b.id], participationMode: "all_invited" })).body.group;
+      await asOwner.call("PUT", `/api/bots/${a.id}/delegation`, { targetBotIds: [b.id] });
+      await g.core.handle({ cmd: "pause" });
+      await g.link.refresh();
+      const calls = t.provider.calls.length;
+      const post = await t.call("POST", `/api/groups/${grp.id}/messages`, { content: "Everyone report" });
+      expect([post.status, post.body.error]).toEqual([409, "guardian_paused"]);
+      const hand = await t.call("POST", `/api/groups/${grp.id}/handoffs`, { fromBotId: a.id, toBotId: b.id, instruction: "Do X" });
+      expect([hand.status, hand.body.error]).toEqual([409, "guardian_paused"]);
+      expect(t.provider.calls.length).toBe(calls);
+      expect(((await t.call("GET", `/api/groups/${grp.id}/messages`)).body.messages as any[]).length).toBe(0);
+      await g.resume();
+      t.provider.script.push(reply("one"), reply("two"));
+      expect((await t.call("POST", `/api/groups/${grp.id}/messages`, { content: "Everyone report" })).status).toBe(201);
+    } finally {
+      await t.app.close();
+      await g.close();
+    }
+  });
 });

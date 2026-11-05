@@ -14,6 +14,11 @@ import { ProjectService, type ItemKind } from "./projects/service.js";
 import { registerProjectRoutes } from "./projects/routes.js";
 import { DecisionService } from "./decisions/service.js";
 import { registerDecisionRoutes } from "./decisions/routes.js";
+import { DecisionInsights } from "./decisions/collaboration.js";
+import { GroupService } from "./groups/service.js";
+import { registerGroupRoutes } from "./groups/routes.js";
+import { WorkforceService } from "./workforce/service.js";
+import { registerWorkforceRoutes } from "./workforce/routes.js";
 import { ChatService } from "./chat/service.js";
 import { openDatabase } from "./db/database.js";
 import { dirname, join, resolve } from "node:path";
@@ -114,6 +119,10 @@ declare module "fastify" {
     projects: ProjectService;
     /** Decisions (the chalkboard). Present only once migration 019 exists in the database; absent until the owner approves it. */
     decisions?: DecisionService;
+    /** Bot groups (migration 017). Switched OFF until the owner turns them on (NV-15). */
+    groups: GroupService;
+    /** The organisation (Central Manager, four divisions) and the Workforce Board, read from the real records. */
+    workforce: WorkforceService;
     /** The automation clock. The real server starts it; tests call `tick()` by hand. */
     automation: AutomationScheduler;
     /** Phone alerts. The real server sends them with the clock; tests call `push.tick()` by hand. */
@@ -346,6 +355,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await registerChatRoutes(app, chat);
   await registerProjectRoutes(app, projects);
   let decisionsRef: DecisionService | undefined; // set below once the decisions tables exist
+  let groupsRef: GroupService | undefined; // set below, after the task engine
   let inbox: InboxService | undefined; // created once the task and approval stores exist; events that arrive earlier are ignored
 
   // ---- Collaboration: bots hand text tasks to teammates you allow (nobody, by default) ----
@@ -581,6 +591,11 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       } catch {
         /* a report problem never stops a task */
       }
+      try {
+        groupsRef?.onRootFinished(task);
+      } catch {
+        /* a group message problem never stops a task */
+      }
       // The owner's inbox hears about the end of a chain. It checks the event itself; a problem here never stops a task from finishing.
       if (!inbox) return;
       try {
@@ -612,8 +627,24 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       now,
     });
     app.decorate("decisions", decisionsRef);
-    await registerDecisionRoutes(app, decisionsRef);
+    await registerDecisionRoutes(app, decisionsRef, new DecisionInsights(db, decisionsRef, now));
   }
+
+  // ---- Bot groups: off until the owner switches them on. Work runs as ordinary tasks; a handoff needs the delegation allow-list that already exists. ----
+  groupsRef = new GroupService({
+    db,
+    audit,
+    kv: { get: (k) => approvalRepo.getSetting(k), set: (k, v) => approvalRepo.setSetting(k, v, new Date(now()).toISOString()) },
+    getBot: (id) => agentService.getBot(id),
+    engine,
+    getTask: (id) => taskRepo.getTask(id),
+    canDelegate: (from, to) => taskRepo.listTargets(from).some((t) => t.id === to),
+    guardHeld: guardianHeld,
+    validateModel: (ref) => catalog.validateModelRef(ref),
+    now,
+  });
+  app.decorate("groups", groupsRef);
+  await registerGroupRoutes(app, groupsRef, decisionsRef);
 
   // ---- The Manager AI (Stage 2): plans, uses specialist bots only when needed, checks and combines the result ----
   const manager = new ManagerService({
@@ -631,6 +662,17 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   manager.recoverInterrupted();
   app.decorate("manager", manager);
   await registerManagerRoutes(app, manager);
+  const workforce = new WorkforceService({
+    db,
+    audit,
+    kv: { get: (k) => approvalRepo.getSetting(k), set: (k, v) => approvalRepo.setSetting(k, v, new Date(now()).toISOString()) },
+    groups: groupsRef,
+    archiveBot: (id) => agentService.archiveBot(id),
+    managerSpecialists: () => manager.settings().allowedBots,
+    now,
+  });
+  app.decorate("workforce", workforce);
+  await registerWorkforceRoutes(app, workforce);
   await registerDelegationRoutes(app, new DelegationService(taskRepo, engine, (id) => agentService.getBot(id), now), engine);
 
   // ---- Automation: schedules and text triggers. They start tasks through the engine above, so every

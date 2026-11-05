@@ -89,7 +89,7 @@ describe("Decisions page", () => {
   const detail = (status: string, chosen: string | null) => ({
     id: "d1", projectId: null, title: "Pick a name", question: "Which name should we use?", status, chosenOptionId: chosen, ownerNote: "", approvedAt: null, createdAt: "x", updatedAt: "x",
     project: null, options: [opt("o1", "Alpha", { disagreement: true, views: [{ id: 1, optionId: "o1", botId: "b2", botName: "Critic", stance: "concern", reasoning: "Too generic", round: 1 }] }), opt("o2", "Beta")],
-    participants: [], assignments: [], reports: [], history: [],
+    participants: [{ botId: "b1", botName: "Writer", reason: "" }], assignments: [], reports: [], history: [],
   });
 
   it("asks, saves the draft, chooses and approves; shows disagreement", async () => {
@@ -110,9 +110,9 @@ describe("Decisions page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Put these on the board" }));
     expect(await screen.findByText(/Your agents disagree/)).toBeInTheDocument();
     expect(screen.getByText(/Too generic/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Approve "/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Approve with/ })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Choose Beta" }));
-    await userEvent.click(await screen.findByRole("button", { name: 'Approve "Beta"' }));
+    await userEvent.click(await screen.findByRole("button", { name: "Approve with these assignments" }));
     await waitFor(() => expect(calls.some((c) => c.url === "/api/decisions/d1/approve")).toBe(true));
     expect(JSON.stringify(calls.map((c) => c.body))).not.toMatch(/actor|approvedBy/);
   });
