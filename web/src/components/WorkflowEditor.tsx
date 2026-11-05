@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/client";
 import { useCreateWorkflow, useUpdateWorkflow, useValidateWorkflow } from "../api/hooks";
 import type { Bot, WfEdge, WfGraph, WfNode } from "../api/types";
+import { useNarrow } from "../lib/useNarrow";
+import { SplitPane } from "./ui/SplitPane";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 const NODE_W = 176;
@@ -63,6 +65,9 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
   const [edges, setEdges] = useState<WfEdge[]>(initial.edges);
   const [selected, setSelected] = useState<string | null>(null);
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
+  const narrow = useNarrow();
+  const [view, setView] = useState<"canvas" | "list" | null>(null);
+  const mode = view ?? (narrow ? "list" : "canvas");
   const [problems, setProblems] = useState<{ node?: string; message: string }[]>([]);
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
   const canvas = useRef<HTMLDivElement>(null);
@@ -168,101 +173,120 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
         </p>
       )}
 
-      <div ref={canvas} className="relative overflow-auto rounded-md border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900" style={{ height: 360 }}>
-        <div className="relative" style={{ width: CANVAS_W, height: CANVAS_H }} aria-label="Canvas">
-          <svg width={CANVAS_W} height={CANVAS_H} className="pointer-events-none absolute inset-0" aria-hidden="true">
-            <defs>
-              <marker id="wf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-                <path d="M0,0 L10,5 L0,10 z" fill="#64748b" />
-              </marker>
-            </defs>
-            {edges.map((e) => {
-              const a = center(e.from);
-              const b = center(e.to);
-              const x1 = a.x + NODE_W;
-              const y1 = a.y + NODE_H / 2;
-              const x2 = b.x;
-              const y2 = b.y + NODE_H / 2;
-              return (
-                <g key={e.id}>
-                  <path d={`M${x1},${y1} C${x1 + 60},${y1} ${x2 - 60},${y2} ${x2},${y2}`} fill="none" stroke={e.when === "true" ? "#16a34a" : e.when === "false" ? "#dc2626" : "#64748b"} strokeWidth="2" markerEnd="url(#wf-arrow)" />
-                  {e.when !== "always" && (
-                    <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 6} textAnchor="middle" fontSize="12" fill="#334155">
-                      {e.when}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
-          {nodes.map((n) => (
-            <div
-              key={n.id}
-              role="group"
-              aria-label={`Box ${n.id}`}
-              className={`absolute rounded-md border-2 p-1 text-xs shadow-sm ${TYPE_STYLE[n.type]} ${selected === n.id ? "ring-2 ring-indigo-400" : ""} ${badNodes.has(n.id) ? "outline outline-2 outline-red-500" : ""}`}
-              style={{ left: n.x, top: n.y, width: NODE_W, minHeight: NODE_H }}
-            >
-              <div
-                role="button"
-                tabIndex={0}
-                aria-label={`Move box ${n.id}`}
-                onPointerDown={(e) => startDrag(e, n)}
-                onClick={() => setSelected(n.id)}
-                className="cursor-grab touch-none select-none font-semibold"
-              >
-                {TYPE_LABEL[n.type]}: {n.label || n.id}
-              </div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {n.type !== "end" && (
-                  <button className="rounded bg-white/70 px-1.5 py-0.5 underline dark:bg-black/30" aria-label={`Draw an arrow from ${n.id}`} onClick={() => setConnectFrom(n.id)}>
-                    Arrow from here
-                  </button>
-                )}
-                {connectFrom && connectFrom !== n.id && n.type !== "trigger" && (
-                  <button className="rounded bg-indigo-600 px-1.5 py-0.5 text-white" aria-label={`Draw the arrow to ${n.id}`} onClick={() => connectTo(n.id)}>
-                    Arrow to here
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="hint !mt-0">
+          {mode === "list" ? "List view: the boxes in the order they run, one after another. Good for phones." : "Drawing view: drag boxes, draw arrows."}
+        </p>
+        <button type="button" className="btn-secondary min-h-11" onClick={() => setView(mode === "list" ? "canvas" : "list")}>
+          {mode === "list" ? "Show as a drawing" : "Show as a list"}
+        </button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <section aria-label="Selected box" className="space-y-2">
-          <h4 className="font-semibold">{sel ? `${TYPE_LABEL[sel.type]} box "${sel.id}"` : "Click a box to change it"}</h4>
-          {sel && <NodeForm node={sel} bots={bots} onPatch={(p) => patchNode(sel.id, p)} />}
-          {sel && sel.type !== "trigger" && (
-            <button className="btn-danger" onClick={() => removeNode(sel.id)}>
-              Remove this box
-            </button>
-          )}
-        </section>
-        <section aria-label="Arrows" className="space-y-1">
-          <h4 className="font-semibold">Arrows</h4>
-          {edges.length === 0 && <p className="hint">No arrows yet.</p>}
-          <ul className="space-y-1 text-sm">
-            {edges.map((e) => (
-              <li key={e.id} className="flex flex-wrap items-center gap-2">
-                <span>
-                  {e.from} → {e.to}
-                </span>
-                {nodes.find((n) => n.id === e.from)?.type === "condition" && (
-                  <select aria-label={`When for the arrow ${e.from} to ${e.to}`} value={e.when} onChange={(ev) => setEdges((es) => es.map((x) => (x.id === e.id ? { ...x, when: ev.target.value as WfEdge["when"] } : x)))}>
-                    <option value="true">when true</option>
-                    <option value="false">when false</option>
-                  </select>
-                )}
-                <button className="underline" aria-label={`Remove the arrow ${e.from} to ${e.to}`} onClick={() => setEdges((es) => es.filter((x) => x.id !== e.id))}>
-                  Remove
+      <SplitPane
+        label="Workflow editor panels"
+        first={
+          mode === "list" ? (
+            <StepList nodes={nodes} edges={edges} selected={selected} connectFrom={connectFrom} badNodes={badNodes} onSelect={setSelected} onArrowFrom={setConnectFrom} onArrowTo={connectTo} />
+          ) : (
+          <div ref={canvas} className="relative overflow-auto rounded-md border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900" style={{ height: 360 }}>
+            <div className="relative" style={{ width: CANVAS_W, height: CANVAS_H }} aria-label="Canvas">
+              <svg width={CANVAS_W} height={CANVAS_H} className="pointer-events-none absolute inset-0" aria-hidden="true">
+                <defs>
+                  <marker id="wf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                    <path d="M0,0 L10,5 L0,10 z" fill="#64748b" />
+                  </marker>
+                </defs>
+                {edges.map((e) => {
+                  const a = center(e.from);
+                  const b = center(e.to);
+                  const x1 = a.x + NODE_W;
+                  const y1 = a.y + NODE_H / 2;
+                  const x2 = b.x;
+                  const y2 = b.y + NODE_H / 2;
+                  return (
+                    <g key={e.id}>
+                      <path d={`M${x1},${y1} C${x1 + 60},${y1} ${x2 - 60},${y2} ${x2},${y2}`} fill="none" stroke={e.when === "true" ? "#16a34a" : e.when === "false" ? "#dc2626" : "#64748b"} strokeWidth="2" markerEnd="url(#wf-arrow)" />
+                      {e.when !== "always" && (
+                        <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 6} textAnchor="middle" fontSize="12" fill="#334155">
+                          {e.when}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+              {nodes.map((n) => (
+                <div
+                  key={n.id}
+                  role="group"
+                  aria-label={`Box ${n.id}`}
+                  className={`absolute rounded-md border-2 p-1 text-xs shadow-sm ${TYPE_STYLE[n.type]} ${selected === n.id ? "ring-2 ring-indigo-400" : ""} ${badNodes.has(n.id) ? "outline outline-2 outline-red-500" : ""}`}
+                  style={{ left: n.x, top: n.y, width: NODE_W, minHeight: NODE_H }}
+                >
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Move box ${n.id}`}
+                    onPointerDown={(e) => startDrag(e, n)}
+                    onClick={() => setSelected(n.id)}
+                    className="cursor-grab touch-none select-none font-semibold"
+                  >
+                    {TYPE_LABEL[n.type]}: {n.label || n.id}
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {n.type !== "end" && (
+                      <button className="rounded bg-white/70 px-1.5 py-0.5 underline dark:bg-black/30" aria-label={`Draw an arrow from ${n.id}`} onClick={() => setConnectFrom(n.id)}>
+                        Arrow from here
+                      </button>
+                    )}
+                    {connectFrom && connectFrom !== n.id && n.type !== "trigger" && (
+                      <button className="rounded bg-indigo-600 px-1.5 py-0.5 text-white" aria-label={`Draw the arrow to ${n.id}`} onClick={() => connectTo(n.id)}>
+                        Arrow to here
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          )
+        }
+        second={
+          <>
+            <section aria-label="Selected box" className="space-y-2">
+              <h4 className="font-semibold">{sel ? `${TYPE_LABEL[sel.type]} box "${sel.id}"` : "Click a box to change it"}</h4>
+              {sel && <NodeForm node={sel} bots={bots} onPatch={(p) => patchNode(sel.id, p)} />}
+              {sel && sel.type !== "trigger" && (
+                <button className="btn-danger" onClick={() => removeNode(sel.id)}>
+                  Remove this box
                 </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
+              )}
+            </section>
+            <section aria-label="Arrows" className="space-y-1">
+              <h4 className="font-semibold">Arrows</h4>
+              {edges.length === 0 && <p className="hint">No arrows yet.</p>}
+              <ul className="space-y-1 text-sm">
+                {edges.map((e) => (
+                  <li key={e.id} className="flex flex-wrap items-center gap-2">
+                    <span>
+                      {e.from} → {e.to}
+                    </span>
+                    {nodes.find((n) => n.id === e.from)?.type === "condition" && (
+                      <select aria-label={`When for the arrow ${e.from} to ${e.to}`} value={e.when} onChange={(ev) => setEdges((es) => es.map((x) => (x.id === e.id ? { ...x, when: ev.target.value as WfEdge["when"] } : x)))}>
+                        <option value="true">when true</option>
+                        <option value="false">when false</option>
+                      </select>
+                    )}
+                    <button className="underline" aria-label={`Remove the arrow ${e.from} to ${e.to}`} onClick={() => setEdges((es) => es.filter((x) => x.id !== e.id))}>
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </>
+        }
+      />
 
       <section aria-label="Problems" className="space-y-1">
         {problems.length === 0 ? (
@@ -364,5 +388,86 @@ function NodeForm({ node, bots, onPatch }: { node: WfNode; bots: Bot[]; onPatch:
       {node.type === "checkpoint" && input("message", "What to show you before it continues", { area: true, max: 500 })}
       {node.type === "set" && input("value", "Text to produce", { area: true })}
     </div>
+  );
+}
+
+/** The boxes in the order they run (from Start along the arrows; any box not reachable comes last). */
+export function runOrder(nodes: WfNode[], edges: WfEdge[]): WfNode[] {
+  const seen = new Set<string>();
+  const out: WfNode[] = [];
+  const queue = nodes.filter((n) => n.type === "trigger").map((n) => n.id);
+  while (queue.length) {
+    const id = queue.shift()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const n = nodes.find((x) => x.id === id);
+    if (n) out.push(n);
+    for (const e of edges) if (e.from === id) queue.push(e.to);
+  }
+  return [...out, ...nodes.filter((n) => !seen.has(n.id))];
+}
+
+/**
+ * The phone-friendly editor: the same boxes and arrows as a vertical list. You pick a box to edit it, press "Arrow from here" and then
+ * "Arrow to here" on another box, and remove arrows in the Arrows list; the drawing and this list edit the very same data.
+ */
+function StepList({
+  nodes,
+  edges,
+  selected,
+  connectFrom,
+  badNodes,
+  onSelect,
+  onArrowFrom,
+  onArrowTo,
+}: {
+  nodes: WfNode[];
+  edges: WfEdge[];
+  selected: string | null;
+  connectFrom: string | null;
+  badNodes: Set<string | undefined>;
+  onSelect: (id: string) => void;
+  onArrowFrom: (id: string) => void;
+  onArrowTo: (id: string) => void;
+}) {
+  const label = (id: string) => {
+    const n = nodes.find((x) => x.id === id);
+    return n ? n.label || n.id : id;
+  };
+  return (
+    <ol aria-label="Boxes in running order" className="space-y-2">
+      {runOrder(nodes, edges).map((n, i) => (
+        <li
+          key={n.id}
+          role="group"
+          aria-label={`Box ${n.id}`}
+          className={`awp-node rounded-md border-2 p-2 text-sm ${TYPE_STYLE[n.type]} ${selected === n.id ? "ring-2 ring-indigo-400" : ""} ${badNodes.has(n.id) ? "outline outline-2 outline-red-500" : ""}`}
+        >
+          <button type="button" aria-label={`Edit box ${n.id}`} aria-pressed={selected === n.id} onClick={() => onSelect(n.id)} className="flex min-h-11 w-full items-center gap-2 text-left font-semibold">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/70 text-xs dark:bg-black/30">{i + 1}</span>
+            <span className="min-w-0 flex-1 truncate">
+              {TYPE_LABEL[n.type]}: {n.label || n.id}
+            </span>
+          </button>
+          {edges.filter((e) => e.from === n.id).map((e) => (
+            <p key={e.id} className="ml-8 text-xs text-slate-700 dark:text-slate-300">
+              then {e.when !== "always" ? `(${e.when}) ` : ""}→ {label(e.to)}
+            </p>
+          ))}
+          <div className="ml-8 mt-1 flex flex-wrap gap-2">
+            {n.type !== "end" && (
+              <button type="button" className="min-h-11 rounded bg-white/70 px-3 underline dark:bg-black/30" aria-label={`Draw an arrow from ${n.id}`} onClick={() => onArrowFrom(n.id)}>
+                Arrow from here
+              </button>
+            )}
+            {connectFrom && connectFrom !== n.id && n.type !== "trigger" && (
+              <button type="button" className="min-h-11 rounded bg-indigo-600 px-3 text-white" aria-label={`Draw the arrow to ${n.id}`} onClick={() => onArrowTo(n.id)}>
+                Arrow to here
+              </button>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }

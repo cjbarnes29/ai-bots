@@ -111,3 +111,13 @@
 .awp-skeleton { animation: awp-pulse 1.4s ease-in-out infinite; }
 /* Stagger for a row of cards: set style={{ "--i": index }} on each. Capped so long lists never wait. */
 .awp-stagger { animation: awp-workspace-in var(--awp-dur-workspace) var(--awp-ease) both; animation-delay: calc(min(var(--i, 0), 8) * 30ms); }
+
+/* Split pane: two columns from 1024 px, the divider between them. Below that the panels simply stack. */
+@media (min-width: 1024px) {
+  .awp-split { grid-template-columns: minmax(0, var(--split)) 0.5rem minmax(0, 1fr); }
+}
+/* Execution path: dashes travel along an arrow while a workflow run is live. Only stroke-dashoffset moves. */
+@keyframes awp-dash { to { stroke-dashoffset: -24; } }
+.awp-flow { stroke-dasharray: 8 4; animation: awp-dash 0.9s linear infinite; }
+/* A box changing state eases its colours instead of jumping. */
+.awp-node { transition: background-color var(--awp-dur-panel) var(--awp-ease), border-color var(--awp-dur-panel) var(--awp-ease), box-shadow var(--awp-dur-panel) var(--awp-ease); }

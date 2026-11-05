@@ -102,6 +102,14 @@ try {
     }
     check(`${size.name}: the five AI Models tabs fit and are touch-sized`, modelIssues.length === 0, modelIssues.join(", "));
     await page.screenshot({ path: path.join(SHOTS, `monitor-resources-${size.width}.png`) });
+    // phase 4: the workflow editor chooses list view on phones, shows the resize divider from 1024 px, and never overflows sideways
+    await page.goto(base + "/workflows", { waitUntil: "networkidle" });
+    await page.click("button:has-text('New workflow')");
+    await page.waitForSelector('[aria-label="Workflow editor"]');
+    const ed = await page.evaluate(() => ({ list: !!document.querySelector('ol[aria-label="Boxes in running order"]'), toggle: [...document.querySelectorAll("button")].some((b) => b.textContent.trim() === "Show as a drawing"), sep: (() => { const e = document.querySelector('[role=separator]'); return !!e && e.getBoundingClientRect().width > 0; })(), sw: document.documentElement.scrollWidth, iw: window.innerWidth, minBtn: Math.min(...[...document.querySelectorAll('ol[aria-label="Boxes in running order"] button')].map((b) => b.getBoundingClientRect().height), 999) }));
+    check(`${size.name}: the workflow editor opens in ${size.width < 768 ? "list" : "drawing"} view`, ed.list === (size.width < 768) && ed.toggle === (size.width < 768), JSON.stringify(ed));
+    check(`${size.name}: resize divider ${size.width >= 1024 ? "visible" : "hidden"}, no sideways overflow in the editor`, ed.sep === (size.width >= 1024) && ed.sw <= ed.iw + 1, JSON.stringify(ed));
+    if (size.width < 768) check(`${size.name}: list-view buttons are touch-sized`, ed.minBtn >= 44, String(ed.minBtn));
     check(`${size.name}: no console errors across the pages`, errors.length === 0, errors.slice(0, 2).join(" | "));
     await page.goto(base + "/", { waitUntil: "networkidle" });
     await page.screenshot({ path: path.join(SHOTS, `dashboard-${size.width}.png`) });
@@ -134,6 +142,21 @@ try {
   await page.reload({ waitUntil: "networkidle" });
   check("the fold is remembered", (await page.locator('nav[aria-label="Main"]').boundingBox()).width <= 70);
   await page.click('button[aria-label="Expand the sidebar"]');
+  // phase 4: the divider really drags, and the keyboard moves it
+  await page.goto(base + "/workflows", { waitUntil: "networkidle" });
+  await page.click("button:has-text('New workflow')");
+  await page.waitForSelector("[role=separator]");
+  const sepBox = await page.locator("[role=separator]").boundingBox();
+  const v0 = Number(await page.getAttribute("[role=separator]", "aria-valuenow"));
+  await page.mouse.move(sepBox.x + 4, sepBox.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(sepBox.x - 200, sepBox.y + 40, { steps: 5 });
+  await page.mouse.up();
+  const v1 = Number(await page.getAttribute("[role=separator]", "aria-valuenow"));
+  await page.focus("[role=separator]");
+  await page.keyboard.press("ArrowRight");
+  const v2 = Number(await page.getAttribute("[role=separator]", "aria-valuenow"));
+  check("the editor divider follows a real mouse drag and the arrow keys", v1 < v0 && v2 === v1 + 5, `${v0} -> ${v1} -> ${v2}`);
   // approvals still work from the Monitoring section
   await page.click('nav[aria-label="Main"] a[title="Monitoring"]');
   await page.click('nav[aria-label="Monitoring sections"] a:has-text("Approvals")');

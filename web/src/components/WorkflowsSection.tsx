@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { ApiError } from "../api/client";
 import { useCancelWorkflowRun, useRunWorkflow, useWorkflowAction, useWorkflowStep, useWorkflows } from "../api/hooks";
-import type { Bot, WfInfo, WfRun } from "../api/types";
+import type { Bot, WfGraph, WfInfo, WfRun } from "../api/types";
 import { DemoCard } from "./DemoCard";
 import { STARTER, WorkflowEditor } from "./WorkflowEditor";
+import { WorkflowRunMap } from "./WorkflowRunMap";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 export const SIMULATED_MARK = "[SIMULATED RESPONSE";
@@ -109,7 +110,7 @@ export function WorkflowsSection({ bots }: { bots: Bot[] }) {
       {data.data?.runs.length === 0 && <p className="hint">Nothing has run yet.</p>}
       <ul className="space-y-2">
         {data.data?.runs.map((r) => (
-          <RunRow key={r.id} run={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} onCancel={() => cancel.mutate(r.id)} onRetry={(nodeId) => step.mutate({ runId: r.id, nodeId, action: "retry" })} />
+          <RunRow key={r.id} run={r} graph={data.data?.workflows.find((w) => w.id === r.workflowId)?.graph} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} onCancel={() => cancel.mutate(r.id)} onRetry={(nodeId) => step.mutate({ runId: r.id, nodeId, action: "retry" })} />
         ))}
       </ul>
     </section>
@@ -120,7 +121,7 @@ function SimulatedBadge() {
   return <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200">Simulated AI</span>;
 }
 
-function RunRow({ run, open, onToggle, onCancel, onRetry }: { run: WfRun; open: boolean; onToggle: () => void; onCancel: () => void; onRetry: (nodeId: string) => void }) {
+function RunRow({ run, graph, open, onToggle, onCancel, onRetry }: { run: WfRun; graph?: WfGraph; open: boolean; onToggle: () => void; onCancel: () => void; onRetry: (nodeId: string) => void }) {
   return (
     <li className="rounded-md border border-slate-300 p-2 text-sm dark:border-slate-700">
       <div className="flex flex-wrap items-center gap-2">
@@ -141,6 +142,11 @@ function RunRow({ run, open, onToggle, onCancel, onRetry }: { run: WfRun; open: 
         <p role="status" className="text-red-700 dark:text-red-300">
           Stopped at the box "{run.steps.find((x) => x.status === "failed")!.label || run.steps.find((x) => x.status === "failed")!.nodeId}". Open this run to see the error; boxes before it finished normally.
         </p>
+      )}
+      {open && graph && (
+        <div className="mt-2">
+          <WorkflowRunMap graph={graph} run={run} />
+        </div>
       )}
       {open && (
         <ol className="mt-2 space-y-1">
