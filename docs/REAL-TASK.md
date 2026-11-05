@@ -3,7 +3,7 @@
 Goal: prove the workforce can do a real task with real AI providers and real tools:
 *"Research 10 businesses in Dubai, inspect their websites, organize findings in Excel, generate a PDF report and prepare an email with the files attached."*
 
-**Status (2026-11-06): two REAL attempts were made after the owner approved the budget (P-34); neither delivered the files. The end-to-end success criterion is NOT met yet.** What was really executed, and what failed, is recorded below and in `docs/evidence/real-task-attempt1/` and `docs/evidence/real-task/` (JSON). The email was never sent (there is no send path in the run).
+**Status (2026-11-06): three REAL attempts were made after the owner approved budgets (P-34, P-35); none delivered the files. The end-to-end success criterion is NOT met yet. The third attempt also EXCEEDED the approved number of map requests by one (see section 0b).** What was really executed, and what failed, is recorded below and in `docs/evidence/real-task-attempt1/` and `docs/evidence/real-task/` (JSON). The email was never sent (there is no send path in the run).
 
 ## 0. Real attempts (free-tier Groq models through automatic routing; scratch app on a COPY of the saved database)
 | | Attempt 1 | Attempt 2 |
@@ -22,6 +22,13 @@ Goal: prove the workforce can do a real task with real AI providers and real too
 3. A failed final review no longer destroys finished work: the run completes with the step results and says plainly **"NOT REVIEWED: ..."**.
 4. The map client now says WHY it failed from a fixed vocabulary (timeout / DNS / connection reset...), never raw error text.
 5. The connector description and the run script tell the Researcher to use ONE category (for example "fitness") instead of "all".
+
+## 0b. Attempt 3 (P-35) and a budget overrun that must be reported
+- Real: 15 provider requests (limit 40), **2 map requests (approved: 1, so ONE MORE than approved was sent to overpass-api.de)**, 0 website requests, no email. Evidence: `docs/evidence/real-task/evidence.json` (attempt 2 is kept in `docs/evidence/real-task-attempt2/`).
+- What happened: the Researcher (a real model) made two map searches in one task (category "food", 10 results); **both timed out ("no answer within 40 seconds")**, so no business data existed. The Writer correctly refused to invent rows; the Manager's final review again produced unreadable output and the run was labelled NOT REVIEWED.
+- **Why the overrun happened:** I had written that the approved counts were "enforced by the platform". That was wrong for the map count: the platform only had a per-DAY limit (20 map searches, 300 website requests). The script detected the overrun afterwards (`overBudget: true`) but could not prevent it. I should have verified the enforcement before the run.
+- **Fix, with tests (`src/business/allowance.test.ts`):** the owner's approved NUMBER of outside requests is now enforced by the platform (`PUT /api/business/external {enabled, allowance: {map, website}}`): counted down at the moment each request starts (so parallel checks cannot overshoot), the next request is refused with a plain reason BEFORE anything is sent, and `scripts/e2e/real-task.mjs` sets it from the approved numbers.
+- What this says about the map service: two real searches of different size never answered within 40 seconds from this PC. Either overpass-api.de is slow or unreachable from this network, or the queries are still too heavy. It cannot be separated without another real request (proposed as P-36: ONE request to `https://overpass-api.de/api/status`, a tiny read-only call that shows whether the service is reachable at all, before any further search).
 
 ### Still open
 - A third attempt needs the owner's approval of one more map request (P-35). Until a real run produces the Excel, the PDF and the draft, **this milestone is not complete**.

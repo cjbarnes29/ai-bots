@@ -548,3 +548,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 ### Real run attempts (2026-11-06, owner approved P-34; D-067; `docs/REAL-TASK.md` section 0)
 - Two real attempts on a scratch COPY of the saved database (the original untouched): 13 real Groq requests, 1 real map request, 0 website requests, nothing sent. **No files were produced; the success criterion is NOT met.** Failures found and fixed with tests: model-written market "uae"; empty reply to the Manager review (4,000-token budget now; a failed review keeps the finished work and is labelled NOT REVIEWED); the map client now reports why it failed; the Researcher is told to use one category. Remaining: owner approval P-35 for another map request.
 - Evidence: `docs/evidence/real-task-attempt1/evidence.json`, `docs/evidence/real-task/evidence.json`.
+
+### Third real attempt and a budget overrun (2026-11-06; D-068; `docs/REAL-TASK.md` section 0b)
+- 15 real Groq requests, **2 real map requests where 1 was approved (overrun by one)**, 0 website requests, no files, nothing sent. Both map searches timed out after 40 s. Cause of the overrun: the approved counts were not actually enforced (only daily limits); fixed with a platform-enforced allowance and tests (`src/business/allowance.test.ts`, 3 tests). Milestone NOT complete; next step needs a new exact approval (P-36).

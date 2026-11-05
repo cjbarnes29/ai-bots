@@ -1,6 +1,6 @@
 import type { AuditLog } from "../audit/audit.js";
 import type { LookupAll } from "../connectors/browser/netguard.js";
-import { AuditError, auditSite, ExternalDisabledError, failureText, type AuditOutcome, type Fetcher } from "./audit.js";
+import { AuditError, auditSite, AllowanceUsedUpError, ExternalDisabledError, failureText, type AuditOutcome, type Fetcher } from "./audit.js";
 import { DISCOVERY_LIMITS, DiscoveryClient, overpassPost, type DiscoveryDeps } from "./discovery.js";
 import { mergeLeads, rowsHash, type Lead } from "./leads.js";
 import { getMarket, resolveCategories, resolveRegion, categoryLabel } from "./markets.js";
@@ -101,7 +101,10 @@ export class BusinessService {
       allowed: () => this.externalEnabled(),
       ...(d.transport ? { transport: d.transport } : {}),
       ...(d.lookup ? { lookup: d.lookup } : {}),
-      onRequest: (host) => d.audit.record("business.external_request", { service: "website", host }),
+      onRequest: (host) => {
+        this.spend("website");
+        d.audit.record("business.external_request", { service: "website", host });
+      },
     });
     this.discovery = new DiscoveryClient({
       post: d.post ?? overpassPost,
@@ -109,8 +112,31 @@ export class BusinessService {
       now: d.now,
       sleep: d.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))),
       usedToday: () => d.audit.countKindSince("business.external_request", this.dayStart(), '"service":"map"'),
-      onRequest: (host) => d.audit.record("business.external_request", { service: "map", host }),
+      onRequest: (host) => {
+        this.spend("map");
+        d.audit.record("business.external_request", { service: "map", host });
+      },
     });
+  }
+
+  /**
+   * An exact number of outside requests the owner approved for THIS session (null = no session limit, only the daily limits). It is counted down at the
+   * moment each request starts, so parallel checks can never overshoot it, and it is kept in memory only: a restart clears it (back to the daily limits).
+   */
+  private allowance: { map: number | null; website: number | null } = { map: null, website: null };
+  setAllowance(a: { map?: number | null; website?: number | null }): void {
+    if (a.map !== undefined) this.allowance.map = a.map;
+    if (a.website !== undefined) this.allowance.website = a.website;
+    this.d.audit.record("business.allowance_set", { map: this.allowance.map, website: this.allowance.website }, { actor: "owner" });
+  }
+  allowanceLeft() {
+    return { ...this.allowance };
+  }
+  private spend(kind: "map" | "website"): void {
+    const left = this.allowance[kind];
+    if (left === null) return;
+    if (left <= 0) throw new AllowanceUsedUpError(kind);
+    this.allowance[kind] = left - 1;
   }
 
   private dayStart(): number {
@@ -136,6 +162,7 @@ export class BusinessService {
       mapSearchesPerDay: DISCOVERY_LIMITS.maxQueriesPerDay,
       siteRequestsToday: this.d.audit.countKindSince("business.external_request", since, '"service":"website"'),
       siteRequestsPerDay: BUSINESS_LIMITS.siteRequestsPerDay,
+      allowance: this.allowance,
     };
   }
 

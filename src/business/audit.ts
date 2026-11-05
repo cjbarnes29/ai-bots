@@ -32,8 +32,14 @@ export class AuditError extends Error {
 
 /** Thrown when outside requests are switched off. It is never turned into an audit result: it stops the whole run. */
 export class ExternalDisabledError extends Error {
-  constructor() {
-    super("Requests to websites are switched off. The owner has to switch them on first.");
+  constructor(message = "Requests to websites are switched off. The owner has to switch them on first.") {
+    super(message);
+  }
+}
+/** The owner approved an exact NUMBER of outside requests for this session and it is used up. Stops the run like the switch does. */
+export class AllowanceUsedUpError extends ExternalDisabledError {
+  constructor(kind: "map" | "website") {
+    super(`The number of ${kind === "map" ? "map" : "website"} requests the owner approved for this session is used up. Nothing more is sent until the owner approves more.`);
   }
 }
 

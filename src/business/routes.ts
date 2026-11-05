@@ -53,8 +53,10 @@ export async function registerBusinessRoutes(app: FastifyInstance, svc: Business
   app.get("/api/business/status", async () => status());
 
   app.put("/api/business/external", async (req) => {
-    const { enabled } = z.strictObject({ enabled: z.boolean() }).parse(req.body);
+    // allowance: an exact number of outside requests approved for this session (counted down in the platform; memory only)
+    const { enabled, allowance } = z.strictObject({ enabled: z.boolean(), allowance: z.strictObject({ map: z.number().int().min(0).max(1000).nullable().optional(), website: z.number().int().min(0).max(5000).nullable().optional() }).optional() }).parse(req.body);
     svc.setExternal(enabled);
+    if (allowance) svc.setAllowance(allowance);
     return status();
   });
 

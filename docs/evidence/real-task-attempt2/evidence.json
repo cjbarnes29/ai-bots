@@ -1,0 +1,758 @@
+{
+  "startedAt": "2026-11-05T11:51:37.130Z",
+  "simulated": false,
+  "budgets": {
+    "PROVIDER_BUDGET": 54,
+    "MAP_BUDGET": 1,
+    "SITE_BUDGET": 10
+  },
+  "steps": [
+    {
+      "at": "2026-11-05T11:51:39.155Z",
+      "what": "connection test groq",
+      "data": {
+        "status": "connected",
+        "message": "Connected. The provider lists 4 models."
+      }
+    },
+    {
+      "at": "2026-11-05T11:51:39.513Z",
+      "what": "models listed by groq",
+      "data": {
+        "total": 4,
+        "usable": [
+          "groq/openai/gpt-oss-120b",
+          "groq/qwen/qwen3.8-27b"
+        ]
+      }
+    },
+    {
+      "at": "2026-11-05T11:51:40.666Z",
+      "what": "connection test gemini",
+      "data": {
+        "status": "connected",
+        "message": "Connected. The provider lists 21 models."
+      }
+    },
+    {
+      "at": "2026-11-05T11:51:41.423Z",
+      "what": "models listed by gemini",
+      "data": {
+        "total": 24,
+        "usable": []
+      }
+    },
+    {
+      "at": "2026-11-05T11:51:41.511Z",
+      "what": "models automatic routing may use (verified, free)",
+      "data": [
+        "groq/qwen/qwen3.8-27b",
+        "groq/openai/gpt-oss-120b"
+      ]
+    },
+    {
+      "at": "2026-11-05T11:51:41.580Z",
+      "what": "workforce set up (scratch)",
+      "data": {
+        "researcher": "946d4c0c-bce3-45b2-bb87-b185368ecc6c",
+        "writer": "5bb35162-d650-4713-88a9-7d8772aa6fa6",
+        "workspace": "C:\\Users\\carlou\\AppData\\Local\\Temp\\awp-real-pluYHq\\workspace"
+      }
+    },
+    {
+      "at": "2026-11-05T11:51:41.796Z",
+      "what": "Manager run started",
+      "data": {
+        "runId": "06d6ef2e-ff7e-4996-bd0d-4e1f7bcca58e"
+      }
+    },
+    {
+      "at": "2026-11-05T11:52:30.381Z",
+      "what": "Manager run finished",
+      "data": {
+        "status": "completed",
+        "steps": [
+          {
+            "id": "s1",
+            "specialist": "Researcher",
+            "status": "completed",
+            "error": null
+          },
+          {
+            "id": "s2",
+            "specialist": "Writer",
+            "status": "completed",
+            "error": null
+          },
+          {
+            "id": "s3",
+            "specialist": "Writer",
+            "status": "completed",
+            "error": null
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-05T11:52:30.412Z",
+      "what": "budget check",
+      "data": {
+        "providerRequests": 7,
+        "mapRequests": 1,
+        "siteRequests": 0,
+        "overBudget": false
+      }
+    }
+  ],
+  "errors": [],
+  "run": {
+    "id": "06d6ef2e-ff7e-4996-bd0d-4e1f7bcca58e",
+    "goal": "Research 10 businesses in Dubai, inspect their websites, organize findings in Excel, generate a PDF report and prepare an email with the files attached.",
+    "status": "completed",
+    "mode": "plan",
+    "result": "NOT REVIEWED: the Manager's final check could not be done (The model's answer could not be understood, even after a second try.). These are the step results exactly as they came back.\n\n## Research Dubai businesses (Researcher)\nI’m unable to complete the task at this time. The business lookup failed because the map service could not be reached (connection error). As a result, I have no business data to report and cannot proceed to inspect any websites.\n\nOnce the connection issue is resolved, I can retry the search and then run the website audits.\n\n--- What the platform recorded (not written by the AI) ---\n- business.find_businesses: FAILED. Could not reach the map service. Check the internet connection and try again.\n\n## Create Excel and PDF (Writer)\nI cannot create the Excel spreadsheet or PDF report yet because the required data is missing.\n\nThe previous research step failed: the business lookup could not reach the map service, so no Dubai business data (names, addresses, contacts, etc.) was retrieved. My instructions require me to use real values from research and never invent data. Since I have no verified research findings to put into the files, creating the spreadsheet and PDF now would mean fabricating information, which I will not do.\n\nNext steps:\n1. Resolve the connection issue with the map/business lookup service.\n2. Re-run the research step to gather the 10 Dubai businesses.\n3. Once the data is available, I can organize it into an Excel spreadsheet and generate the PDF summary report.\n\nIf you can provide the research data directly (e.g., a list of the 10 businesses with their details), I can proceed to create the files using that information.\n\n## Draft email with attachments (Writer)\nI cannot prepare the email draft yet.\n\nThe previous step did not produce an Excel file or a PDF report because the underlying research data (the 10 Dubai businesses) was never retrieved due to a service connection failure. Since those files do not exist, there is nothing to attach to an email.\n\nTo move forward, please:\n1. Resolve the map/business lookup service issue.\n2. Re-run the research to gather the 10 Dubai businesses.\n3. Once the research is complete, the Excel and PDF files can be generated, and then I can prepare the email draft with those attachments.\n\nIf you can provide the business data directly, I can help you proceed with creating the files and the email draft.",
+    "error": null,
+    "modelCalls": 7,
+    "inputTokens": 6608,
+    "outputTokens": 1283,
+    "budget": {
+      "maxModelCalls": 20,
+      "maxTokens": 120000,
+      "maxSteps": 5
+    },
+    "revisions": 0,
+    "createdAt": "2026-11-05T11:51:41.586Z",
+    "finishedAt": "2026-11-05T11:52:29.269Z",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Research Dubai businesses",
+        "specialistId": "946d4c0c-bce3-45b2-bb87-b185368ecc6c",
+        "specialistName": "Researcher",
+        "dependsOn": [],
+        "status": "completed",
+        "taskId": "2ef43293-ccaa-44d5-b1dd-327d11e420d6",
+        "output": "I’m unable to complete the task at this time. The business lookup failed because the map service could not be reached (connection error). As a result, I have no business data to report and cannot proceed to inspect any websites.\n\nOnce the connection issue is resolved, I can retry the search and then run the website audits.\n\n--- What the platform recorded (not written by the AI) ---\n- business.find_businesses: FAILED. Could not reach the map service. Check the internet connection and try again.",
+        "error": null,
+        "attempts": 1
+      },
+      {
+        "id": "s2",
+        "title": "Create Excel and PDF",
+        "specialistId": "5bb35162-d650-4713-88a9-7d8772aa6fa6",
+        "specialistName": "Writer",
+        "dependsOn": [
+          "s1"
+        ],
+        "status": "completed",
+        "taskId": "01f8cf63-e423-4128-af9c-0ad56dbaaba5",
+        "output": "I cannot create the Excel spreadsheet or PDF report yet because the required data is missing.\n\nThe previous research step failed: the business lookup could not reach the map service, so no Dubai business data (names, addresses, contacts, etc.) was retrieved. My instructions require me to use real values from research and never invent data. Since I have no verified research findings to put into the files, creating the spreadsheet and PDF now would mean fabricating information, which I will not do.\n\nNext steps:\n1. Resolve the connection issue with the map/business lookup service.\n2. Re-run the research step to gather the 10 Dubai businesses.\n3. Once the data is available, I can organize it into an Excel spreadsheet and generate the PDF summary report.\n\nIf you can provide the research data directly (e.g., a list of the 10 businesses with their details), I can proceed to create the files using that information.",
+        "error": null,
+        "attempts": 1
+      },
+      {
+        "id": "s3",
+        "title": "Draft email with attachments",
+        "specialistId": "5bb35162-d650-4713-88a9-7d8772aa6fa6",
+        "specialistName": "Writer",
+        "dependsOn": [
+          "s2"
+        ],
+        "status": "completed",
+        "taskId": "8c5dd66b-53eb-4dfc-b043-31fb35bc43e7",
+        "output": "I cannot prepare the email draft yet.\n\nThe previous step did not produce an Excel file or a PDF report because the underlying research data (the 10 Dubai businesses) was never retrieved due to a service connection failure. Since those files do not exist, there is nothing to attach to an email.\n\nTo move forward, please:\n1. Resolve the map/business lookup service issue.\n2. Re-run the research to gather the 10 Dubai businesses.\n3. Once the research is complete, the Excel and PDF files can be generated, and then I can prepare the email draft with those attachments.\n\nIf you can provide the business data directly, I can help you proceed with creating the files and the email draft.",
+        "error": null,
+        "attempts": 1
+      }
+    ]
+  },
+  "usage": {
+    "usage": {
+      "today": {
+        "requests": 40,
+        "tokens": 13557
+      },
+      "month": {
+        "requests": 40,
+        "tokens": 13557
+      },
+      "todayCloud": {
+        "requests": 40,
+        "tokens": 13557
+      },
+      "monthCloud": {
+        "requests": 40,
+        "tokens": 13557
+      },
+      "reportedCostMicroThisMonth": 0,
+      "byDay": [
+        {
+          "day": "2026-11-05",
+          "ok": 29,
+          "errors": 11,
+          "blocked": 1,
+          "tokens": 13557
+        }
+      ],
+      "byBot": [
+        {
+          "botId": null,
+          "botName": "(deleted)",
+          "requests": 32,
+          "tokens": 7041
+        },
+        {
+          "botId": "5bb35162-d650-4713-88a9-7d8772aa6fa6",
+          "botName": "Writer",
+          "requests": 2,
+          "tokens": 3004
+        },
+        {
+          "botId": "946d4c0c-bce3-45b2-bb87-b185368ecc6c",
+          "botName": "Researcher",
+          "requests": 2,
+          "tokens": 2272
+        },
+        {
+          "botId": "27371164-1dcd-455a-b90c-2a7496a27a31",
+          "botName": "ZZ Temporary Gemma Test",
+          "requests": 3,
+          "tokens": 1240
+        },
+        {
+          "botId": "0bf8cc57-9566-43a3-aef7-3d1e639baa5c",
+          "botName": "Site Auditor",
+          "requests": 1,
+          "tokens": 0
+        }
+      ],
+      "byModel": [
+        {
+          "providerId": "groq",
+          "modelId": "qwen/qwen3.8-27b",
+          "requests": 11,
+          "tokens": 7813,
+          "errors": 0
+        },
+        {
+          "providerId": "groq",
+          "modelId": "openai/gpt-oss-120b",
+          "requests": 6,
+          "tokens": 1912,
+          "errors": 1
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemma-4-26b-a4b-it",
+          "requests": 4,
+          "tokens": 1539,
+          "errors": 1
+        },
+        {
+          "providerId": "groq",
+          "modelId": "openai/gpt-oss-20b",
+          "requests": 5,
+          "tokens": 1488,
+          "errors": 0
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemini-3.5-flash-lite",
+          "requests": 5,
+          "tokens": 805,
+          "errors": 0
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemini-2.5-computer-use-preview-10-2025",
+          "requests": 2,
+          "tokens": 0,
+          "errors": 2
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemini-2.5-flash",
+          "requests": 1,
+          "tokens": 0,
+          "errors": 1
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemini-3.5-transcribe",
+          "requests": 2,
+          "tokens": 0,
+          "errors": 2
+        },
+        {
+          "providerId": "gemini",
+          "modelId": "gemini-3.8-flash",
+          "requests": 4,
+          "tokens": 0,
+          "errors": 4
+        }
+      ],
+      "recentProblems": [
+        {
+          "createdAt": "2026-11-05T08:27:24.081Z",
+          "status": "error",
+          "errorCode": "provider_unavailable",
+          "providerId": "gemini",
+          "modelId": "gemini-3.8-flash",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-05T08:27:17.291Z",
+          "status": "error",
+          "errorCode": "provider_unavailable",
+          "providerId": "gemini",
+          "modelId": "gemini-3.8-flash",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-05T08:25:04.641Z",
+          "status": "blocked",
+          "errorCode": "limit_exceeded",
+          "providerId": "groq",
+          "modelId": "openai/gpt-oss-20b",
+          "botName": "",
+          "note": "providerRequestsPerMinute"
+        },
+        {
+          "createdAt": "2026-11-05T08:25:03.363Z",
+          "status": "error",
+          "errorCode": "bad_response",
+          "providerId": "groq",
+          "modelId": "openai/gpt-oss-120b",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-05T08:25:01.123Z",
+          "status": "error",
+          "errorCode": "provider_unavailable",
+          "providerId": "gemini",
+          "modelId": "gemini-3.8-flash",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-05T08:24:10.506Z",
+          "status": "error",
+          "errorCode": "timeout",
+          "providerId": "gemini",
+          "modelId": "gemini-3.8-flash",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T22:48:13.809Z",
+          "status": "error",
+          "errorCode": "provider_unavailable",
+          "providerId": "gemini",
+          "modelId": "gemma-4-26b-a4b-it",
+          "botName": "ZZ Temporary Gemma Test",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T22:47:33.572Z",
+          "status": "error",
+          "errorCode": "model_not_found",
+          "providerId": "gemini",
+          "modelId": "gemini-2.5-flash",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T21:11:00.415Z",
+          "status": "error",
+          "errorCode": "bad_request",
+          "providerId": "gemini",
+          "modelId": "gemini-3.5-transcribe",
+          "botName": "Site Auditor",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T20:53:43.742Z",
+          "status": "error",
+          "errorCode": "bad_request",
+          "providerId": "gemini",
+          "modelId": "gemini-3.5-transcribe",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T20:35:21.305Z",
+          "status": "error",
+          "errorCode": "rate_limited",
+          "providerId": "gemini",
+          "modelId": "gemini-2.5-computer-use-preview-10-2025",
+          "botName": "",
+          "note": null
+        },
+        {
+          "createdAt": "2026-11-04T20:35:19.023Z",
+          "status": "error",
+          "errorCode": "rate_limited",
+          "providerId": "gemini",
+          "modelId": "gemini-2.5-computer-use-preview-10-2025",
+          "botName": "",
+          "note": null
+        }
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "8c5dd66b-53eb-4dfc-b043-31fb35bc43e7",
+      "rootId": "8c5dd66b-53eb-4dfc-b043-31fb35bc43e7",
+      "parentId": null,
+      "assigneeBotId": "5bb35162-d650-4713-88a9-7d8772aa6fa6",
+      "assigneeName": "Writer",
+      "requestedBy": "user",
+      "requestedByName": "You",
+      "origin": "user",
+      "originId": "06d6ef2e-ff7e-4996-bd0d-4e1f7bcca58e",
+      "originLabel": "Manager: Research 10 businesses in Dubai, inspect their websites, org...",
+      "originDepth": 0,
+      "instruction": "Prepare an email draft attaching the Excel file and PDF report generated in the previous step.\n\nResults of earlier steps:\n[Create Excel and PDF]\nI cannot create the Excel spreadsheet or PDF report yet because the required data is missing.\n\nThe previous research step failed: the business lookup could not reach the map service, so no Dubai business data (names, addresses, contacts, etc.) was retrieved. My instructions require me to use real values from research and never invent data. Since I have no verified research findings to put into the files, creating the spreadsheet and PDF now would mean fabricating information, which I will not do.\n\nNext steps:\n1. Resolve the connection issue with the map/business lookup service.\n2. Re-run the research step to gather the 10 Dubai businesses.\n3. Once the data is available, I can organize it into an Excel spreadsheet and generate the PDF summary report.\n\nIf you can provide the research data directly (e.g., a list of the 10 businesses with their details), I can proceed to create the files using that information.",
+      "depth": 0,
+      "status": "completed",
+      "result": "I cannot prepare the email draft yet.\n\nThe previous step did not produce an Excel file or a PDF report because the underlying research data (the 10 Dubai businesses) was never retrieved due to a service connection failure. Since those files do not exist, there is nothing to attach to an email.\n\nTo move forward, please:\n1. Resolve the map/business lookup service issue.\n2. Re-run the research to gather the 10 Dubai businesses.\n3. Once the research is complete, the Excel and PDF files can be generated, and then I can prepare the email draft with those attachments.\n\nIf you can provide the business data directly, I can help you proceed with creating the files and the email draft.",
+      "errorCode": null,
+      "errorMessage": null,
+      "llmCalls": 1,
+      "inputTokens": 1372,
+      "outputTokens": 150,
+      "createdAt": "2026-11-05T11:52:27.088Z",
+      "startedAt": "2026-11-05T11:52:27.093Z",
+      "finishedAt": "2026-11-05T11:52:27.577Z",
+      "chainTasks": 1,
+      "chainLlmCalls": 1
+    },
+    {
+      "id": "01f8cf63-e423-4128-af9c-0ad56dbaaba5",
+      "rootId": "01f8cf63-e423-4128-af9c-0ad56dbaaba5",
+      "parentId": null,
+      "assigneeBotId": "5bb35162-d650-4713-88a9-7d8772aa6fa6",
+      "assigneeName": "Writer",
+      "requestedBy": "user",
+      "requestedByName": "You",
+      "origin": "user",
+      "originId": "06d6ef2e-ff7e-4996-bd0d-4e1f7bcca58e",
+      "originLabel": "Manager: Research 10 businesses in Dubai, inspect their websites, org...",
+      "originDepth": 0,
+      "instruction": "Organize the research findings into an Excel spreadsheet and generate a PDF report summarizing the 10 Dubai businesses.\n\nResults of earlier steps:\n[Research Dubai businesses]\nI’m unable to complete the task at this time. The business lookup failed because the map service could not be reached (connection error). As a result, I have no business data to report and cannot proceed to inspect any websites.\n\nOnce the connection issue is resolved, I can retry the search and then run the website audits.\n\n--- What the platform recorded (not written by the AI) ---\n- business.find_businesses: FAILED. Could not reach the map service. Check the internet connection and try again.",
+      "depth": 0,
+      "status": "completed",
+      "result": "I cannot create the Excel spreadsheet or PDF report yet because the required data is missing.\n\nThe previous research step failed: the business lookup could not reach the map service, so no Dubai business data (names, addresses, contacts, etc.) was retrieved. My instructions require me to use real values from research and never invent data. Since I have no verified research findings to put into the files, creating the spreadsheet and PDF now would mean fabricating information, which I will not do.\n\nNext steps:\n1. Resolve the connection issue with the map/business lookup service.\n2. Re-run the research step to gather the 10 Dubai businesses.\n3. Once the data is available, I can organize it into an Excel spreadsheet and generate the PDF summary report.\n\nIf you can provide the research data directly (e.g., a list of the 10 businesses with their details), I can proceed to create the files using that information.",
+      "errorCode": null,
+      "errorMessage": null,
+      "llmCalls": 1,
+      "inputTokens": 1289,
+      "outputTokens": 193,
+      "createdAt": "2026-11-05T11:52:24.750Z",
+      "startedAt": "2026-11-05T11:52:24.757Z",
+      "finishedAt": "2026-11-05T11:52:27.036Z",
+      "chainTasks": 1,
+      "chainLlmCalls": 1
+    },
+    {
+      "id": "2ef43293-ccaa-44d5-b1dd-327d11e420d6",
+      "rootId": "2ef43293-ccaa-44d5-b1dd-327d11e420d6",
+      "parentId": null,
+      "assigneeBotId": "946d4c0c-bce3-45b2-bb87-b185368ecc6c",
+      "assigneeName": "Researcher",
+      "requestedBy": "user",
+      "requestedByName": "You",
+      "origin": "user",
+      "originId": "06d6ef2e-ff7e-4996-bd0d-4e1f7bcca58e",
+      "originLabel": "Manager: Research 10 businesses in Dubai, inspect their websites, org...",
+      "originDepth": 0,
+      "instruction": "Identify 10 businesses in Dubai and inspect their websites to gather relevant details (e.g., name, industry, website URL, key services, contact info).",
+      "depth": 0,
+      "status": "completed",
+      "result": "I’m unable to complete the task at this time. The business lookup failed because the map service could not be reached (connection error). As a result, I have no business data to report and cannot proceed to inspect any websites.\n\nOnce the connection issue is resolved, I can retry the search and then run the website audits.\n\n--- What the platform recorded (not written by the AI) ---\n- business.find_businesses: FAILED. Could not reach the map service. Check the internet connection and try again.",
+      "errorCode": null,
+      "errorMessage": null,
+      "llmCalls": 2,
+      "inputTokens": 2144,
+      "outputTokens": 128,
+      "createdAt": "2026-11-05T11:51:42.923Z",
+      "startedAt": "2026-11-05T11:51:42.935Z",
+      "finishedAt": "2026-11-05T11:52:24.578Z",
+      "chainTasks": 1,
+      "chainLlmCalls": 2
+    }
+  ],
+  "audit": [
+    {
+      "kind": "manager.run_finished",
+      "detail": {
+        "id": "06d6ef2e-ff7e-4996-bd0d-4e1f7bcca58e",
+        "status": "completed",
+        "mode": "plan",
+        "revisions": 0
+      }
+    },
+    {
+      "kind": "manager.review_failed",
+      "detail": {
+        "id": "06d6ef2e-ff7e-4996-bd0d-4e1f7bcca58e",
+        "reason": "The model's answer could not be understood, even after a second try."
+      }
+    },
+    {
+      "kind": "business.external_request",
+      "detail": {
+        "service": "map",
+        "host": "overpass-api.de"
+      }
+    },
+    {
+      "kind": "manager.run_started",
+      "detail": {
+        "id": "06d6ef2e-ff7e-4996-bd0d-4e1f7bcca58e",
+        "budget": {
+          "maxModelCalls": 20,
+          "maxTokens": 120000,
+          "maxSteps": 5
+        }
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots",
+          "defaultBudget"
+        ]
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "groq/openai/gpt-oss-20b",
+        "tests": [
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 2,
+        "used": 2,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "groq/openai/gpt-oss-120b",
+        "tests": [
+          "history"
+        ],
+        "approvedRequests": 1,
+        "used": 1,
+        "status": "verified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "gemini/gemini-3.5-flash-lite",
+        "tests": [
+          "connectivity",
+          "json_output",
+          "identity_instruction",
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 5,
+        "used": 5,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "gemini/gemma-4-26b-a4b-it",
+        "tests": [
+          "native_system_role"
+        ],
+        "approvedRequests": 1,
+        "used": 1,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "gemini/gemini-3.8-flash",
+        "tests": [
+          "connectivity",
+          "json_output",
+          "identity_instruction",
+          "action_format"
+        ],
+        "approvedRequests": 4,
+        "used": 1,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "groq/openai/gpt-oss-20b",
+        "tests": [
+          "identity_instruction",
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 3,
+        "used": 2,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "groq/qwen/qwen3.8-27b",
+        "tests": [
+          "connectivity",
+          "json_output",
+          "identity_instruction",
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 5,
+        "used": 5,
+        "status": "verified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "groq/openai/gpt-oss-120b",
+        "tests": [
+          "connectivity",
+          "json_output",
+          "identity_instruction",
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 5,
+        "used": 4,
+        "status": "verified"
+      }
+    },
+    {
+      "kind": "model.evaluated",
+      "detail": {
+        "ref": "gemini/gemini-3.8-flash",
+        "tests": [
+          "connectivity",
+          "json_output",
+          "identity_instruction",
+          "history",
+          "action_format"
+        ],
+        "approvedRequests": 5,
+        "used": 1,
+        "status": "unverified"
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.run_finished",
+      "detail": {
+        "id": "4704c5e5-f9f5-40e5-8168-8ff9750cd95c",
+        "status": "failed"
+      }
+    },
+    {
+      "kind": "manager.run_started",
+      "detail": {
+        "id": "4704c5e5-f9f5-40e5-8168-8ff9750cd95c",
+        "budget": {
+          "maxModelCalls": 12,
+          "maxTokens": 40000,
+          "maxSteps": 6
+        }
+      }
+    },
+    {
+      "kind": "manager.settings_changed",
+      "detail": {
+        "fields": [
+          "allowedBots"
+        ]
+      }
+    },
+    {
+      "kind": "manager.run_finished",
+      "detail": {
+        "id": "2b912835-5303-459a-8dc1-d1e6ee256bb2",
+        "status": "failed"
+      }
+    },
+    {
+      "kind": "manager.run_started",
+      "detail": {
+        "id": "2b912835-5303-459a-8dc1-d1e6ee256bb2",
+        "budget": {
+          "maxModelCalls": 12,
+          "maxTokens": 40000,
+          "maxSteps": 6
+        }
+      }
+    }
+  ],
+  "providerRequests": 7,
+  "mapRequests": 1,
+  "siteRequests": 0,
+  "files": [],
+  "emailDraft": {
+    "attachments": [],
+    "sent": false
+  },
+  "gmailApprovals": 0,
+  "finishedAt": "2026-11-05T11:52:30.412Z"
+}

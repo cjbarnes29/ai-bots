@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { ActionSpec, ConnectorDefinition } from "../connectors/types.js";
 import { DiscoveryLimitError, DISCOVERY_LIMITS } from "./discovery.js";
-import { ExternalDisabledError } from "./audit.js";
+import { AllowanceUsedUpError, ExternalDisabledError } from "./audit.js";
 import { CATEGORY_IDS } from "./markets.js";
 import { proposalFacts } from "./proposal.js";
 import { BUSINESS_LIMITS, fit, lineFor, siteWords, type BusinessService } from "./service.js";
@@ -57,7 +57,7 @@ export function createBusinessConnector(svc: BusinessService): ConnectorDefiniti
           const tail = "Next: audit_batch {batchId} checks listed websites; save_leads {batchId, rowsHash} asks the owner to approve saving. A business with no website listed is NOT proven to have none.";
           return `${head}\n${table(r.batch.rows)}\n${tail}`.slice(0, budget + 400);
         } catch (e) {
-          if (e instanceof ExternalDisabledError) throw new Error(svc.refusal()!);
+          if (e instanceof ExternalDisabledError) throw new Error(e instanceof AllowanceUsedUpError ? e.message : svc.refusal()!);
           throw e;
         }
       },
@@ -76,7 +76,7 @@ export function createBusinessConnector(svc: BusinessService): ConnectorDefiniti
           const head = svc.header(`Batch ${r.batch.id}: checked ${r.checked} website(s) now; ${r.remaining} listed website(s) still unchecked; ${failed} check(s) FAILED (a failed check says nothing about quality).${r.stoppedByLimit ? " Stopped early: a daily limit was reached or outside requests were switched off." : ""}\nrowsHash: ${svc.hashOf(r.batch)}`);
           return `${head}\n${table(r.batch.rows)}`.slice(0, budget + 400);
         } catch (e) {
-          if (e instanceof ExternalDisabledError) throw new Error(svc.refusal()!);
+          if (e instanceof ExternalDisabledError) throw new Error(e instanceof AllowanceUsedUpError ? e.message : svc.refusal()!);
           throw e;
         }
       },

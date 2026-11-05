@@ -102,6 +102,7 @@ Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-C
 - [x] Audit of what is operational / partial / missing
 - [x] Local email draft with real attachments (`documents.create_email_draft`); rehearsal of the whole task with simulated parts (passes)
 - [x] Real run approved (P-34) and attempted twice: real Groq requests, real map request; NO files produced (see docs/REAL-TASK.md section 0)
-- [ ] [owner] Approve one more map request and the rest of the budget (P-35) so a third real run can finish the task
+- [x] Third real attempt (P-35): both map searches timed out; ONE map request more than approved was sent (platform now enforces approved counts; D-068)
+- [ ] [owner] Approve P-36 (one read-only request to the map service's status page) before any further search; no file was produced yet
 - [ ] Desktop application control (Excel, Word, Outlook): not tried, not claimed (NV-14)
 - [ ] Gmail drafts/attachments (Google sign-in unverified, NV-4)

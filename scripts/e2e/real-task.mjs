@@ -107,7 +107,7 @@ try {
   await call("PUT", `/api/bots/${researcher.id}/permissions/browser`, { readEnabled: true });
   await call("POST", "/api/pc/workspaces", { path: ws });
   await call("PUT", `/api/bots/${writer.id}/pc`, { grants: ["modify"] });
-  await call("PUT", "/api/business/external", { enabled: true });
+  await call("PUT", "/api/business/external", { enabled: true, allowance: { map: MAP_BUDGET, website: SITE_BUDGET } }); // the PLATFORM refuses request number budget+1
   await call("PUT", "/api/manager/settings", { allowedBots: [researcher.id, writer.id], defaultBudget: { maxModelCalls: 20, maxTokens: 120000, maxSteps: 5 } });
   note("workforce set up (scratch)", { researcher: researcher.id, writer: writer.id, workspace: ws });
 
