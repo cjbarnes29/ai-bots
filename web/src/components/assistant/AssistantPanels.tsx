@@ -126,6 +126,7 @@ export function ResultsPanel({ results, onClear }: { results: Result[]; onClear:
                 {r.reply.link.label}
               </Link>
             )}
+            {r.reply.kind === "capabilities" && <CapabilityLists reply={r.reply} />}
             {r.reply.kind === "overview" && (
               <p className="flex flex-wrap gap-3">
                 {r.reply.links.map((l) => (
@@ -139,6 +140,32 @@ export function ResultsPanel({ results, onClear }: { results: Result[]; onClear:
         ))}
       </ul>
     </section>
+  );
+}
+
+function CapabilityLists({ reply }: { reply: Extract<Interpretation, { kind: "capabilities" }> }) {
+  const parts: [string, string[]][] = [
+    ["Working now", reply.can],
+    ["Partly, or set up but not proven", reply.partly],
+    ["Cannot do (and what is missing)", reply.cannot],
+    ["Needs you", reply.needsYou],
+  ];
+  return (
+    <div className="space-y-2">
+      {parts.filter(([, items]) => items.length > 0).map(([title, items]) => (
+        <details key={title} open={title !== "Cannot do (and what is missing)" && title !== "Needs you"}>
+          <summary className="min-h-11 cursor-pointer text-sm font-medium">
+            {title} ({items.length})
+          </summary>
+          <ul className="list-disc pl-5 text-sm [overflow-wrap:anywhere]">
+            {items.map((i) => (
+              <li key={i}>{i}</li>
+            ))}
+          </ul>
+        </details>
+      ))}
+      <p className="hint text-xs">Read from the live capability list at {new Date(reply.checkedAt).toLocaleTimeString()}.</p>
+    </div>
   );
 }
 

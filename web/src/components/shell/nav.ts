@@ -98,11 +98,12 @@ export const NAV: NavEntry[] = [
     to: "/integrations",
     label: "Apps & Integrations", level: "advanced",
     icon: "plug",
-    match: ["/integrations", "/pc", "/access", "/business"],
+    match: ["/integrations", "/pc", "/access", "/business", "/capabilities"],
     primary: false,
     tabs: [
       { to: "/integrations", label: "Integrations Center", match: ["/integrations"] },
       { to: "/pc", label: "PC Control Center", match: ["/pc"] },
+      { to: "/capabilities", label: "Capabilities", match: ["/capabilities"] },
       { to: "/access", label: "Access", match: ["/access"] },
       { to: "/business", label: "Business Workforce", match: ["/business"] },
     ],

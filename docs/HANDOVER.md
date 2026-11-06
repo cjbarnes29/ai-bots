@@ -65,6 +65,12 @@ Dependencies: only the three runtime packages already used (`fastify`, `@fastify
 - A model that hits its free-tier limit now rests on its own (1 minute, growing to 1 hour, or until midnight Pacific for a used-up daily quota) and its sibling models keep answering. Models built for another job (computer-use, guard, embeddings...) are never chosen automatically. Settings > AI Models > Model routing shows which model is resting. Free-only rules are unchanged. Not verified against the real Gemini; the daily-quota wording is a guess.
 - **Recommended Settings** (Settings > Recommended Settings): finished and tested with fake services, uncommitted. Press Apply only on what you want; every change can be restored. Not yet tried against a real provider.
 
+### 5f. Capability registry and feasibility checker (2026-11-06)
+- The platform can now list what it can really do, with six separate evidence levels (installed, configured, authenticated, operational, tested, verified), and the Manager checks a task before accepting it. Open `/api/capabilities` to read it (no screen yet). `docs/CAPABILITIES.md`. Tested with fake services only; everything stays supervised-only. Uncommitted.
+
+### 5g. Automatic capability discovery (2026-11-06)
+- Open **Apps & Integrations > Capabilities** (Advanced level) or ask the Assistant "what can you do?". The list builds itself from the real services: new agents, workflows, AI models, connections and tools appear, removed ones disappear, and every change is written to the audit log. A new agent says "set up, not proven" until it completes a task. Workflow runs are refused (with reasons) when an agent they use cannot run; you can still send them with `proceedAnyway`. Tested with fakes only; not yet checked in a real browser or with a real provider. Uncommitted.
+
 ### 5e0. Chat error "Developer instruction is not enabled" (fixed in code, 2026-11-05)
 - Models that do not accept a system message (the Gemma family) now get the bot's instructions inside the first message instead. Tested against a fake provider only; try the same bot again and tell me if the error is gone.
 

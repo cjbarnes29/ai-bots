@@ -108,6 +108,8 @@ import { registerDemoRoutes } from "./demo/routes.js";
 import { WorkflowService } from "./workflows/service.js";
 import { SkillService } from "./skills/service.js";
 import { registerSkillRoutes } from "./skills/routes.js";
+import { CapabilityService } from "./capabilities/service.js";
+import { registerCapabilityRoutes } from "./capabilities/routes.js";
 import { ToolRegistry, realRunner, type CommandRunner } from "./tools/registry.js";
 import { ModelRouter } from "./routing/router.js";
 import { RoutingMaintenance, registerRoutingRoutes } from "./routing/routes.js";
@@ -149,6 +151,7 @@ declare module "fastify" {
     pc: PcService;
     modelRouter: ModelRouter;
     tools: ToolRegistry;
+    capabilities: CapabilityService;
     /** Inbound message sources. The real server checks them with the clock; tests call `inbound.tick()` by hand. */
     inbound: InboundService;
   }
@@ -177,6 +180,8 @@ export interface BuildAppOptions {
   pushFetch?: typeof fetch;
   /** Tests: how often the Manager looks at a specialist's task. */
   managerPollMs?: number;
+  /** Rescan the capability registry on this interval so changes are noticed and logged with nobody watching. 0/absent = only when asked (tests). */
+  capabilityPollMs?: number;
   /** Tests: stands in for running 'git --version' and similar fixed checks on this PC. */
   toolRunner?: CommandRunner;
   /** Tests: add the memory connector to the connectors given above (the real app always has it). */
@@ -565,6 +570,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
   await registerIntegrationRoutes(app, integrationAccess, registry, (id) => { try { agentService.getBot(id); return true; } catch { return false; } });
 
+  let capabilitiesRef: CapabilityService | undefined; // set once the capability registry is built (the Manager is created first)
   // ---- Tool registry and skill library (Stage 3) ----
   const tools = new ToolRegistry(
     {
@@ -704,12 +710,89 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     listBots: () => agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, role: b.role, responsibilities: b.responsibilities, archived: b.archived, model: b.model, runtime: b.runtime })),
     audit,
     validateModel: (ref) => catalog.validateModelRef(ref),
-    toolsSummary: () => tools.summary(),
+    // One source of truth: the capability registry (built below). Until it exists the older tool list answers.
+    toolsSummary: () => (capabilitiesRef ? capabilitiesRef.planningSummary() : tools.summary()),
     ...(options.managerPollMs ? { pollMs: options.managerPollMs } : {}),
   });
   manager.recoverInterrupted();
   app.decorate("manager", manager);
-  await registerManagerRoutes(app, manager);
+  // ---- Capability registry and feasibility checker (M1, M2): read-only views over facts the services above already hold. ----
+  const LOCAL_ONLY = new Set(["pc", "documents", "memory", "business"]);
+  const capabilities = new CapabilityService({
+    tools: (fresh) => (fresh ? tools.refresh() : tools.list()),
+    kv: { get: (k) => approvalRepo.getSetting(k), set: (k, v) => approvalRepo.setSetting(k, v, new Date(now()).toISOString()) },
+    probeFfmpeg: () => (options.toolRunner ?? realRunner)("ffmpeg", ["-version"]),
+    audit,
+    now,
+    facts: () => ({
+      agents: (() => {
+        const done = new Map<string, { completed: number; failed: number }>();
+        for (const row of db.prepare("SELECT assignee_bot_id AS b, status AS s, COUNT(*) AS n FROM tasks WHERE status IN ('completed', 'failed') GROUP BY assignee_bot_id, status").all()) {
+          const e = done.get(String(row["b"])) ?? { completed: 0, failed: 0 };
+          if (row["s"] === "completed") e.completed = Number(row["n"]);
+          else e.failed = Number(row["n"]);
+          done.set(String(row["b"]), e);
+        }
+        return agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, role: b.role, status: b.status, runtime: b.runtime, model: b.model, completedTasks: done.get(b.id)?.completed ?? 0, failedTasks: done.get(b.id)?.failed ?? 0 }));
+      })(),
+      workflows: (() => {
+        const runs = new Map<string, { completed: number; failed: number }>();
+        for (const row of db.prepare("SELECT workflow_id AS w, status AS s, COUNT(*) AS n FROM workflow_runs WHERE status IN ('completed', 'failed') GROUP BY workflow_id, status").all()) {
+          const e = runs.get(String(row["w"])) ?? { completed: 0, failed: 0 };
+          if (row["s"] === "completed") e.completed = Number(row["n"]);
+          else e.failed = Number(row["n"]);
+          runs.set(String(row["w"]), e);
+        }
+        return workflows.list(false).map((w) => ({
+          id: w.id,
+          name: w.name,
+          enabled: w.enabled,
+          problems: w.problems.length,
+          botIds: w.graph.nodes.flatMap((n) => (n.type === "bot_task" ? [n.botId] : [])),
+          usesManager: w.graph.nodes.some((n) => n.type === "manager"),
+          lastRunStatus: w.lastRun?.status ?? null,
+          completedRuns: runs.get(w.id)?.completed ?? 0,
+          failedRuns: runs.get(w.id)?.failed ?? 0,
+        }));
+      })(),
+      integrations: registry.list().map((c) => {
+        const reason = c.notReady ? c.notReady({ secret: (n) => vault.resolve(n) }) : null;
+        const check = audit.latest(["integration.verified", "integration.verify_failed"], [`"id":"${c.id}"`]);
+        const used = audit.latest(["approval.executed"], [`"action":"${c.id}.`]);
+        const read = audit.latest(["external.read"], [`"action":"${c.id}.`, `"ok":true`]);
+        const acts = Object.values(c.actions);
+        return {
+          id: c.id,
+          label: c.label,
+          notReady: reason,
+          lastCheck: check ? { ok: check.kind === "integration.verified", at: check.createdAt, text: String(check.detail["summary"] ?? check.detail["message"] ?? ""), local: check.detail["local"] === true } : null,
+          lastUseAt: [used?.createdAt, read?.createdAt].filter((v): v is string => Boolean(v)).sort().at(-1) ?? null,
+          needsSignIn: !LOCAL_ONLY.has(c.id),
+          readActions: acts.filter((a) => a.kind === "read").length,
+          writeActions: acts.filter((a) => a.kind === "write").length,
+        };
+      }),
+      providers: catalog.listProviders().map((p) => ({
+        id: p.id, name: p.displayName, kind: p.kind, simulated: p.simulated, enabled: p.enabled, keyConfigured: p.keyConfigured, freeConfirmed: p.freeConfirmed,
+        requiresFreeConfirmation: p.requiresFreeConfirmation, costClass: p.profile?.costClass ?? null, status: p.status, statusMessage: p.statusMessage,
+        lastCheckedAt: p.lastCheckedAt, requestsToday: p.requestsToday, dailyRequestCap: p.dailyRequestCap,
+      })),
+      models: catalog.listModels().map((m) => ({ ref: m.ref, providerId: m.providerId, callable: m.callable, verification: m.verification, routable: m.routable, retired: m.retired })),
+      environment: {
+        guardian: (() => { const g = guardian?.view(); return { configured: g?.configured ?? false, reachable: g?.reachable ?? false, held: g?.held ?? null, tier: g?.tier ?? null, passphraseSet: g?.passphraseSet ?? null, protectsOwnerActions: g?.protectsOwnerActions ?? false }; })(),
+        approvalsPaused: gate.isPaused(),
+        groupsEnabled: groupsRef?.enabled() ?? false,
+        pcRoots: pcService.roots().length,
+        pcStopped: pcService.isStopped(),
+      },
+    }),
+  });
+  capabilitiesRef = capabilities;
+  app.decorate("capabilities", capabilities);
+  if (options.capabilityPollMs) capabilities.start(options.capabilityPollMs);
+  app.addHook("onClose", async () => capabilities.stop());
+  await registerCapabilityRoutes(app, capabilities, audit);
+  await registerManagerRoutes(app, manager, capabilities, audit);
   const workforce = new WorkforceService({
     db,
     audit,
@@ -724,7 +807,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const delegation = new DelegationService(taskRepo, engine, (id) => agentService.getBot(id), now, projects, (rootId, save) => workspace.expect(rootId, save));
   await registerDelegationRoutes(app, delegation, engine);
   // The AI Assistant edits only through the existing services (projects, knowledge, agents, tasks). Restricted requests are refused and logged; nothing here can delete, approve, send or change permissions.
-  await registerAssistantRoutes(app, new AssistantActions({ db, audit, projects, knowledge, agents: agentService, cancelTask: (id) => void delegation.cancel(id), complete: (input) => llm.complete(input), now }), db, now, guardian ? (token: string) => guardian.checkProof(token) : undefined);
+  await registerAssistantRoutes(app, new AssistantActions({ db, audit, projects, knowledge, agents: agentService, cancelTask: (id) => void delegation.cancel(id), complete: (input) => llm.complete(input), now }), db, now, guardian ? (token: string) => guardian.checkProof(token) : undefined, capabilities);
 
   // ---- Automation: schedules and text triggers. They start tasks through the engine above, so every
   // limit, the pause switches and the free-only gate apply. The clock is started by server.ts, not here. ----
@@ -794,7 +877,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   workflows.recover();
   automation.addEventListener((name, text) => workflows.onEvent(name, text));
   app.decorate("workflows", workflows);
-  await registerWorkflowRoutes(app, workflows, { agents: () => agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, role: b.role })), complete: (input) => llm.complete(input), audit });
+  await registerWorkflowRoutes(app, workflows, { agents: () => agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, role: b.role })), complete: (input) => llm.complete(input), audit }, (workflowId) => capabilities.get(`workflow:${workflowId}`));
   // The built-in demonstration environment: a simulated AI provider plus editable sample agents and workflows. Makes no outside request.
   await registerDemoRoutes(app, new DemoService({
     catalog,

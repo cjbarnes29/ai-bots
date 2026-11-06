@@ -29,7 +29,7 @@ if (guardian) {
   console.log(guardian.held() === null ? "Guardian: connected, running." : `Guardian: ${guardian.held()}`);
 } else console.warn("Guardian: NOT configured (GUARDIAN_URL is not set). Owner approvals are not protected against scripts on this PC and nothing pauses when you leave.");
 
-const app = await buildApp({ dbPath, logger: true, dashboardOrigins, remoteHosts: remote.hosts, ...(guardian ? { guardian } : {}), ...(dashboardAvailable(dashboardDir) ? { dashboardDir } : {}) });
+const app = await buildApp({ dbPath, logger: true, capabilityPollMs: 60_000, dashboardOrigins, remoteHosts: remote.hosts, ...(guardian ? { guardian } : {}), ...(dashboardAvailable(dashboardDir) ? { dashboardDir } : {}) });
 
 // 127.0.0.1 = reachable from this PC only (not from your network).
 await app.listen({ port, host: "127.0.0.1" });

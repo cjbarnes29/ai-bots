@@ -24,6 +24,7 @@ import { Knowledge } from "./pages/Knowledge";
 import { Models } from "./pages/Models";
 import { Monitor } from "./pages/Monitor";
 import { PcCenter } from "./pages/PcCenter";
+import { Capabilities } from "./pages/Capabilities";
 import { SettingsCategoryPage, SettingsHome, SettingsLayout } from "./pages/settings/SettingsLayout";
 import { TaskDetail, TaskList } from "./pages/Tasks";
 import { Workflows } from "./pages/Workflows";
@@ -67,6 +68,7 @@ export const routes: RouteObject[] = [
       { path: "/automation", element: <Automation /> },
       { path: "/approvals", element: <Approvals /> },
       { path: "/pc", element: <PcCenter /> },
+      { path: "/capabilities", element: <Capabilities /> },
       { path: "/access", element: <Access /> },
       { path: "/monitor", element: <Monitor /> },
       { path: "/tasks", element: <TaskList /> },

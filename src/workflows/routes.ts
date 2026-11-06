@@ -4,6 +4,7 @@ import { autoRef } from "../routing/config.js";
 import type { CompleteInput, CompleteOutput } from "../llm/service.js";
 import { buildDraftMessages, describeRevision, parseWorkflowDraft } from "./draft.js";
 import { GRAPH_LIMITS } from "./graph.js";
+import type { Capability } from "../capabilities/registry.js";
 import { WORKFLOW_LIMITS, type WorkflowService } from "./service.js";
 
 const id = z.string().uuid();
@@ -20,7 +21,7 @@ export interface DraftDeps {
   audit: { record(kind: string, detail?: Record<string, unknown>, options?: { actor?: string }): void };
 }
 
-export async function registerWorkflowRoutes(app: FastifyInstance, wf: WorkflowService, draft?: DraftDeps): Promise<void> {
+export async function registerWorkflowRoutes(app: FastifyInstance, wf: WorkflowService, draft?: DraftDeps, readiness?: (workflowId: string) => Promise<Capability | undefined>): Promise<void> {
   /** AI drafting for the AI Assistant workspace. The answer is a DRAFT only: nothing is saved, switched on or run here. */
   if (draft) {
     app.post("/api/workflows/draft", async (req) => {
@@ -59,8 +60,14 @@ export async function registerWorkflowRoutes(app: FastifyInstance, wf: WorkflowS
     return { workflow: wf.duplicate(id.parse(req.params.id)) };
   });
   app.post<{ Params: { id: string } }>("/api/workflows/:id/run", async (req, reply) => {
-    const body = z.strictObject({ input: z.string().max(4000).default("") }).parse(req.body ?? {});
+    const body = z.strictObject({ input: z.string().max(4000).default(""), proceedAnyway: z.boolean().optional() }).parse(req.body ?? {});
     const by = req.access?.device ? `device:${req.access.device.name}` : "owner";
+    // The capability registry is the one place that knows whether the agents this workflow uses can run right now. A workflow whose agents or model cannot run is
+    // refused with the reasons; proceedAnyway lets the owner try anyway (it grants nothing).
+    const cap = await readiness?.(id.parse(req.params.id));
+    if (cap && cap.state === "partial" && cap.missing.length > 0 && body.proceedAnyway !== true) {
+      return reply.code(422).send({ error: "workflow_not_ready", message: `This workflow cannot run properly right now: ${cap.missing.join(" ")} Send the request again with proceedAnyway to try anyway.`, capability: cap });
+    }
     reply.code(202);
     const run = wf.run(id.parse(req.params.id), body.input, by);
     wf.tick();

@@ -4,6 +4,8 @@ import { z } from "zod";
 import { AppError } from "../errors.js";
 import { PROOF_HEADER } from "../remote/access.js";
 import type { AssistantActions } from "./actions.js";
+import { canYouAnswer, isOverviewQuestion, overviewAnswer, canYouGoal } from "../capabilities/explain.js";
+import type { CapabilityService } from "../capabilities/service.js";
 import { locate, type LocateResult } from "./locate.js";
 import { overview, suggest } from "./suggestions.js";
 
@@ -24,7 +26,7 @@ const WHY_FAILED = /\bwhy\b.*\b(fail|failed|failing|error|broke|broken|didn'?t w
  * overview, (4) locate and open. If none fits, the dashboard sends the text to the chosen agent's model as ordinary chat.
  * Reading routes are open; confirming, rejecting and undoing a change are owner acts (a phone is refused, see remote/access.ts).
  */
-export async function registerAssistantRoutes(app: FastifyInstance, a: AssistantActions, db: DatabaseSync, now: () => number = Date.now, checkProof?: (token: string) => Promise<boolean>): Promise<void> {
+export async function registerAssistantRoutes(app: FastifyInstance, a: AssistantActions, db: DatabaseSync, now: () => number = Date.now, checkProof?: (token: string) => Promise<boolean>, capabilities?: CapabilityService): Promise<void> {
   app.post("/api/assistant/interpret", async (req) => {
     const { text } = z.strictObject({ text: z.string().min(1).max(2000) }).parse(req.body);
     // Looking things up is open. Anything that would CHANGE or PROPOSE a change is an owner act, exactly like the routes it stands in for
@@ -45,6 +47,18 @@ export async function registerAssistantRoutes(app: FastifyInstance, a: Assistant
         return { kind: "explain" as const, handled: true, message: `Your latest failed task was "${String(t["instruction"]).slice(0, 80)}" (agent ${String(t["bot"])}). Recorded reason: ${reason}`, link: { label: "Open the task", to: `/tasks/${String(t["id"])}` } };
       }
       return { kind: "explain" as const, handled: true, message: "I found no failed task, so there is nothing to explain." };
+    }
+    // "What can you do?" and "can you X?" are answered from the LIVE capability registry on every ask (no copy, no cache), never from memory or a model.
+    if (capabilities) {
+      const goal = canYouGoal(text);
+      if (isOverviewQuestion(text)) {
+        const caps = await capabilities.list();
+        return { kind: "capabilities" as const, handled: true, checkedAt: new Date(now()).toISOString(), ...overviewAnswer(caps) };
+      }
+      if (goal) {
+        const answer = canYouAnswer(goal, await capabilities.list());
+        if (answer) return { kind: "capabilities" as const, handled: true, checkedAt: new Date(now()).toISOString(), ...answer };
+      }
     }
     if (OVERVIEW.test(text) && text.split(/\s+/).length <= 10) return { kind: "overview" as const, handled: true, ...overview(db, now()) };
     const found: LocateResult = locate(db, text, now());

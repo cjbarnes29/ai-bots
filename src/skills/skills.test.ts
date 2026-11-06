@@ -64,7 +64,7 @@ describe("the tool registry tells the truth", () => {
 
   it("is told to the Manager so plans never rely on missing tools", async () => {
     t.provider.script.push({ ...OK_RESULT, text: '{"mode":"direct","answer":"ok"}' });
-    await t.call("POST", "/api/manager/runs", { goal: "make a video" });
+    await t.call("POST", "/api/manager/runs", { goal: "make a video", proceedAnyway: true });
     await t.app.manager.idle();
     const sys = requests[0]!.messages[0]!.content;
     expect(sys).toMatch(/NOT available \(never plan on them.*Video generation and editing/s);

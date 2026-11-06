@@ -83,6 +83,10 @@ A personal AI workforce: agents, a Manager, workflows, integrations behind an ap
 - Guides (`lib/guidance.ts`): write for a beginner, define "agent" (AI helper) and "model" (AI brain) where used, keep to the limits pinned in `web/src/guidance.test.ts`, and add a guide for every screen a new page puts at Simple or Intermediate. At Simple, a page may fold READ-ONLY technical panels (as the Dashboard and the project page do) but never a control or an approval.
 - The Manager engine has no tools. Locate/open/explain/guide belongs in the Assistant (plan: `docs/MANAGER-LOCATE-PLAN.md`); do not add tools to `src/manager/`.
 
+## 5h. Capability registry (D-081, D-082)
+- Read `docs/CAPABILITIES.md` before touching `src/capabilities/`, the Assistant's capability answers, the Manager gate or the workflow run gate. The registry is the ONE source of truth for what the workforce can do: never add a second feature list, and never mark anything "working" because it is merely registered. Every new tool, connector, provider, agent or workflow appears by being reported by its own service; add its facts to `app.ts`, not a hand-written entry. Evidence levels (installed, configured, authenticated, operational, tested, verified) must come from recorded evidence; `verified` is never given to simulated, local-readiness-only or fake-only evidence.
+- All autonomy stays supervised until Guardian Tier B is verified: the registry lists unattended operation as unavailable, and the feasibility checker refuses it.
+
 ## 6. Reporting
 Report faithfully: say what ran, what passed, what failed and what was NOT verified. If something is done and verified, say so plainly. Update the decision board and `docs/PROGRESS.md` when a decision, milestone or verification changes.
 

@@ -29,6 +29,7 @@ export type Interpretation =
   | { kind: "none"; handled: false }
   | { kind: "action"; handled: true; message: string; action?: ActionView; link?: { label: string; to: string }; choices?: string[] }
   | { kind: "explain"; handled: true; message: string; link?: { label: string; to: string } }
+  | { kind: "capabilities"; handled: true; message: string; checkedAt: string; can: string[]; partly: string[]; cannot: string[]; needsYou: string[]; link: { label: string; to: string } }
   | { kind: "overview"; handled: true; message: string; links: { label: string; to: string }[] }
   | { kind: "locate"; handled: true; entity: string | null; resolution: "single" | "multiple" | "none"; openNow: boolean; candidates: Candidate[]; message: string; understood: string };
 export interface Suggestion {
