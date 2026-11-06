@@ -1,4 +1,5 @@
 import { Link, Navigate, type RouteObject } from "react-router-dom";
+import { Assistant } from "./pages/Assistant";
 import { AppShell } from "./components/shell/AppShell";
 import { Access } from "./pages/Access";
 import { Approvals } from "./pages/Approvals";
@@ -43,6 +44,7 @@ export const routes: RouteObject[] = [
     element: <AppShell />,
     children: [
       { path: "/", element: <Dashboard /> },
+      { path: "/assistant", element: <Assistant /> },
       { path: "/agents", element: <BotList /> },
       { path: "/bots/:id", element: <BotEditor /> },
       { path: "/studio", element: <BotStudio /> },
@@ -61,6 +63,7 @@ export const routes: RouteObject[] = [
       { path: "/groups", element: <Groups /> },
       { path: "/workforce", element: <Workforce /> },
       { path: "/projects", element: <Projects /> },
+      { path: "/projects/:id", element: <Projects /> },
       { path: "/automation", element: <Automation /> },
       { path: "/approvals", element: <Approvals /> },
       { path: "/pc", element: <PcCenter /> },

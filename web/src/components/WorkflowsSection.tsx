@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useCancelWorkflowRun, useRunWorkflow, useWorkflowAction, useWorkflowStep, useWorkflows } from "../api/hooks";
 import type { Bot, WfGraph, WfInfo, WfRun } from "../api/types";
@@ -20,9 +21,20 @@ export function WorkflowsSection({ bots }: { bots: Bot[] }) {
   const run = useRunWorkflow();
   const cancel = useCancelWorkflowRun();
   const step = useWorkflowStep();
-  const [editing, setEditing] = useState<{ id?: string; name: string; graph: WfInfo["graph"] } | null>(null);
+  // A draft from the AI Assistant arrives in the navigation state: it opens in the editor UNSAVED, for the owner to read and save.
+  const location = useLocation();
+  const [search] = useSearchParams();
+  const handed = (location.state as { draft?: { name: string; graph: WfInfo["graph"] } } | null)?.draft;
+  const [editing, setEditing] = useState<{ id?: string; name: string; graph: WfInfo["graph"] } | null>(handed ? { name: handed.name, graph: handed.graph } : null);
+  const openWanted = search.get("open");
+  const workflowList = data.data?.workflows;
+  useEffect(() => {
+    // ?open=ID opens that saved workflow in the editor (once the list has loaded).
+    const w = openWanted ? workflowList?.find((x) => x.id === openWanted) : undefined;
+    if (w) setEditing((cur) => (cur?.id === w.id ? cur : { id: w.id, name: w.name, graph: w.graph }));
+  }, [openWanted, workflowList]);
   const [inputs, setInputs] = useState<Record<string, string>>({});
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(search.get("run"));
   const err = errorText(action.error ?? run.error ?? cancel.error ?? step.error);
 
   return (

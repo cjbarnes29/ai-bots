@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useProject, useProjectAction, useProjects } from "../api/workHooks";
-import { ProjectWorkspace } from "../components/ProjectWorkspace";
+import { isHubTab, ProjectHub } from "../components/hub/ProjectHub";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 const KINDS = ["conversation", "workflow", "schedule", "task", "note"];
@@ -88,8 +89,6 @@ function Detail({ id, onGone }: { id: string; onGone: () => void }) {
         </button>
       </div>
 
-      <ProjectWorkspace projectId={id} />
-
       <details className="space-y-2">
         <summary className="cursor-pointer text-sm font-semibold">Delete this project</summary>
         <p className="hint">Deleting removes the project and its links only. Linked conversations, tasks and workflows are not deleted. Type the project name to confirm.</p>
@@ -106,7 +105,13 @@ function Detail({ id, onGone }: { id: string; onGone: () => void }) {
 export function Projects() {
   const [archived, setArchived] = useState(false);
   const [q, setQ] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
+  const { id: routeId } = useParams();
+  const navigate = useNavigate();
+  const [search, setSearch] = useSearchParams();
+  const selected = routeId ?? null;
+  const setSelected = (id: string | null) => navigate(id ? `/projects/${id}` : "/projects");
+  const tabParam = search.get("tab");
+  const tab = isHubTab(tabParam) ? tabParam : "overview";
   const [newName, setNewName] = useState("");
   const list = useProjects(archived, q);
   const act = useProjectAction();
@@ -116,6 +121,12 @@ export function Projects() {
         <h1 className="text-2xl font-bold">Projects</h1>
         <p className="hint">Group related conversations, tasks, workflows and schedules, with shared instructions.</p>
       </div>
+      {selected && (
+        <button type="button" className="btn-secondary" onClick={() => setSelected(null)}>
+          ← All projects
+        </button>
+      )}
+      {!selected && (
       <form
         className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
@@ -131,14 +142,18 @@ export function Projects() {
           Create project
         </button>
       </form>
+      )}
       {act.error && !selected && <p role="alert" className="text-red-700 dark:text-red-300">{errorText(act.error)}</p>}
+      {!selected && (
       <div className="flex flex-wrap items-center gap-3">
         <input className="input" aria-label="Search projects" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
         <label className="text-sm">
           <input type="checkbox" aria-label="Show archived projects" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Show archived
         </label>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      )}
+      <div className={selected ? "" : "grid gap-4 lg:grid-cols-2"}>
+        {!selected && (
         <ul className="min-w-0 space-y-2">
           {list.isLoading && <li className="hint">Loading…</li>}
           {list.data?.length === 0 && <li className="hint">No projects here.</li>}
@@ -152,7 +167,12 @@ export function Projects() {
             </li>
           ))}
         </ul>
-        <div className="min-w-0">{selected ? <Detail id={selected} onGone={() => setSelected(null)} /> : <p className="hint">Choose a project to edit it.</p>}</div>
+        )}
+        <div className="min-w-0">{selected ? (
+            <ProjectHub projectId={selected} tab={tab} onTab={(next) => setSearch({ tab: next }, { replace: true })} settings={<Detail id={selected} onGone={() => setSelected(null)} />} />
+          ) : (
+            <p className="hint">Choose a project to open it.</p>
+          )}</div>
       </div>
     </div>
   );

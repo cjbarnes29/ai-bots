@@ -267,13 +267,13 @@ describe("Task detail", () => {
 });
 
 describe("navigation and teamwork limits", () => {
-  it("reaches Tasks through Monitoring", async () => {
+  it("reaches Tasks from its own menu item", async () => {
     const user = userEvent.setup();
     const { router } = renderApp(createFakeApi(), "/");
-    await user.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("link", { name: "Monitoring" }));
-    expect(router.state.location.pathname).toBe("/monitor");
-    await user.click(within(await screen.findByRole("navigation", { name: "Monitoring sections" })).getByRole("link", { name: "Tasks" }));
+    await user.click(within(await screen.findByRole("navigation", { name: "Main" })).getByRole("link", { name: "Tasks & history" }));
     expect(router.state.location.pathname).toBe("/tasks");
+    await user.click(within(await screen.findByRole("navigation", { name: "Tasks & history sections" })).getByRole("link", { name: "Activity & Logs" }));
+    expect(router.state.location.pathname).toBe("/monitor");
   });
 
   it("shows the teamwork limits, saves only what changed, and rejects values past the ceiling", async () => {

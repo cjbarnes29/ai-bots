@@ -284,13 +284,16 @@ export function useMessages(botId: string, conversationId: string | null) {
 export function useSendChat(botId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { message: string; conversationId: string | null }) =>
+    mutationFn: async (input: { message: string; conversationId: string | null; projectId?: string | null; attachmentIds?: string[]; useKnowledge?: boolean }) =>
       api<ChatReply>("POST", `/api/bots/${botId}/chat`, {
         message: input.message,
         ...(input.conversationId ? { conversationId: input.conversationId } : {}),
+        ...(!input.conversationId && input.projectId ? { projectId: input.projectId } : {}),
+        ...(input.attachmentIds?.length ? { attachmentIds: input.attachmentIds } : {}),
+        ...(input.useKnowledge ? { useKnowledge: true } : {}),
       }),
     // Usage numbers change after every call, whether it worked or not.
-    onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: ["chat", botId] }), qc.invalidateQueries({ queryKey: ["llm"] })]),
+    onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: ["chat", botId] }), qc.invalidateQueries({ queryKey: ["llm"] }), qc.invalidateQueries({ queryKey: ["knowledge"] })]),
   });
 }
 

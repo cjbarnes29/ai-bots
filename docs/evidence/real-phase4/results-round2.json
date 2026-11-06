@@ -1,0 +1,381 @@
+{
+  "startedAt": "2026-11-06T08:13:51.806Z",
+  "budget": 22,
+  "steps": {
+    "M1 qwen workflow draft": {
+      "requests": 1,
+      "status": 429,
+      "types": [],
+      "message": "The provider says too many requests were sent (free-tier limit). (Request too large for model `qwen/qwen3.8-27b` in organization `org_01m6m4jwt2esnrpgt2p3vc4cy4` service tier `on_demand` on output tokens per minute (OTPM): Limit 1000, Requested 1231. The request's expected output tokens exceed the enforced limit; reduce max_tokens (or the request's expected output…)"
+    },
+    "M1 oss120 workflow draft": {
+      "requests": 1,
+      "status": 200,
+      "types": [
+        "trigger",
+        "bot_task",
+        "bot_task",
+        "checkpoint",
+        "end"
+      ]
+    },
+    "M1 oss20 workflow draft": {
+      "requests": 1,
+      "status": 200,
+      "types": [
+        "trigger",
+        "bot_task",
+        "checkpoint",
+        "bot_task",
+        "end"
+      ]
+    },
+    "M1 qwen cited answer": {
+      "requests": 1,
+      "answer": "The provider says too many requests were sent (free-tier limit). (Request too large for model `qwen/qwen3.8-27b` in organization `org_01m6m4jwt2esnrpgt2p3vc4cy4` service tier `on_demand` on output tokens per minute (OTPM): Limit 1000, Requested 1024. The request's expected output tokens exceed the enforced limit; reduce max_tokens (or the request's expected output…)",
+      "status": "llm_rate_limited"
+    },
+    "M1 oss120 cited answer": {
+      "requests": 1,
+      "answer": "The refund window is 30 days from the date of purchase. [K1]",
+      "status": "ok"
+    },
+    "M1 oss20 cited answer": {
+      "requests": 0,
+      "skipped": "That model cannot be given to a bot yet: Failed: Keeps its identity and the owner's rule (system instructions) (Did not keep its name. Answer: \"I am ChatGPT, an AI language model. ZETA-7\")."
+    },
+    "M2 automatic routing": {
+      "requests": 1,
+      "answeredBy": "groq/openai/gpt-oss-120b",
+      "attempts": [
+        {
+          "ref": "groq/openai/gpt-oss-120b",
+          "outcome": "answered"
+        }
+      ],
+      "answer": "Deliveries arrive every Tuesday before noon. [K1]"
+    },
+    "M3 fallback": {
+      "requests": 1,
+      "preview": [
+        "groq/openai/gpt-oss-120b",
+        "demo/simulated-echo",
+        "demo/simulated-failing"
+      ],
+      "answeredBy": "groq/openai/gpt-oss-120b",
+      "attempts": [
+        {
+          "ref": "groq/openai/gpt-oss-120b",
+          "outcome": "answered"
+        }
+      ],
+      "answer": "A cup of tea costs 4 AED【K2】."
+    },
+    "M4 provider failure": {
+      "requests": 0,
+      "skipped": "That model cannot be given to a bot yet: Not tested yet: Connectivity, Follows a simple instruction, Structured JSON output."
+    },
+    "M5a propose rewrite": {
+      "requests": 1,
+      "instructions": "You must answer every user question **only** with information that appears in the documents, files, or other sources explicitly provided to you. \n\n- **Use the given sources**: Read the supplied material and base your response solely on that content. \n- **Cite the source**: When you answer, state the exact source you used (e.g., the filename, title, or section) so the user knows where the information came from. If you combine information from several sources, list each one. \n- **No answer found**: If the provided sources do not contain the needed information, reply that the answer is not available in the given sources and list the sources you consulted. \n- **Do not fabricate**: Never add information that is not present in the supplied material, and do not claim to have verified facts with external knowledge or your own memory. \n- **Stay concise and relevant**: Keep your response focused on the question and the content of the sources.\n\nFollow these steps for every query: read the provided sources → determine if they contain the answer → if yes, answer and cite the source(s) → if no, state that the answer is not in the given sources and name the sources you checked."
+    },
+    "M5c use the improved agent": {
+      "requests": 1,
+      "answer": "The provided source does not contain any information about the shop’s opening hours. I consulted the only available document, **[K1] \"shop-policy\" (part 1)**, and it only mentions the refund policy. Therefore, the answer is not available in the given sources."
+    },
+    "M5e propose description": {
+      "requests": 1,
+      "description": "The project is named \"P4B Probe Project\", but no linked items are provided, so no further description can be given."
+    },
+    "M6 docx": {
+      "requests": 1,
+      "answer": "All employees receive **25 days of paid holiday per year**【K1】.  \nThe **baker’s notice period is 30 days**【K1】."
+    },
+    "M6 xlsx": {
+      "requests": 1,
+      "answer": "A cake costs 18 AED【K1】."
+    },
+    "M6 pdf": {
+      "requests": 1,
+      "answer": "Orders must be placed by Friday. [K1]",
+      "cited": "supplier-letter"
+    },
+    "M6 csv": {
+      "requests": 1,
+      "answer": "Gulf Dairy is located in Sharjah. 【K1】"
+    },
+    "M7d answer after restore": {
+      "requests": 1,
+      "answer": "Deliveries arrive on Tuesday (before noon)【K1】"
+    },
+    "M8a draft": {
+      "requests": 1,
+      "types": [
+        "trigger",
+        "bot_task",
+        "bot_task",
+        "bot_task",
+        "end"
+      ]
+    },
+    "M8b revise": {
+      "requests": 1,
+      "types": [
+        "trigger",
+        "bot_task",
+        "bot_task",
+        "bot_task",
+        "end"
+      ],
+      "checkpoints": []
+    }
+  },
+  "notes": {
+    "groqModels": [
+      {
+        "ref": "groq/allam-2-7b",
+        "verification": "unverified",
+        "routable": false,
+        "callable": true,
+        "kind": "chat"
+      },
+      {
+        "ref": "groq/openai/gpt-oss-120b",
+        "verification": "verified",
+        "routable": true,
+        "callable": true,
+        "kind": "reasoning"
+      },
+      {
+        "ref": "groq/openai/gpt-oss-20b",
+        "verification": "unverified",
+        "routable": false,
+        "callable": true,
+        "kind": "reasoning"
+      },
+      {
+        "ref": "groq/qwen/qwen3.8-27b",
+        "verification": "verified",
+        "routable": true,
+        "callable": true,
+        "kind": "reasoning"
+      }
+    ],
+    "autoOrderGeneral": [
+      "groq/qwen/qwen3.8-27b",
+      "groq/openai/gpt-oss-120b"
+    ],
+    "documentStatuses": {
+      "docx": {
+        "status": "ready",
+        "chars": 131,
+        "chunks": 1
+      },
+      "xlsx": {
+        "status": "ready",
+        "chars": 79,
+        "chunks": 1
+      },
+      "pdf": {
+        "status": "ready",
+        "chars": 108,
+        "chunks": 1
+      },
+      "csv": {
+        "status": "ready",
+        "chars": 49,
+        "chunks": 1
+      }
+    },
+    "fallbackPreview": {
+      "status": 200,
+      "preview": [
+        "groq/openai/gpt-oss-120b",
+        "demo/simulated-echo",
+        "demo/simulated-failing"
+      ]
+    },
+    "rewriteV2": "You must answer every user question **only** with information that appears in the documents, files, or other sources explicitly provided to you. \n\n- **Use the given sources**: Read the supplied material and base your response solely on that content. \n- **Cite the source**: When you answer, state the exact source you used (e.g., the filename, title, or section) so the user knows where the information came from. If you combine information from several sources, list each one. \n- **No answer found**: If the provided sources do not contain the needed information, reply that the answer is not available in the given sources and list the sources you consulted. \n- **Do not fabricate**: Never add information that is not present in the supplied material, and do not claim to have verified facts with external knowledge or your own memory. \n- **Stay concise and relevant**: Keep your response focused on the question and the content of the sources.\n\nFollow these steps for every query: read the provided sources → determine if they contain the answer → if yes, answer and cite the source(s) → if no, state that the answer is not in the given sources and name the sources you checked.",
+    "descriptionV2": "The project is named \"P4B Probe Project\", but no linked items are provided, so no further description can be given."
+  },
+  "usedBefore": 55,
+  "requestsUsed": 18,
+  "finishedAt": "2026-11-06T08:19:49.342Z",
+  "checks": [
+    {
+      "name": "scratch copy of the app started",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Groq daily cap on the copy = today's use + 22 (platform-enforced)",
+      "ok": true,
+      "detail": "cap=77 start=55"
+    },
+    {
+      "name": "three pinned-model agents and one automatic agent were created",
+      "ok": false,
+      "detail": "{\"qwen\":\"ok\",\"oss120\":\"ok\",\"oss20\":\"That model cannot be given to a bot yet: Failed: Keeps its identity and the owner's rule (system instructions) (Did not keep its name. Answer: \\\"I am ChatGPT, an AI language model. ZETA-7\\\").\",\"auto\":\"ok\"}"
+    },
+    {
+      "name": "Word, Excel, PDF and CSV files (written by the app's own writers) are processed with no model",
+      "ok": true,
+      "detail": "docx:ready xlsx:ready pdf:ready csv:ready"
+    },
+    {
+      "name": "M1 qwen (groq/qwen/qwen3.8-27b): workflow draft",
+      "ok": false,
+      "detail": "429  The provider says too many requests were sent (free-tier limit). (Request too large for model `qwen/qwen3.8-27b` in organization `org_01m6m4jwt2esnrpgt2p3vc4cy4` service tier `on_demand` on output tokens per minute (OTPM): Limit 1000, Requested 1231. The request's expected output tokens exceed the enforced limit; reduce max_tokens (or the request's expected output…)"
+    },
+    {
+      "name": "M1 oss120 (groq/openai/gpt-oss-120b): workflow draft",
+      "ok": true,
+      "detail": "200 trigger>bot_task>bot_task>checkpoint>end "
+    },
+    {
+      "name": "M1 oss20 (groq/openai/gpt-oss-20b): workflow draft",
+      "ok": true,
+      "detail": "200 trigger>bot_task>checkpoint>bot_task>end "
+    },
+    {
+      "name": "M1 qwen: right answer (30 days) with a citation",
+      "ok": false,
+      "detail": "The provider says too many requests were sent (free-tier limit). (Request too large for model `qwen/qwen3.8-27b` in organization `org_01m6m4jwt2esnrpgt2p3vc4cy4` service tier `on_demand` on output tok"
+    },
+    {
+      "name": "M1 qwen: the source is marked cited",
+      "ok": false,
+      "detail": "[]"
+    },
+    {
+      "name": "M1 oss120: right answer (30 days) with a citation",
+      "ok": true,
+      "detail": "The refund window is 30 days from the date of purchase. [K1]"
+    },
+    {
+      "name": "M1 oss120: the source is marked cited",
+      "ok": true,
+      "detail": "[[\"shop-policy\",true]]"
+    },
+    {
+      "name": "M1 oss20: answer",
+      "ok": false,
+      "detail": "agent not created: That model cannot be given to a bot yet: Failed: Keeps its identity and the owner's rule (system instructions) (Did not keep its name. Answer: \"I am ChatGPT, an AI language model. ZETA-7\")."
+    },
+    {
+      "name": "M2: the automatic agent was answered by a verified Groq model (the registry's first choice)",
+      "ok": true,
+      "detail": "answeredBy=groq/openai/gpt-oss-120b order=groq/qwen/qwen3.8-27b>groq/openai/gpt-oss-120b"
+    },
+    {
+      "name": "M2: the answer is right (Tuesday) with a citation",
+      "ok": true,
+      "detail": "Deliveries arrive every Tuesday before noon. [K1]"
+    },
+    {
+      "name": "M3: the first choice failed and the next one answered (fallback), with both attempts recorded",
+      "ok": false,
+      "detail": "{\"answeredBy\":\"groq/openai/gpt-oss-120b\",\"attempts\":[{\"ref\":\"groq/openai/gpt-oss-120b\",\"outcome\":\"answered\"}]}"
+    },
+    {
+      "name": "M4: the small-context agent could be created",
+      "ok": false,
+      "detail": "That model cannot be given to a bot yet: Not tested yet: Connectivity, Follows a simple instruction, Structured JSON output."
+    },
+    {
+      "name": "M4b: when every allowed provider fails, the owner gets a clear message (no real request)",
+      "ok": false,
+      "detail": "200 "
+    },
+    {
+      "name": "M5a: a review proposal came back (new prompt)",
+      "ok": true,
+      "detail": "Improved instructions for the agent \"Probe 120b\" (a new version; the old one is kept). I have only proposed this: nothing has changed yet. Review it and confirm to apply it."
+    },
+    {
+      "name": "M5a: the role text was NOT copied in, no 'verify from memory', second person, mentions sources",
+      "ok": true,
+      "detail": "You must answer every user question **only** with information that appears in the documents, files, or other sources explicitly provided to you. \n\n- **Use the given sources**: Read the supplied material and base your response solely on that content. \n- **Cite the source**: When you answer, state the"
+    },
+    {
+      "name": "M5b: pressing Apply applied it as a NEW VERSION (old text kept in history)",
+      "ok": true,
+      "detail": "status 200 v2"
+    },
+    {
+      "name": "M5c: the improved agent, asked something the documents do NOT contain, says so plainly instead of guessing",
+      "ok": true,
+      "detail": "The provided source does not contain any information about the shop’s opening hours. I consulted the only available document, **[K1] \"shop-policy\" (part 1)**, and it only mentions the refund policy. Therefore, the answer is not available in the given sources."
+    },
+    {
+      "name": "M5d: Undo restores the old instructions (as another version)",
+      "ok": true,
+      "detail": "status 200"
+    },
+    {
+      "name": "M5e: with nothing linked, the description says so instead of guessing a purpose",
+      "ok": true,
+      "detail": "The project is named \"P4B Probe Project\", but no linked items are provided, so no further description can be given."
+    },
+    {
+      "name": "M5f: Apply on the description changes the project",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "M6 docx: the right fact from the DOCX file, cited, and the cited source is that file",
+      "ok": false,
+      "detail": "All employees receive **25 days of paid holiday per year**【K1】.  \nThe **baker’s notice period is 30 days**【K1】. | cited: undefined"
+    },
+    {
+      "name": "M6 xlsx: the right fact from the XLSX file, cited, and the cited source is that file",
+      "ok": false,
+      "detail": "A cake costs 18 AED【K1】. | cited: undefined"
+    },
+    {
+      "name": "M6 pdf: the right fact from the PDF file, cited, and the cited source is that file",
+      "ok": true,
+      "detail": "Orders must be placed by Friday. [K1] | cited: supplier-letter"
+    },
+    {
+      "name": "M6 csv: the right fact from the CSV file, cited, and the cited source is that file",
+      "ok": false,
+      "detail": "Gulf Dairy is located in Sharjah. 【K1】 | cited: undefined"
+    },
+    {
+      "name": "M7a: reprocess rebuilds the PDF from its stored original (status ready, same text length)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "M7b: removed, the PDF is no longer searched",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "M7c: restored, the PDF is ready and searchable again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "M7d: after restore the answer is right and cites the restored file",
+      "ok": false,
+      "detail": "Deliveries arrive on Tuesday (before noon)【K1】"
+    },
+    {
+      "name": "M8a: a draft without a checkpoint",
+      "ok": true,
+      "detail": "200 trigger>bot_task>bot_task>bot_task>end "
+    },
+    {
+      "name": "M8b: the revision keeps the agent steps and ADDS a checkpoint that asks about archiving",
+      "ok": false,
+      "detail": "200 trigger>bot_task>bot_task>bot_task>end  "
+    },
+    {
+      "name": "budget respected: 18 real requests used (ceiling 22)",
+      "ok": true,
+      "detail": "used 18"
+    }
+  ]
+}

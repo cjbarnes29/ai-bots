@@ -78,7 +78,7 @@ export function createZip(entries: ZipEntry[]): Buffer {
 }
 
 /** Reads a ZIP made by createZip (or any ordinary ZIP with stored/deflated entries). */
-export function readZip(buf: Buffer): Map<string, Buffer> {
+export function readZip(buf: Buffer, maxEntryBytes?: number): Map<string, Buffer> {
   const out = new Map<string, Buffer>();
   let end = buf.length - 22;
   while (end >= 0 && buf.readUInt32LE(end) !== 0x06054b50) end--;
@@ -97,7 +97,9 @@ export function readZip(buf: Buffer): Map<string, Buffer> {
     const name = buf.subarray(p + 46, p + 46 + nlen).toString("utf8");
     const dataStart = lho + 30 + buf.readUInt16LE(lho + 26) + buf.readUInt16LE(lho + 28);
     const packed = buf.subarray(dataStart, dataStart + csize);
-    const data = method === 8 ? inflateRawSync(packed) : Buffer.from(packed);
+    // maxEntryBytes (optional) stops a decompression bomb: an entry that would expand past it makes the whole read fail.
+    if (maxEntryBytes !== undefined && method !== 8 && packed.length > maxEntryBytes) throw new Error(`entry ${name} is too large`);
+    const data = method === 8 ? inflateRawSync(packed, maxEntryBytes !== undefined ? { maxOutputLength: maxEntryBytes } : {}) : Buffer.from(packed);
     if (crc32(data) !== crc) throw new Error(`bad checksum for ${name}`);
     out.set(name, data);
     p += 46 + nlen + xlen + clen;

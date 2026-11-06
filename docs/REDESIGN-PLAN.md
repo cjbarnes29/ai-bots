@@ -99,3 +99,15 @@ No backend change unless a card needs data the API lacks (then listed for approv
 - **Not verified:** real phones/tablets and touch hardware, a screen reader, a contrast tool run, behaviour with real providers, long-session performance. The checks use Edge headless at fixed sizes against the real app with fake or no providers.
 - **Known flake (not caused by the redesign):** `src/desktop/real-windows.test.ts` can fail under load (different test each time) and passes alone 25/25; re-run `npm run check`.
 - **Navigation test changes:** the navigation tests were rewritten for the new link names (8 files) and one check ignores search boxes; no assertion was removed.
+
+## 10. Correction D-077 (2026-11-06): the AI Assistant is its own workspace
+Sections 3 and 5 above describe the grouping approved in D-075. The owner later corrected it: the main chat is the **AI Assistant** workspace, first in the sidebar, large and permanent (no panel, no hover). Projects, Tasks & history and Decisions & approvals are separate items. The list lives only in `web/src/components/shell/nav.ts`. See the decision board (D-077).
+
+## 11. Phase 4 (2026-11-06, D-078)
+The Assistant page gained lookups ("open my latest project", "show pending approvals"), suggestions, a change log with undo, and review cards; the Knowledge Center gained a Documents workspace; the chat gained attachments. Navigation is unchanged from section 10. Phase 5 (Simple / Review / Advanced) is intentionally NOT built. Full record: `docs/KNOWLEDGE-AND-ASSISTANT.md`.
+
+## 12. Interface levels (2026-11-06, D-079)
+Simple / Intermediate / Advanced control which sections are listed in the menu (one list, `nav.ts`) and whether plain-language guides show. Nothing is removed and the default is Advanced. Full record: `docs/PHASE5-PREPARATION.md` section 8.
+
+## 13. Review round (2026-11-06, D-080)
+Interface levels stay the permanent direction. Evidence-based changes: sixteen tested guides; Simple shows five project tabs and an essentials Dashboard. The Manager locate/open/explain/guide capability is planned in `docs/MANAGER-LOCATE-PLAN.md` (not built).

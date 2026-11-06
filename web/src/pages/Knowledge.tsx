@@ -1,8 +1,10 @@
 import { useState, type ChangeEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useBots, useCreateNote, useMemoryNotes, useNoteAction, useUpdateNote } from "../api/hooks";
 import type { MemoryNote } from "../api/types";
 import { KnowledgeFiles } from "../components/KnowledgeFiles";
+import { Documents } from "../components/knowledge/Documents";
 import { TabPanel, Tabs } from "../components/ui/Tabs";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
@@ -12,7 +14,9 @@ const MAX_FILE_CHARS = 4000;
 export function Knowledge() {
   const bots = useBots(false);
   const [scope, setScope] = useState<"shared" | "bot">("shared");
-  const [tab, setTab] = useState<"shared" | "agents" | "files">("shared");
+  // A link such as /knowledge?doc=ID or ?status=failed opens the Documents tab.
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<"shared" | "agents" | "files" | "documents">(params.get("doc") || params.get("status") || params.get("duplicates") ? "documents" : "shared");
   const [botId, setBotId] = useState("");
   const [q, setQ] = useState("");
   const [archived, setArchived] = useState(false);
@@ -56,11 +60,14 @@ export function Knowledge() {
         tabs={[
           { id: "shared", label: "Shared notes" },
           { id: "agents", label: "Agent knowledge" },
+          { id: "documents", label: "Documents" },
           { id: "files", label: "Files & documents" },
         ]}
       />
-      <TabPanel label={{ shared: "Shared notes", agents: "Agent knowledge", files: "Files & documents" }[tab]}>
-        {tab === "files" ? (
+      <TabPanel label={{ shared: "Shared notes", agents: "Agent knowledge", files: "Files & documents", documents: "Documents" }[tab]}>
+        {tab === "documents" ? (
+          <Documents />
+        ) : tab === "files" ? (
           <KnowledgeFiles />
         ) : (
           <>

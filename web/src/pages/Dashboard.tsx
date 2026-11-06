@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useChooseLevel } from "../components/shell/LevelBar";
 import { useExternalStatus, useMonitor, useProviders, useWorkflows } from "../api/hooks";
 import type { ActivityLevel } from "../api/types";
 import { AiOverview } from "../components/AiOverview";
@@ -31,6 +32,9 @@ function HealthRow({ label, state, tone, to }: { label: string; state: string; t
 const dash = "–";
 
 export function Dashboard() {
+  // At the Simple level the page keeps what a beginner acts on (what needs you, the core counters, the demo) and leaves the technical read-only panels to Intermediate and Advanced. Nothing here is a control that is being hidden.
+  const [level, chooseLevel] = useChooseLevel();
+  const simple = level === "simple";
   const monitor = useMonitor();
   const providers = useProviders();
   const external = useExternalStatus();
@@ -151,6 +155,8 @@ export function Dashboard() {
             hint={m ? `${m.approvals.executed24h} done, ${m.approvals.denied24h} denied (24 h)` : undefined}
           />
           <StatCard title="Failures (24 h)" to="/monitor" value={failed24 ?? dash} tone={failed24 ? "bad" : "idle"} hint="Tasks, outside actions and workflows" />
+          {!simple && (
+            <>
           <StatCard
             title="AI providers"
             to="/settings/ai-models"
@@ -177,9 +183,22 @@ export function Dashboard() {
             tone={m && m.ai.errorsToday > 0 ? "warn" : "idle"}
             hint={m ? `${m.ai.tokensToday.toLocaleString()} tokens · ${m.ai.errorsToday} failed` : undefined}
           />
+            </>
+          )}
         </div>
       </section>
 
+      {simple && (
+        <p role="note" aria-label="Simple dashboard" className="hint">
+          This page shows the essentials at the Simple level.{" "}
+          <button type="button" className="min-h-11 underline" onClick={() => chooseLevel("intermediate")}>
+            Show more detail
+          </button>{" "}
+          (AI models, connections, system health and workflow runs).
+        </p>
+      )}
+
+      {!simple && (
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel
           id="exec-heading"
@@ -239,10 +258,12 @@ export function Dashboard() {
           )}
         </Panel>
       </div>
+      )}
 
-      <AiOverview />
+      {!simple && <AiOverview />}
       <DemoCard compact />
 
+      {!simple && (
       <div className="grid gap-6 lg:grid-cols-2">
         <section aria-labelledby="quick-heading" className="space-y-2">
           <h2 id="quick-heading" className="text-lg font-semibold">
@@ -282,7 +303,9 @@ export function Dashboard() {
           </ul>
         </section>
       </div>
+      )}
 
+      {!simple && (
       <section aria-labelledby="runs-heading" className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="runs-heading" className="text-lg font-semibold">
@@ -310,6 +333,7 @@ export function Dashboard() {
           })}
         </ul>
       </section>
+      )}
 
       <section aria-labelledby="activity-heading" className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">

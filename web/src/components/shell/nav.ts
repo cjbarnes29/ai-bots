@@ -1,3 +1,4 @@
+import type { Level } from "../../lib/interfaceLevel";
 import type { IconName } from "../Icon";
 
 export interface NavTab {
@@ -13,6 +14,8 @@ export interface NavEntry {
   icon: IconName;
   /** Path prefixes that keep this section highlighted. The longest matching prefix across all sections wins. */
   match: string[];
+  /** The lowest interface level at which this section is listed in the menu (D-079). It is never removed: its address, search and the assistant still reach it. */
+  level: Level;
   /** Shown in the phone's bottom bar. Everything else is under "More" there. */
   primary: boolean;
   /** The pages that belong to this section. Every page that existed before the redesign is still reachable at its old address. */
@@ -21,16 +24,30 @@ export interface NavEntry {
 
 /**
  * The one list the sidebar, the tablet rail, the phone bar, the "More" sheet, the section tabs and the breadcrumbs are all drawn from.
- * Nine sections (owner decision D-075); no route was removed or renamed, only grouped.
+ * Grouped by the owner (D-075), then corrected by D-077: the AI Assistant is the first item and its own workspace; Projects, Tasks & history and Decisions & approvals are their own items. No route was removed or renamed, only grouped.
  */
 export const NAV: NavEntry[] = [
-  { to: "/", label: "Dashboard", icon: "dashboard", match: [], primary: true, tabs: [] },
+  // The main entry point: a permanent chat workspace, never a panel inside another section.
+  { to: "/assistant", label: "AI Assistant", level: "simple", icon: "chat", match: ["/assistant"], primary: true, tabs: [] },
+  { to: "/", label: "Dashboard", level: "simple", icon: "dashboard", match: [], primary: true, tabs: [] },
+  { to: "/projects", label: "Projects", level: "simple", icon: "briefcase", match: ["/projects"], primary: true, tabs: [] },
+  {
+    to: "/workflows",
+    label: "Workflows", level: "intermediate",
+    icon: "workflow",
+    match: ["/workflows", "/automation"],
+    primary: false,
+    tabs: [
+      { to: "/workflows", label: "Workflow Studio", match: ["/workflows"] },
+      { to: "/automation", label: "Schedules", match: ["/automation"] },
+    ],
+  },
   {
     to: "/agents",
-    label: "AI Agents",
+    label: "AI Agents", level: "intermediate",
     icon: "agents",
     match: ["/agents", "/bots", "/studio", "/groups", "/workforce"],
-    primary: true,
+    primary: false,
     tabs: [
       { to: "/agents", label: "Agents & Teams", match: ["/agents", "/bots"] },
       { to: "/studio", label: "Bot Studio", match: ["/studio"] },
@@ -39,21 +56,39 @@ export const NAV: NavEntry[] = [
     ],
   },
   {
-    to: "/workflows",
-    label: "Workflows",
-    icon: "workflow",
-    match: ["/workflows", "/automation", "/decisions", "/projects"],
+    to: "/knowledge",
+    label: "Knowledge Center", level: "intermediate",
+    icon: "book",
+    match: ["/knowledge"],
+    primary: false,
+    tabs: [{ to: "/knowledge", label: "Shared notes", match: ["/knowledge"] }],
+  },
+  {
+    to: "/tasks",
+    label: "Tasks & history", level: "intermediate",
+    icon: "activity",
+    match: ["/tasks", "/monitor", "/inbox"],
+    primary: false,
+    tabs: [
+      { to: "/tasks", label: "Tasks", match: ["/tasks"] },
+      { to: "/monitor", label: "Activity & Logs", match: ["/monitor"] },
+      { to: "/inbox", label: "Inbox", match: ["/inbox"] },
+    ],
+  },
+  {
+    to: "/approvals",
+    label: "Decisions & approvals", level: "simple",
+    icon: "approvals",
+    match: ["/approvals", "/decisions"],
     primary: true,
     tabs: [
-      { to: "/workflows", label: "Workflow Studio", match: ["/workflows"] },
-      { to: "/automation", label: "Schedules", match: ["/automation"] },
+      { to: "/approvals", label: "Approvals", match: ["/approvals"] },
       { to: "/decisions", label: "Decisions", match: ["/decisions"] },
-      { to: "/projects", label: "Projects", match: ["/projects"] },
     ],
   },
   {
     to: "/models",
-    label: "AI Models",
+    label: "AI Models", level: "advanced",
     icon: "cpu",
     match: ["/models", "/settings/ai-models", "/usage"],
     primary: false,
@@ -61,7 +96,7 @@ export const NAV: NavEntry[] = [
   },
   {
     to: "/integrations",
-    label: "Apps & Integrations",
+    label: "Apps & Integrations", level: "advanced",
     icon: "plug",
     match: ["/integrations", "/pc", "/access", "/business"],
     primary: false,
@@ -72,36 +107,15 @@ export const NAV: NavEntry[] = [
       { to: "/business", label: "Business Workforce", match: ["/business"] },
     ],
   },
-  { to: "/creative", label: "Creative Studio", icon: "palette", match: ["/creative"], primary: false, tabs: [] },
-  {
-    to: "/knowledge",
-    label: "Knowledge Center",
-    icon: "book",
-    match: ["/knowledge"],
-    primary: false,
-    tabs: [{ to: "/knowledge", label: "Shared notes", match: ["/knowledge"] }],
-  },
-  {
-    to: "/monitor",
-    label: "Monitoring",
-    icon: "activity",
-    match: ["/monitor", "/tasks", "/approvals", "/inbox"],
-    primary: true,
-    tabs: [
-      { to: "/monitor", label: "Activity & Logs", match: ["/monitor"] },
-      { to: "/tasks", label: "Tasks", match: ["/tasks"] },
-      { to: "/approvals", label: "Approvals", match: ["/approvals"] },
-      { to: "/inbox", label: "Inbox", match: ["/inbox"] },
-    ],
-  },
-  { to: "/settings", label: "Settings", icon: "settings", match: ["/settings"], primary: false, tabs: [] },
+  { to: "/creative", label: "Creative Studio", level: "advanced", icon: "palette", match: ["/creative"], primary: false, tabs: [] },
+  { to: "/settings", label: "Settings", level: "advanced", icon: "settings", match: ["/settings"], primary: false, tabs: [] },
 ];
 
 const covers = (prefix: string, pathname: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 
 /** The section a path belongs to. The longest matching prefix wins, so /settings/ai-models is AI Models while the rest of /settings is Settings. */
 export function sectionFor(pathname: string): NavEntry | undefined {
-  if (pathname === "/") return NAV[0];
+  if (pathname === "/") return NAV.find((e) => e.to === "/");
   let best: { entry: NavEntry; len: number } | undefined;
   for (const entry of NAV) {
     for (const m of entry.match) {

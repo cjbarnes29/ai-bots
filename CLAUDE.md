@@ -12,10 +12,10 @@ A personal AI workforce: agents, a Manager, workflows, integrations behind an ap
 
 ## 3. How to work
 - Inspect before modifying. Preserve existing working functionality, APIs, security mechanisms and approval rules.
-- Prefer small changes that reuse what exists. No new dependency and no database migration without the owner's approval.
+- Prefer small changes that reuse what exists. No new dependency without the owner's approval. A database migration needs the owner's approval, except routine ADDITIVE schema work covered by the owner's standing instruction of 2026-11-06 (D-078: migration 020); never apply a migration to the owner's real database by hand.
 - `npm run check` = typecheck + all tests + builds for both parts. Run the relevant tests while working and the full check before presenting anything for a commit.
 - Never rewrite files with PowerShell `Get-Content`/`Set-Content` (it corrupts characters). Use the editing tools.
-- Dashboard layout: the nine-section navigation lives in ONE list, `web/src/components/shell/nav.ts` (sidebar, phone bar, tabs and breadcrumbs all read it); redesign record `docs/REDESIGN-PLAN.md` (D-075). New pages must be added there, keep one h1, 44 px touch targets and the reduced-motion rule. Browser check: `scripts/e2e/redesign-e2e.mjs`.
+- Dashboard layout: the navigation (AI Assistant first; D-077) lives in ONE list, `web/src/components/shell/nav.ts` (sidebar, phone bar, tabs and breadcrumbs all read it); redesign record `docs/REDESIGN-PLAN.md` (D-075). New pages must be added there, keep one h1, 44 px touch targets and the reduced-motion rule. Browser checks: `scripts/e2e/redesign-e2e.mjs` and `scripts/e2e/hub-e2e.mjs` (project hub, search, AI Assistant, workflow drafting). The main chat is the `/assistant` page, never a panel or hover; an AI draft (bot, workflow) is never saved by code.
 - Windows machine. Bash and PowerShell are both available; there is no FFmpeg and no real Python.
 
 ## 4. Git rules
@@ -63,6 +63,25 @@ A personal AI workforce: agents, a Manager, workflows, integrations behind an ap
 - AI drafts are never saved by code; the owner reviews and saves. Treat descriptions and model output as untrusted.
 - Migration `017_groups` revision 2 is approved and applied (D-047); `src/db/migrations/017_groups.sql` must stay byte-identical to `docs/proposals/017_groups.sql` (a test pins it). Do not apply any other migration without the owner's explicit approval.
 - Group messaging is BUILT and TESTED with fake providers but stays OFF until the owner switches it on (NV-15, `docs/WORKFORCE.md`). Never switch it on in the owner's real database yourself. Only `src/groups/service.ts` may touch the group tables (a test pins that). Groups run ordinary tasks, grant nothing, bots never post themselves, and a handoff needs the delegation allow-list entry. Keep authorization, visibility, participation limits, loop prevention and Guardian hold intact.
+
+## 5f. Knowledge Center, attachments and the AI Assistant (D-078)
+- Read `docs/KNOWLEDGE-AND-ASSISTANT.md` before touching `src/knowledge/`, `src/assistant/`, chat attachments or the Assistant page. Keep it in step with the code.
+- A document, an attachment and a model's draft are untrusted DATA. They never grant a permission, folder, program, secret or approval.
+- The assistant has THREE action levels (safe / review / restricted). Restricted actions (deleting, approving, permissions, sending/publishing, purchases, deployments, accounts, administrator actions) have NO code path in `src/assistant/`; do not add one. A review change is only proposed until the owner confirms it; a safe change is logged with its before value and undoable. Never make a message claim something happened before the service answered.
+- A temporary chat attachment is never saved to the Knowledge Center or searched by the application on its own; only the owner promotes it.
+- **The dev server (`npm run dev:all`, `tsx watch`) restarts on every file change and a new `.sql` migration file is applied to the owner's real database AT ONCE** (this happened to 020). Run `npm run backup` or stop the dev server BEFORE adding any migration file.
+- Files are read by untrusted input paths: no regular expression that can rescan the rest of a file from every start position (a crafted 800 KB PDF took 40 s); use linear scans and keep the timing tests (`src/knowledge/extract-perf.test.ts`).
+- After editing code through a shell script, read the result (backslashes in regexes and SQL have been lost this way three times).
+- Real-model runs (`scripts/e2e/real-*.mjs`): the exact request count must be approved (or, if the owner only gave a general direction, state the count you chose, enforce it with the provider cap on a scratch COPY, and ask the owner to confirm). Report what each real model actually did, one sample is not proof, and say which items were NOT observed. Delete the scratch copy (it holds the vault key) and re-check the live database afterwards.
+- Models the registry has not verified are refused for agents; do not work around that.
+- Never overwrite an existing test file: check `git ls-files` first (a file called `web/src/phase4.test.tsx` already existed and was once overwritten by mistake, then restored).
+- Standing autonomy (owner, 2026-11-06): routine, reversible development actions here are pre-approved (code, tests, local commands, docs, additive schema work). It does NOT cover permanent deletion/irreversible data changes, Git commits or pushes, deployment or publishing, purchases or paid services, external communications, administrator/elevated operations, account creation, or security-boundary/permission changes: those still need the owner's separate explicit approval.
+
+## 5g. Interface levels (D-079)
+- The level (Simple / Intermediate / Advanced) lives in `web/src/lib/interfaceLevel.ts` and is kept in the browser only. Each section in `nav.ts` has a `level`; a level only shows or hides MENU ENTRIES and plain-language guides. It must never remove a screen (addresses, search and the assistant still reach everything), hide an approval or its waiting count, change a saved setting, or change what the assistant may do. New pages go in `nav.ts` with a level; a page the owner needs to act on (approvals, decisions) belongs at Simple.
+- Do not add a second "how much do I want to see" setting; extend this one. Browser check: `scripts/e2e/levels-e2e.mjs` (includes a seven-task beginner walkthrough at Simple).
+- Guides (`lib/guidance.ts`): write for a beginner, define "agent" (AI helper) and "model" (AI brain) where used, keep to the limits pinned in `web/src/guidance.test.ts`, and add a guide for every screen a new page puts at Simple or Intermediate. At Simple, a page may fold READ-ONLY technical panels (as the Dashboard and the project page do) but never a control or an approval.
+- The Manager engine has no tools. Locate/open/explain/guide belongs in the Assistant (plan: `docs/MANAGER-LOCATE-PLAN.md`); do not add tools to `src/manager/`.
 
 ## 6. Reporting
 Report faithfully: say what ran, what passed, what failed and what was NOT verified. If something is done and verified, say so plainly. Update the decision board and `docs/PROGRESS.md` when a decision, milestone or verification changes.

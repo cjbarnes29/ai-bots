@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { ContextLinks } from "../components/hub/ContextLinks";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { AddOptionForm, ApprovalPlanner, ConsensusPanel, ExecutionPanel, OptionEditor } from "../components/DecisionExtras";
@@ -65,6 +67,7 @@ function Detail({ id }: { id: string }) {
     <section className="card space-y-3" aria-label={`Decision ${d.title}`}>
       <h2 className="text-lg font-semibold">{d.title}</h2>
       <p className="hint">{STATUS_TEXT[d.status]}</p>
+      <ContextLinks kind="decision" id={d.id} />
       <p className="whitespace-pre-wrap text-sm">{d.question}</p>
       {d.project && (
         <p className="hint">
@@ -178,7 +181,8 @@ function Detail({ id }: { id: string }) {
 
 export function Decisions() {
   const [filter, setFilter] = useState<DecisionStatus | "">("");
-  const [selected, setSelected] = useState<string | null>(null);
+  const [search] = useSearchParams();
+  const [selected, setSelected] = useState<string | null>(search.get("open"));
   const [question, setQuestion] = useState("");
   const [draft, setDraft] = useState<DecisionDraft | null>(null);
   const list = useDecisions(filter);

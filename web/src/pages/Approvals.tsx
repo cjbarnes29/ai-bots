@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useApprovals, useApprove, useSecurityLog, useDeny, useExternalStatus, useSetExternalPaused } from "../api/hooks";
 import type { Approval, ApprovalStatus } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { ContextLinks } from "../components/hub/ContextLinks";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "");
@@ -42,13 +43,17 @@ function ExactContent({ args }: { args: unknown }) {
   );
 }
 
+/** The request a link pointed at (?focus=ID) is outlined and scrolled into view. */
+const focused = (id: string) => new URLSearchParams(window.location.search).get("focus") === id;
+
 function PendingCard({ a }: { a: Approval }) {
   const approve = useApprove();
   const deny = useDeny();
   const [confirming, setConfirming] = useState(false);
   const busy = approve.isPending || deny.isPending;
   return (
-    <li className="card space-y-3" aria-label={`Approval request: ${a.summary}`}>
+    <li id={`approval-${a.id}`} className={`card space-y-3 ${focused(a.id) ? "ring-2 ring-indigo-500" : ""}`} aria-label={`Approval request: ${a.summary}`}>
+      <ContextLinks kind="approval" id={a.id} />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-semibold">{a.summary}</p>
@@ -104,7 +109,8 @@ function PendingCard({ a }: { a: Approval }) {
 
 function HistoryRow({ a }: { a: Approval }) {
   return (
-    <li className="card space-y-1" aria-label={`Past request: ${a.summary}`}>
+    <li id={`approval-${a.id}`} className={`card space-y-1 ${focused(a.id) ? "ring-2 ring-indigo-500" : ""}`} aria-label={`Past request: ${a.summary}`}>
+      <ContextLinks kind="approval" id={a.id} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium">{a.summary}</p>
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[a.status]}`}>{STATUS_TEXT[a.status]}</span>
@@ -126,6 +132,10 @@ export function Approvals() {
   const audit = useSecurityLog(30);
   const setPaused = useSetExternalPaused();
   const paused = status.data?.paused ?? false;
+  const focusId = new URLSearchParams(window.location.search).get("focus");
+  useEffect(() => {
+    if (focusId) document.getElementById(`approval-${focusId}`)?.scrollIntoView({ block: "center" });
+  }, [focusId, pending.data, all.data]);
   const history = (all.data ?? []).filter((a) => a.status !== "pending");
 
   return (

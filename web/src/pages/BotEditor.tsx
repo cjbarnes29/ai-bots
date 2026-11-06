@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { AgentProjects } from "../components/hub/ContextLinks";
 import { ApiError } from "../api/client";
 import { useArchiveBot, useBot, useDuplicateBot, useUnarchiveBot, useUpdateBot } from "../api/hooks";
 import type { BotStatus } from "../api/types";
@@ -32,7 +33,9 @@ export function BotEditor() {
   const unarchive = useUnarchiveBot();
   const duplicate = useDuplicateBot();
 
-  const [tab, setTab] = useState<Tab>("details");
+  const [search] = useSearchParams();
+  const wanted = search.get("tab");
+  const [tab, setTab] = useState<Tab>(TABS.some((x) => x.id === wanted) ? (wanted as Tab) : "details");
   const [dirty, setDirty] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const handleDirty = useCallback((d: boolean) => setDirty(d), []);
@@ -126,11 +129,12 @@ export function BotEditor() {
         </p>
       )}
 
+      <AgentProjects botId={b.id} />
       <Tabs label="Bot sections" value={tab} onChange={setTab} tabs={TABS.map((t) => ({ id: t.id, label: t.id === "details" && dirty ? `${t.label} •` : t.label }))} />
 
       {/* Details stays mounted (just hidden) so unsaved edits survive switching tabs. */}
       <DetailsTab bot={b} hidden={tab !== "details"} onDirtyChange={handleDirty} />
-      {tab === "chat" && <ChatTab bot={b} hasUnsavedEdits={dirty} />}
+      {tab === "chat" && <ChatTab bot={b} hasUnsavedEdits={dirty} initialConversationId={search.get("conversation")} />}
       {tab === "team" && <TeamTab bot={b} />}
       {tab === "history" && <BotHistory bot={b} />}
       {tab === "versions" && <VersionsTab bot={b} hasUnsavedEdits={dirty} />}

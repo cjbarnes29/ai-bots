@@ -7,7 +7,10 @@ import { OwnerProofDialog } from "../OwnerProofDialog";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { SectionTabs } from "../SectionTabs";
 import { WorkspaceTabs } from "./WorkspaceTabs";
-import { NAV, isActive, type NavEntry } from "./nav";
+import { SearchDialog } from "./SearchDialog";
+import { NAV, isActive, sectionFor, type NavEntry } from "./nav";
+import { GuidanceNote, HiddenScreenNotice, LevelBar, useChooseLevel } from "./LevelBar";
+import { shownAt } from "../../lib/interfaceLevel";
 
 const SAFETY_KEY = "awp-safety-note-dismissed";
 
@@ -26,6 +29,18 @@ export function AppShell() {
   const external = useExternalStatus();
   const waiting = external.data?.pendingCount ?? 0;
   const [moreOpen, setMoreOpen] = useState(false);
+  const [level] = useChooseLevel();
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   // Wide screens can fold the sidebar down to icons. Remembered in this browser only.
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -52,9 +67,14 @@ export function AppShell() {
         Skip to the page content
       </a>
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 md:hidden">
-        <Link to="/" className="text-lg font-bold">
-          AI Workforce Studio
-        </Link>
+        <div className="flex items-center justify-between gap-2">
+          <Link to="/" className="text-lg font-bold">
+            AI Workforce Studio
+          </Link>
+          <button type="button" className="btn-secondary min-h-11 min-w-11" aria-label="Search" aria-haspopup="dialog" onClick={() => setSearchOpen(true)}>
+            <Icon name="search" />
+          </button>
+        </div>
       </header>
 
       <nav
@@ -69,8 +89,19 @@ export function AppShell() {
           </span>
           <span className={collapsed ? "hidden" : "hidden lg:inline"}>Workforce Studio</span>
         </Link>
-        {NAV.map((entry) => (
-          <NavItem key={entry.to} entry={entry} collapsed={collapsed} active={isActive(entry, pathname)} waiting={entry.to === "/monitor" ? waiting : 0} />
+        <button
+          type="button"
+          className={`${itemBase} max-md:hidden ${collapsed ? "lg:justify-center lg:px-0" : ""} ${idleStyle}`}
+          aria-haspopup="dialog"
+          aria-label="Search"
+          title="Search (Ctrl+K)"
+          onClick={() => setSearchOpen(true)}
+        >
+          <Icon name="search" />
+          <span className={collapsed ? "md:sr-only" : "md:sr-only lg:not-sr-only"}>Search</span>
+        </button>
+        {NAV.filter((e) => shownAt(e.level, level) || isActive(e, pathname)).map((entry) => (
+          <NavItem key={entry.to} entry={entry} collapsed={collapsed} active={isActive(entry, pathname)} waiting={entry.to === "/approvals" ? waiting : 0} />
         ))}
         <button
           type="button"
@@ -95,17 +126,23 @@ export function AppShell() {
         </button>
       </nav>
 
-      {moreOpen && <MoreSheet pathname={pathname} waiting={waiting} onClose={() => setMoreOpen(false)} />}
+      {searchOpen && <SearchDialog onClose={() => setSearchOpen(false)} />}
+      {moreOpen && <MoreSheet pathname={pathname} waiting={waiting} level={level} onClose={() => setMoreOpen(false)} />}
 
       <GuardianBanner />
       <OwnerProofDialog />
       <SafetyNote />
       <main id="main" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-6 pb-28 outline-none md:pb-8">
+        <div className="mb-4">
+          <LevelBar />
+        </div>
         <WorkspaceTabs />
         <Breadcrumbs />
         <div className="mb-5 empty:mb-0">
           <SectionTabs />
         </div>
+        <HiddenScreenNotice />
+        <GuidanceNote />
         <div key={routeKey} className="awp-workspace-in">
           <Outlet />
         </div>
@@ -150,7 +187,7 @@ function NavItem({ entry, active, waiting, collapsed }: { entry: NavEntry; activ
 }
 
 /** The phone's "More": every place that does not fit in the bottom bar. Focus stays inside it, and returns to the button that opened it. */
-function MoreSheet({ pathname, waiting, onClose }: { pathname: string; waiting: number; onClose: () => void }) {
+function MoreSheet({ pathname, waiting, level, onClose }: { pathname: string; waiting: number; level: import("../../lib/interfaceLevel").Level; onClose: () => void }) {
   const box = useRef<HTMLDivElement>(null);
   // The parent re-renders whenever data refreshes; the effect below must run once per opening, not once per render.
   const closeRef = useRef(onClose);
@@ -200,17 +237,23 @@ function MoreSheet({ pathname, waiting, onClose }: { pathname: string; waiting: 
           </button>
         </div>
         <ul className="divide-y divide-slate-200 dark:divide-slate-800">
-          {NAV.filter((e) => !e.primary).map((e) => (
+          {NAV.filter((e) => !e.primary && (shownAt(e.level, level) || isActive(e, pathname))).map((e) => (
             <li key={e.to}>
               <Link to={e.to} aria-current={isActive(e, pathname) ? "page" : undefined} className="flex min-h-12 items-center gap-3 px-1 text-base">
                 <Icon name={e.icon} />
                 <span className="flex-1">{e.label}</span>
-                {e.to === "/monitor" && waiting > 0 ? <span className="text-sm font-semibold">{waiting}</span> : null}
+                {e.to === "/approvals" && waiting > 0 ? <span className="text-sm font-semibold">{waiting}</span> : null}
                 <Icon name="next" className="h-4 w-4 text-slate-400" />
               </Link>
             </li>
           ))}
         </ul>
+        {NAV.some((e) => !e.primary && !shownAt(e.level, level)) && (
+          <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+            <p className="hint text-sm">Some screens are hidden at this interface level. Search and the AI Assistant can still open them.</p>
+            <LevelBar compact />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -8,6 +8,8 @@ const chatBodySchema = z.strictObject({
   message: z.string(),
   conversationId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(),
+  attachmentIds: z.array(z.string().uuid()).max(8).optional(),
+  useKnowledge: z.boolean().optional(),
 });
 
 function parseId(value: unknown, code: string, message: string): string {

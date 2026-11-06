@@ -1,0 +1,62 @@
+{
+  "startedAt": "2026-11-06T08:22:48.549Z",
+  "budget": 4,
+  "steps": {
+    "revise A": {
+      "requests": 1,
+      "types": [
+        "trigger",
+        "bot_task",
+        "bot_task",
+        "checkpoint",
+        "end"
+      ],
+      "checkpoints": [
+        "Archive the result?"
+      ]
+    },
+    "revise B": {
+      "requests": 1,
+      "types": [
+        "trigger",
+        "bot_task",
+        "end"
+      ],
+      "checkpoints": []
+    }
+  },
+  "requestsUsed": 2,
+  "finishedAt": "2026-11-06T08:23:32.942Z",
+  "checks": [
+    {
+      "name": "scratch copy started",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "revise A: the requested question was added as a checkpoint, the agent steps were kept",
+      "ok": true,
+      "detail": "200 trigger>bot_task>bot_task>checkpoint>end | Archive the result? "
+    },
+    {
+      "name": "revise A: the new checkpoint is the LAST step before End, and asks about archiving",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "revise B: the requested question was added as a checkpoint, the agent steps were kept",
+      "ok": false,
+      "detail": "200 trigger>bot_task>end |  "
+    },
+    {
+      "name": "revise B: the new checkpoint comes BEFORE the writing step, and asks about tone",
+      "ok": false,
+      "detail": ""
+    },
+    {
+      "name": "budget respected: 2 real requests (ceiling 4)",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

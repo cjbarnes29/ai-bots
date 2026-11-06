@@ -74,6 +74,7 @@ describe("Projects page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create project" }));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && (c.body as { name: string }).name === "Launch")).toBe(true));
     await userEvent.click(await screen.findByRole("button", { name: "Open Launch" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Settings" })); // linked items and delete live under the hub's Settings tab
     expect(await screen.findByText(/Write copy/)).toBeInTheDocument();
     await userEvent.click(screen.getByText("Delete this project"));
     const del = screen.getByRole("button", { name: "Delete project" });

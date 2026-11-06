@@ -29,22 +29,23 @@ afterEach(() => {
 });
 
 describe("the application shell", () => {
-  it("has one Main navigation with the nine sections, and marks the current one", async () => {
+  it("has one Main navigation with the AI Assistant first and every section, and marks the current one", async () => {
     renderApp(createFakeApi(), "/automation");
     const nav = within(await screen.findByRole("navigation", { name: "Main" }));
-    for (const name of ["Dashboard", "AI Agents", "Workflows", "AI Models", "Apps & Integrations", "Creative Studio", "Knowledge Center", "Monitoring", "Settings"]) {
+    for (const name of ["AI Assistant", "Dashboard", "Projects", "Workflows", "AI Agents", "Knowledge Center", "Tasks & history", "Decisions & approvals", "AI Models", "Apps & Integrations", "Creative Studio", "Settings"]) {
       expect(nav.getByRole("link", { name })).toBeInTheDocument();
     }
-    expect(nav.getAllByRole("link").filter((l) => l.getAttribute("aria-label") !== "AI Workforce Studio home")).toHaveLength(9);
+    expect(nav.getAllByRole("link").filter((l) => l.getAttribute("aria-label") !== "AI Workforce Studio home")).toHaveLength(12);
+    expect(nav.getAllByRole("link").filter((l) => l.getAttribute("aria-label") !== "AI Workforce Studio home")[0]).toHaveAccessibleName("AI Assistant");
     // Schedules is a page of the Workflows section
     expect(nav.getByRole("link", { name: "Workflows" })).toHaveAttribute("aria-current", "page");
     expect(nav.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
   });
 
-  it("keeps a section highlighted on its inner pages (a task belongs to Monitoring)", async () => {
+  it("keeps a section highlighted on its inner pages (a task belongs to Tasks & history)", async () => {
     renderApp(createFakeApi(), "/tasks/00000000-0000-4000-8000-000000000000");
     const nav = within(await screen.findByRole("navigation", { name: "Main" }));
-    expect(nav.getByRole("link", { name: "Monitoring" })).toHaveAttribute("aria-current", "page");
+    expect(nav.getByRole("link", { name: "Tasks & history" })).toHaveAttribute("aria-current", "page");
   });
 
   it("the longest match wins: /settings/ai-models is AI Models while the rest of Settings is Settings", () => {
@@ -54,6 +55,12 @@ describe("the application shell", () => {
     expect(sectionFor("/settings")?.label).toBe("Settings");
     expect(sectionFor("/bots/abc")?.label).toBe("AI Agents");
     expect(sectionFor("/nope")).toBeUndefined();
+  });
+
+  it("the home page belongs to the Dashboard and /assistant to the AI Assistant (the first list entry is not assumed to be home)", () => {
+    expect(sectionFor("/")?.label).toBe("Dashboard");
+    expect(sectionFor("/assistant")?.label).toBe("AI Assistant");
+    expect(NAV[0]?.to).toBe("/assistant");
   });
 
   it("every page that existed before the redesign is still reachable from a section, and every tab lies inside its section", () => {
@@ -70,15 +77,15 @@ describe("the application shell", () => {
     const user = userEvent.setup();
     renderApp(createFakeApi(), "/workflows");
     const tabs = within(await screen.findByRole("navigation", { name: "Workflows sections" }));
-    expect(tabs.getAllByRole("link").map((l) => l.textContent)).toEqual(["Workflow Studio", "Schedules", "Decisions", "Projects"]);
+    expect(tabs.getAllByRole("link").map((l) => l.textContent)).toEqual(["Workflow Studio", "Schedules"]);
     expect(tabs.getByRole("link", { name: "Workflow Studio" })).toHaveAttribute("aria-current", "page");
     const crumbs = within(screen.getByRole("navigation", { name: "Breadcrumb" }));
     expect(crumbs.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
     expect(crumbs.getByRole("link", { name: "Workflows" })).toHaveAttribute("href", "/workflows");
     expect(crumbs.getByText("Workflow Studio")).toHaveAttribute("aria-current", "page");
-    await user.click(tabs.getByRole("link", { name: "Projects" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Projects" })).toBeInTheDocument();
-    expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Projects")).toHaveAttribute("aria-current", "page");
+    await user.click(tabs.getByRole("link", { name: "Schedules" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Schedules and triggers" })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Schedules")).toHaveAttribute("aria-current", "page");
   });
 
   it("the dashboard has no breadcrumb or tabs", async () => {
@@ -91,7 +98,7 @@ describe("the application shell", () => {
   it("shows no waiting badge when nothing waits (the count itself is tested with the Approvals page)", async () => {
     const quiet = createFakeApi();
     renderApp(quiet);
-    expect(await screen.findByRole("link", { name: "Monitoring" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Decisions & approvals" })).toBeInTheDocument();
     expect(screen.queryByText(/waiting/)).not.toBeInTheDocument();
   });
 
@@ -132,12 +139,15 @@ describe("the application shell", () => {
     renderApp(createFakeApi());
     const nav = within(await screen.findByRole("navigation", { name: "Main" }));
     for (const [link, heading] of [
+      ["AI Assistant", "AI Assistant"],
+      ["Projects", "Projects"],
       ["AI Agents", "Agents & Teams"],
       ["Workflows", "Workflow Studio"],
       ["Apps & Integrations", "Integrations Center"],
       ["Creative Studio", "Creative Studio"],
       ["Knowledge Center", "Knowledge"],
-      ["Monitoring", "Activity & Logs"],
+      ["Tasks & history", "Tasks"],
+      ["Decisions & approvals", "Approvals"],
     ] as const) {
       await user.click(nav.getByRole("link", { name: link }));
       expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeInTheDocument();

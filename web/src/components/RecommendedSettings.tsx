@@ -13,6 +13,7 @@ const MODES: { id: RecMode; label: string; text: string }[] = [
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 
 /** Beginner / Intermediate / Advanced. Choosing one changes only what is shown. It never changes a saved setting. */
+/** (The Interface level switch at the top of every page also sets this word, so the two stay in step; this switch only changes how much detail recommendations show.) */
 export function ModeSwitcher() {
   const rec = useRecommendations();
   const setMode = useSetRecMode();
@@ -30,6 +31,7 @@ export function ModeSwitcher() {
         ))}
       </div>
       <p className="hint">Switching never changes or loses any setting you have saved.</p>
+      <p className="hint">This only changes how much detail recommendations show. The Interface level switch at the top of every page (Simple, Intermediate, Advanced) chooses which screens are in the menu, and it also sets this one to the same level.</p>
     </fieldset>
   );
 }

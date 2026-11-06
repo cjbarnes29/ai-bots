@@ -59,6 +59,7 @@ const handler = (m: string, u: string) => {
   if (m === "GET" && u === "/api/projects/p1/workspace") return workspace;
   if (m === "POST" && u === "/api/projects/p1/workspace/entries/e1/check") return { entry: { ...workspace.entries[0], checkedByOwner: true } };
   if (m === "PUT" && u === "/api/projects/p1/workspace/entries/e2/withdrawn") return { entry: { ...workspace.entries[1], withdrawn: true } };
+  if (m === "GET" && u.startsWith("/api/projects/p1/hub")) return { project: { id: "p1", name: "Cafe", description: "", archived: false }, conversations: [], tasks: [], agents: [], workflows: [], decisions: [], approvals: [], outputs: [], notes: [], attention: [], progress: { total: 0, completed: 0, running: 0, pending: 0, failed: 0 } };
   if (m === "GET" && u.startsWith("/api/projects/p1")) return { project, items: [] };
   if (m === "GET" && u.startsWith("/api/projects?")) return { projects: [project] };
   return undefined;
@@ -68,6 +69,7 @@ describe("Project workspace panel", () => {
   it("shows findings with their labels apart (fact with source, assumption with the platform's note, recommendation); replaced entries are hidden until asked", async () => {
     setup("/projects", handler);
     await userEvent.click(await screen.findByRole("button", { name: "Open Cafe" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Files & knowledge" })); // the workspace lives in the project hub
     const panel = await screen.findByRole("region", { name: "Shared workspace" });
     const fact = await within(panel).findByRole("listitem", { name: "Entry Licence fee" });
     expect(within(fact).getByText("Fact (agent cites a source)")).toBeInTheDocument();
@@ -84,6 +86,7 @@ describe("Project workspace panel", () => {
   it("shows task notes, shared files with their owner and state, contributions and recent updates", async () => {
     setup("/projects", handler);
     await userEvent.click(await screen.findByRole("button", { name: "Open Cafe" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Files & knowledge" })); // the workspace lives in the project hub
     const panel = await screen.findByRole("region", { name: "Shared workspace" });
     await userEvent.click(await within(panel).findByRole("tab", { name: /Task notes/ }));
     expect(within(panel).getByRole("listitem", { name: "Entry Write the brief" })).toHaveTextContent(/For: Writer/);
@@ -99,6 +102,7 @@ describe("Project workspace panel", () => {
   it("the owner marks an entry as checked and withdraws one", async () => {
     const calls = setup("/projects", handler);
     await userEvent.click(await screen.findByRole("button", { name: "Open Cafe" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Files & knowledge" })); // the workspace lives in the project hub
     await userEvent.click(await screen.findByRole("button", { name: "Mark Licence fee as checked" }));
     await userEvent.click(screen.getByRole("button", { name: "Withdraw Foot traffic" }));
     await waitFor(() => {
@@ -112,6 +116,7 @@ describe("Number warnings on entries", () => {
   it("shows the platform's warnings next to the entry, without changing its value", async () => {
     setup("/projects", handler);
     await userEvent.click(await screen.findByRole("button", { name: "Open Cafe" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Files & knowledge" })); // the workspace lives in the project hub
     const item = await screen.findByRole("listitem", { name: "Entry Small-unit rent" });
     expect(within(item).getByText("AED 750,000-1,250,000 a year.")).toBeInTheDocument();
     expect(within(item).getByRole("list", { name: "Number warnings for Small-unit rent" })).toHaveTextContent(/! Large unsupported amount \(AED 1,250,000\)/);

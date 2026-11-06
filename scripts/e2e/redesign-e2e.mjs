@@ -97,7 +97,7 @@ try {
     if (size.shape === "sidebar") check(`${size.name}: navigation is the full sidebar`, nav.atLeft && nav.width >= 220, JSON.stringify(nav));
     // section tabs reachable (scrollable on small screens) and every tab target big enough on touch sizes
     const tabs = await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Workflows sections"] a')].map((a) => ({ t: a.textContent, h: Math.round(a.getBoundingClientRect().height) })));
-    check(`${size.name}: the Workflows section shows its 4 tabs${size.width < 768 ? " with touch-sized height" : ""}`, tabs.length === 4 && (size.width >= 768 || tabs.every((x) => x.h >= 44)), JSON.stringify(tabs));
+    check(`${size.name}: the Workflows section shows its 2 tabs${size.width < 768 ? " with touch-sized height" : ""}`, tabs.length === 2 && (size.width >= 768 || tabs.every((x) => x.h >= 44)), JSON.stringify(tabs));
     // phase 2: Dashboard boxes and every Monitoring tab, no overflow, tabs reachable by touch-sized buttons
     await page.goto(base + "/", { waitUntil: "networkidle" });
     const boxes = await page.evaluate(() => ["Task execution (24 h)", "Application connections", "Your AI right now"].map((n) => !![...document.querySelectorAll("h2")].find((h) => h.textContent.trim() === n)));
@@ -163,13 +163,13 @@ try {
   const page = await ctx.newPage();
   await page.goto(base + "/", { waitUntil: "networkidle" });
   const mainLinks = await page.$$eval('nav[aria-label="Main"] > a', (as) => as.map((a) => a.getAttribute("title") ?? a.textContent));
-  check("the sidebar lists the 9 sections (and the logo link)", mainLinks.length === 10, mainLinks.join(", "));
+  check("the sidebar lists the AI Assistant first, then the 11 other sections (and the logo link)", mainLinks.length === 13 && mainLinks[1] === "AI Assistant", mainLinks.join(", "));
   await page.click('nav[aria-label="Main"] a[title="Workflows"]');
   await page.waitForSelector('h1:has-text("Workflow Studio")');
   await page.click('nav[aria-label="Workflows sections"] a:has-text("Schedules")');
   await page.waitForSelector('h1:has-text("Schedules and triggers")');
   check("a section tab opens its page and the breadcrumb follows", (await page.textContent('nav[aria-label="Breadcrumb"]')).replace(/\s+/g, "").includes("Home/Workflows/Schedules"));
-  check("the open-workspaces strip shows both pages", (await page.$$eval('nav[aria-label="Open workspaces"] a', (as) => as.map((a) => a.textContent.trim()))).join("|") === "Dashboard|Workflow Studio|Schedules");
+  { const strip = (await page.$$eval('nav[aria-label="Open workspaces"] a', (as) => as.map((a) => a.textContent.trim()))).join("|"); check("the open-workspaces strip shows both pages", strip === "Dashboard|Workflow Studio|Schedules", strip); }
   await page.reload({ waitUntil: "networkidle" });
   check("open workspaces survive a reload of the same browser tab", (await page.$$('nav[aria-label="Open workspaces"] a')).length === 3);
   const stored = await page.evaluate(() => ({ s: sessionStorage.getItem("awp-open-workspaces"), l: localStorage.getItem("awp-open-workspaces") }));
@@ -198,9 +198,9 @@ try {
   const v2 = Number(await page.getAttribute("[role=separator]", "aria-valuenow"));
   check("the editor divider follows a real mouse drag and the arrow keys", v1 < v0 && v2 === v1 + 5, `${v0} -> ${v1} -> ${v2}`);
   // approvals still work from the Monitoring section
-  await page.click('nav[aria-label="Main"] a[title="Monitoring"]');
-  await page.click('nav[aria-label="Monitoring sections"] a:has-text("Approvals")');
-  check("Approvals is reachable from Monitoring", await page.waitForSelector('h1:has-text("Approvals")').then(() => true, () => false));
+  await page.click('nav[aria-label="Main"] a[title="Decisions & approvals"]');
+  await page.click('nav[aria-label="Decisions & approvals sections"] a:has-text("Approvals")');
+  check("Approvals is reachable from Decisions & approvals", await page.waitForSelector('h1:has-text("Approvals")').then(() => true, () => false));
   // creative studio honesty
   await page.goto(base + "/creative", { waitUntil: "networkidle" });
   const cards = await page.$$eval("li.card", (lis) => lis.map((li) => ({ t: li.querySelector("span")?.textContent, notConnected: li.textContent.includes("Not connected"), actions: li.querySelectorAll("a,button").length })));

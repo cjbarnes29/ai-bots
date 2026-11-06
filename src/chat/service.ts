@@ -5,6 +5,7 @@ import { AppError } from "../errors.js";
 import { LlmError } from "../llm/errors.js";
 import type { LlmService } from "../llm/service.js";
 import type { AgentRuntime } from "../runtimes/types.js";
+import type { KnowledgeService, SourceRef } from "../knowledge/service.js";
 import type { ChatRepository, ConversationRecord, MessageRecord } from "./repository.js";
 
 export interface ChatReply {
@@ -12,6 +13,8 @@ export interface ChatReply {
   userMessage: MessageRecord;
   assistantMessage: MessageRecord;
   warning: string | null;
+  /** What the answer was given from (attached files and Knowledge Center passages), numbered; `cited` marks the ones the answer's text refers to. */
+  sources: SourceRef[];
 }
 
 /**
@@ -26,7 +29,9 @@ export class ChatService {
     private readonly llm: LlmService,
     private readonly now: () => number = Date.now,
     /** Optional: the project notes for a conversation, and a way to put a NEW conversation into a project. Supplied by the app. */
-    private readonly projects?: { contextFor(conversationId: string): string | null; contextForProject(projectId: string): string | null; attach(projectId: string, conversationId: string): void },
+    private readonly projects?: { contextFor(conversationId: string): string | null; contextForProject(projectId: string): string | null; attach(projectId: string, conversationId: string): void; projectIdOf?(conversationId: string): string | null },
+    /** Optional: file attachments and Knowledge Center retrieval for a message. */
+    private readonly knowledge?: KnowledgeService,
   ) {}
 
   listConversations(botId: string): ConversationRecord[] {
@@ -43,7 +48,7 @@ export class ChatService {
     return this.repo.listMessages(conversationId);
   }
 
-  async sendMessage(botId: string, input: { message: string; conversationId?: string | undefined; projectId?: string | undefined }): Promise<ChatReply> {
+  async sendMessage(botId: string, input: { message: string; conversationId?: string | undefined; projectId?: string | undefined; attachmentIds?: string[] | undefined; useKnowledge?: boolean | undefined }): Promise<ChatReply> {
     const bot = this.getBot(botId);
     if (bot.archived) {
       throw new AppError(409, "bot_archived", "This bot is archived. Unarchive it to chat.");
@@ -78,8 +83,16 @@ export class ChatService {
       ? this.repo.lastMessages(conversationId, this.llm.limits().historyMessages).map((m) => ({ role: m.role, content: m.content }))
       : [];
 
+    // Attached files and (if asked) Knowledge Center passages go to the model as one block of untrusted data. Checked BEFORE anything is saved.
+    const attachmentIds = input.attachmentIds ?? [];
+    if (attachmentIds.length && !this.knowledge) throw new AppError(400, "attachments_unavailable", "Attachments are not available.");
+    if (attachmentIds.length) this.knowledge!.checkAttachments(attachmentIds);
+    const projectId = conversation ? (this.projects?.projectIdOf?.(conversationId) ?? null) : (input.projectId ?? null);
+    const kctx = this.knowledge && (attachmentIds.length > 0 || input.useKnowledge || conversation) ? this.knowledge.buildContext({ conversationId: conversation?.id, newAttachmentIds: attachmentIds, message, projectId, useKnowledge: input.useKnowledge === true }) : { text: null, sources: [] as SourceRef[] };
+    const baseContext = (conversation ? this.projects?.contextFor(conversationId) : input.projectId ? this.projects?.contextForProject(input.projectId) : null) ?? null;
+    const projectContext = [baseContext, kctx.text].filter(Boolean).join(String.fromCharCode(10).repeat(2)) || null;
     // Ask the model BEFORE saving anything, so a failed call leaves no half-finished conversation.
-    const result = await this.runtimeFor(bot.runtime).run({ bot, history, userMessage: message, conversationId, projectContext: (conversation ? this.projects?.contextFor(conversationId) : input.projectId ? this.projects?.contextForProject(input.projectId) : null) ?? null });
+    const result = await this.runtimeFor(bot.runtime).run({ bot, history, userMessage: message, conversationId, projectContext });
 
     const createdAt = new Date(this.now()).toISOString();
     const { userId, assistantId } = this.repo.transaction(() => {
@@ -117,9 +130,18 @@ export class ChatService {
         /* the chat is kept; the owner can link it later */
       }
     }
+    let sources: SourceRef[] = [];
+    if (this.knowledge) {
+      try {
+        if (attachmentIds.length) this.knowledge.attachToMessage(conversationId, userId, [...new Set(attachmentIds)]);
+        if (kctx.sources.length) sources = this.knowledge.saveSources(assistantId, kctx.sources, result.text);
+      } catch {
+        /* the chat is kept even if the attachment record could not be written */
+      }
+    }
     const userMessage = this.repo.getMessage(userId);
     const assistantMessage = this.repo.getMessage(assistantId);
     if (!userMessage || !assistantMessage) throw new AppError(500, "internal_error", "Something went wrong");
-    return { conversationId, userMessage, assistantMessage, warning: result.warning };
+    return { conversationId, userMessage, assistantMessage, warning: result.warning, sources };
   }
 }

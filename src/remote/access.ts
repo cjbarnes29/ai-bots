@@ -80,6 +80,12 @@ const OWNER_ONLY_ROUTES: RegExp[] = [
   // Running a model evaluation sends real requests to a provider: an owner act.
   /^\/api\/llm\/registry\/evaluate/,
   /^\/api\/projects\/:id$/,
+  // Knowledge Center: uploading, changing, moving, reprocessing, hiding and restoring documents, and collections, are owner acts. Reading, searching and chat attachments stay open.
+  /^\/api\/knowledge\/docs$/,
+  /^\/api\/knowledge\/docs\/:id/,
+  /^\/api\/knowledge\/collections/,
+  // What the assistant proposed or did: confirming, rejecting and undoing are owner acts.
+  /^\/api\/assistant\/actions\/:id\/(confirm|reject|undo)$/,
   // A project's shared workspace: marking an entry as checked by the owner, and withdrawing or restoring it, are owner acts. Reading stays open.
   /^\/api\/projects\/:id\/workspace\/entries\//,
   // Groups: the switch, creating, editing, archiving, members and responsibilities are owner acts. Writing in a group and handing work over work like chat and stay open.

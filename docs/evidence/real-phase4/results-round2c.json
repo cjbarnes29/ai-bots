@@ -1,0 +1,66 @@
+{
+  "startedAt": "2026-11-06T08:24:17.731Z",
+  "budget": 4,
+  "steps": {
+    "revise A": {
+      "requests": 1,
+      "types": [
+        "trigger",
+        "bot_task",
+        "bot_task",
+        "bot_task",
+        "checkpoint",
+        "end"
+      ],
+      "checkpoints": [
+        "Do you approve the final summary?"
+      ]
+    },
+    "revise B": {
+      "requests": 1,
+      "types": [
+        "trigger",
+        "checkpoint",
+        "bot_task",
+        "end"
+      ],
+      "checkpoints": [
+        "Does the customer prefer a formal tone?"
+      ]
+    }
+  },
+  "requestsUsed": 2,
+  "finishedAt": "2026-11-06T08:25:01.700Z",
+  "checks": [
+    {
+      "name": "scratch copy started",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "revise A: the requested question was added as a checkpoint, the agent steps were kept",
+      "ok": true,
+      "detail": "200 trigger>bot_task>bot_task>bot_task>checkpoint>end | Do you approve the final summary? "
+    },
+    {
+      "name": "revise A: the new checkpoint is the LAST step before End, and asks about archiving",
+      "ok": false,
+      "detail": ""
+    },
+    {
+      "name": "revise B: the requested question was added as a checkpoint, the agent steps were kept",
+      "ok": true,
+      "detail": "200 trigger>checkpoint>bot_task>end | Does the customer prefer a formal tone? "
+    },
+    {
+      "name": "revise B: the new checkpoint comes BEFORE the writing step, and asks about tone",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "budget respected: 2 real requests (ceiling 4)",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

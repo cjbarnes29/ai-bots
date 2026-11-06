@@ -383,7 +383,10 @@ describe("revision 3 regression tests", () => {
     const base = schemaBefore019();
     const snap = (d: typeof base) => new Map((d.prepare("SELECT type || name AS k, sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'").all() as { k: string; sql: string }[]).map((r) => [r.k, r.sql]));
     const before = snap(base);
-    const after = snap(dbWith019());
+    const through019 = new DatabaseSync(":memory:"); // every migration up to and including 019 (020 is later and adds its own objects)
+    through019.exec("PRAGMA foreign_keys = ON");
+    for (const f of readdirSync(MIGRATIONS).filter((x) => x.endsWith(".sql") && x <= "019_decisions.sql").sort()) through019.exec(readFileSync(`${MIGRATIONS}/${f}`, "utf8"));
+    const after = snap(through019);
     expect([...before].filter(([k, v]) => after.get(k) !== v)).toEqual([]);
     // (the migration runner's own bookkeeping table is not part of 019)
     expect([...after.keys()].filter((k) => !before.has(k) && k !== "tableschema_migrations" && !k.startsWith("indexsqlite_autoindex_schema_migrations")).length).toBe(75);

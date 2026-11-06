@@ -52,8 +52,8 @@ function openAt016(path = ":memory:"): DatabaseSync {
 const objects = (db: DatabaseSync) =>
   db.prepare("SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all().map((r) => `${String(r["type"])}:${String(r["name"])}`);
 const isNew = (name: string) => NEW.some((n) => name === n || name.startsWith(n + "_")) || /^(idx_|uq_|trg_)(bot_groups|group_)/.test(name);
-/** Objects added by the later migration 018_inbox (empty tables), which the real runner also applies to a 016 database. */
-const isNewOrLater = (name: string) => isNew(name) || /^(idx_|uq_|trg_)?(inbox_|projects|project_items|decision)/.test(name);
+/** Objects added by the later migrations 018_inbox, 019_decisions and 020_knowledge (empty tables), which the real runner also applies to a 016 database. */
+const isNewOrLater = (name: string) => isNew(name) || /^(idx_|uq_|trg_)?(inbox_|projects|project_items|decision|knowledge_|chat_attachments|chat_message_sources|assistant_actions)/.test(name);
 /** A checksum of every row of every pre-existing table, so "nothing else changed" is proven, not assumed. */
 function fingerprint(db: DatabaseSync): string {
   const h = createHash("sha256");
@@ -89,12 +89,12 @@ const msg = (db: DatabaseSync, group: string, sender: string | null, extra: Reco
 };
 
 describe("0. revision 2 is the applied migration, and groups stay switched off", () => {
-  it("src/db/migrations/017_groups.sql is a byte-identical copy of the approved revision 2, and a fresh app database has 017 applied (018 is the latest)", () => {
+  it("src/db/migrations/017_groups.sql is a byte-identical copy of the approved revision 2, and a fresh app database has 017 applied (020 is the latest)", () => {
     expect(readFileSync(MIGRATION_017).equals(readFileSync(PROPOSAL))).toBe(true);
     expect(createHash("sha256").update(readFileSync(MIGRATION_017)).digest("hex")).toBe("d45d6dca7099d9de9a6ed0e958f3bffefa693963457350f48c95d6b10b915397");
     expect(sql).toMatch(/^-- PROPOSAL ONLY \(revision 2, 2026-11-04/);
     expect(readdirSync(MIGRATIONS).filter((f) => /group/.test(f))).toEqual(["017_groups.sql"]);
-    expect(readdirSync(MIGRATIONS).sort().at(-1)).toBe("019_decisions.sql");
+    expect(readdirSync(MIGRATIONS).sort().at(-1)).toBe("020_knowledge.sql");
     expect(openDatabase(":memory:").prepare("SELECT version FROM schema_migrations WHERE version = '017_groups.sql'").get()?.["version"]).toBe("017_groups.sql");
   });
   it("the real runner applies 017 to a 016 database that holds data and changes nothing that existed", () => {
@@ -107,7 +107,7 @@ describe("0. revision 2 is the applied migration, and groups stay switched off",
     const beforeObjects = objects(old);
     old.close();
     const db = openDatabase(file); // the real runner (src/db/database.ts)
-    expect(db.prepare("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1").get()?.["version"]).toBe("019_decisions.sql");
+    expect(db.prepare("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1").get()?.["version"]).toBe("020_knowledge.sql");
     expect(fingerprint(db)).toBe(before);
     expect(beforeObjects.every((o) => objects(db).includes(o))).toBe(true);
     expect(objects(db).filter((o) => !beforeObjects.includes(o)).every((o) => isNewOrLater(o.split(":")[1]!))).toBe(true);

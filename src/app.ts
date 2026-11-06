@@ -14,6 +14,12 @@ import { ProjectService, type ItemKind } from "./projects/service.js";
 import { registerProjectRoutes } from "./projects/routes.js";
 import { WorkspaceService } from "./project-workspace/service.js";
 import { registerWorkspaceRoutes } from "./project-workspace/routes.js";
+import { KnowledgeService } from "./knowledge/service.js";
+import { registerKnowledgeRoutes } from "./knowledge/routes.js";
+import { HubService } from "./project-hub/service.js";
+import { AssistantActions } from "./assistant/actions.js";
+import { registerAssistantRoutes } from "./assistant/routes.js";
+import { registerHubRoutes } from "./project-hub/routes.js";
 import { createWorkspaceConnector } from "./project-workspace/connector.js";
 import { DecisionService } from "./decisions/service.js";
 import { registerDecisionRoutes } from "./decisions/routes.js";
@@ -118,6 +124,8 @@ declare module "fastify" {
     modelRegistry: ModelRegistry;
     /** The owner's inbox: bots appear in it only for real events. */
     inbox: InboxService;
+    /** Knowledge Center documents, chat attachments and their search. */
+    knowledge: KnowledgeService;
     /** Projects: the owner's way to organise conversations, workflows, schedules and tasks. */
     projects: ProjectService;
     workspace: WorkspaceService;
@@ -356,11 +364,15 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   };
   const projects = new ProjectService({ db, audit, lookup: projectLookup, now });
   app.decorate("projects", projects);
+  const knowledge = new KnowledgeService({ db, audit, now });
+  app.decorate("knowledge", knowledge);
+  await registerKnowledgeRoutes(app, knowledge);
   const chat = new ChatService(chatRepo, (id) => agentService.getBot(id), createRuntimeRegistry(llm, async (botId) => (skillService ? await skillService.promptFor(botId) : "")), llm, now, {
     contextFor: (conversationId) => projects.contextFor(conversationId),
     contextForProject: (projectId) => projects.contextForProject(projectId),
     attach: (projectId, conversationId) => void projects.link(projectId, "conversation", conversationId),
-  });
+    projectIdOf: (conversationId) => projects.projectOf("conversation", conversationId)?.id ?? null,
+  }, knowledge);
   await registerChatRoutes(app, chat);
   await registerProjectRoutes(app, projects);
   let decisionsRef: DecisionService | undefined; // set below once the decisions tables exist
@@ -608,6 +620,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   workspaceRef = workspace;
   app.decorate("workspace", workspace);
   await registerWorkspaceRoutes(app, workspace);
+  await registerHubRoutes(app, new HubService({ db }), db);
   let automation: AutomationService | undefined; // created just below; the engine tells it when a chain ends
   const engine = new TaskEngine({
     tasks: taskRepo,
@@ -708,7 +721,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
   app.decorate("workforce", workforce);
   await registerWorkforceRoutes(app, workforce);
-  await registerDelegationRoutes(app, new DelegationService(taskRepo, engine, (id) => agentService.getBot(id), now, projects, (rootId, save) => workspace.expect(rootId, save)), engine);
+  const delegation = new DelegationService(taskRepo, engine, (id) => agentService.getBot(id), now, projects, (rootId, save) => workspace.expect(rootId, save));
+  await registerDelegationRoutes(app, delegation, engine);
+  // The AI Assistant edits only through the existing services (projects, knowledge, agents, tasks). Restricted requests are refused and logged; nothing here can delete, approve, send or change permissions.
+  await registerAssistantRoutes(app, new AssistantActions({ db, audit, projects, knowledge, agents: agentService, cancelTask: (id) => void delegation.cancel(id), complete: (input) => llm.complete(input), now }), db, now, guardian ? (token: string) => guardian.checkProof(token) : undefined);
 
   // ---- Automation: schedules and text triggers. They start tasks through the engine above, so every
   // limit, the pause switches and the free-only gate apply. The clock is started by server.ts, not here. ----
@@ -778,7 +794,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   workflows.recover();
   automation.addEventListener((name, text) => workflows.onEvent(name, text));
   app.decorate("workflows", workflows);
-  await registerWorkflowRoutes(app, workflows);
+  await registerWorkflowRoutes(app, workflows, { agents: () => agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, role: b.role })), complete: (input) => llm.complete(input), audit });
   // The built-in demonstration environment: a simulated AI provider plus editable sample agents and workflows. Makes no outside request.
   await registerDemoRoutes(app, new DemoService({
     catalog,

@@ -5,6 +5,7 @@ import { ManagerPanel } from "../components/ManagerPanel";
 import { useBots, useCancelTask, useSubmitTask, useTaskTree, useTasks } from "../api/hooks";
 import { FINAL_TASK_STATUSES, type TaskNode, type TaskStatus } from "../api/types";
 import { useProjects } from "../api/workHooks";
+import { ContextLinks } from "../components/hub/ContextLinks";
 
 const STATUS: Record<TaskStatus, { label: string; tone: string }> = {
   pending: { label: "Waiting", tone: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
@@ -233,6 +234,7 @@ export function TaskDetail() {
       <Link to="/tasks" className="text-sm text-indigo-700 hover:underline dark:text-indigo-400">
         ← All tasks
       </Link>
+      <ContextLinks kind="task" id={task.id} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="flex flex-wrap items-center gap-3 text-2xl font-bold">
           Task for {task.assigneeName} <StatusChip status={task.status} />

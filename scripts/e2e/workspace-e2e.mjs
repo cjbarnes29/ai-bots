@@ -136,6 +136,7 @@ try {
   page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text()); });
   await page.goto(base + "/projects");
   await page.getByRole("button", { name: "Open Dubai cafe market" }).click();
+  await page.getByRole("tab", { name: "Files & knowledge" }).click(); // the workspace lives in the project hub
   const panel = page.getByRole("region", { name: "Shared workspace" });
   await panel.waitFor();
   check("browser: Research tab shows a fact with its source", await panel.getByRole("listitem", { name: "Entry Cafe licence fee" }).getByText("Source given by the agent: Dubai Economy fee table 2026").isVisible());
@@ -180,6 +181,7 @@ try {
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto(base + "/projects");
   await page.getByRole("button", { name: "Open Dubai cafe market" }).click();
+  await page.getByRole("tab", { name: "Files & knowledge" }).click(); // the workspace lives in the project hub
   await panel.waitFor();
   check("phone width: no sideways scrolling on the project workspace", !(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2)));
   await page.screenshot({ path: path.join(SHOTS, "3-phone.png"), fullPage: true });
@@ -203,6 +205,7 @@ try {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(base + "/projects");
   await page.getByRole("button", { name: "Open Dubai cafe market" }).click();
+  await page.getByRole("tab", { name: "Files & knowledge" }).click(); // the workspace lives in the project hub
   check("browser after restart: the workspace shows the checked fact", await until(async () => (await panel.getByRole("listitem", { name: "Entry Cafe licence fee" }).getByText("Checked by you").count()) === 1, 8000));
   check("no page or console errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 } catch (e) {

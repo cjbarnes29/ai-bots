@@ -17,12 +17,12 @@ function renderApp(api: { fetch: typeof fetch }, path: string) {
 }
 
 describe("Knowledge Center", () => {
-  it("has three areas and the tabs drive the same note scope as the selector", async () => {
+  it("has four areas (Documents added in Phase 4) and the tabs drive the same note scope as the selector", async () => {
     const user = userEvent.setup();
     renderApp(createFakeApi([makeBot({ id: "b1", name: "Helper" })]), "/knowledge");
     expect(await screen.findByRole("heading", { level: 1, name: "Knowledge" })).toBeInTheDocument();
     const tabs = within(screen.getByRole("tablist", { name: "Knowledge areas" }));
-    expect(tabs.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Shared notes", "Agent knowledge", "Files & documents"]);
+    expect(tabs.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Shared notes", "Agent knowledge", "Documents", "Files & documents"]);
     expect(screen.getByLabelText("Which notes")).toHaveValue("shared");
     await user.click(tabs.getByRole("tab", { name: "Agent knowledge" }));
     expect(screen.getByLabelText("Which notes")).toHaveValue("bot");

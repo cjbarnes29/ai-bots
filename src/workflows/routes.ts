@@ -1,5 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { autoRef } from "../routing/config.js";
+import type { CompleteInput, CompleteOutput } from "../llm/service.js";
+import { buildDraftMessages, describeRevision, parseWorkflowDraft } from "./draft.js";
 import { GRAPH_LIMITS } from "./graph.js";
 import { WORKFLOW_LIMITS, type WorkflowService } from "./service.js";
 
@@ -10,7 +13,27 @@ const nodeId = z.string().regex(/^[A-Za-z0-9_-]{1,24}$/);
  * Owner-only (a phone is refused): creating, editing, switching on, archiving, duplicating and retrying a failed box.
  * Allowed from a phone: looking, pressing Run, cancelling a run, and deciding a checkpoint.
  */
-export async function registerWorkflowRoutes(app: FastifyInstance, wf: WorkflowService): Promise<void> {
+export interface DraftDeps {
+  /** The agents a draft may use (active or not: the owner decides later what runs). */
+  agents: () => { id: string; name: string; role: string }[];
+  complete: (input: CompleteInput) => Promise<CompleteOutput>;
+  audit: { record(kind: string, detail?: Record<string, unknown>, options?: { actor?: string }): void };
+}
+
+export async function registerWorkflowRoutes(app: FastifyInstance, wf: WorkflowService, draft?: DraftDeps): Promise<void> {
+  /** AI drafting for the AI Assistant workspace. The answer is a DRAFT only: nothing is saved, switched on or run here. */
+  if (draft) {
+    app.post("/api/workflows/draft", async (req) => {
+      const body = z.strictObject({ description: z.string().min(1).max(5000), modelRef: z.string().max(200).optional(), revise: z.strictObject({ name: z.string().max(100), graph: z.strictObject({ nodes: z.array(z.record(z.string(), z.unknown())).max(40), edges: z.array(z.unknown()).max(100) }) }).optional() }).parse(req.body);
+      const agents = draft.agents();
+      // "revise" edits an existing DRAFT: the old steps and the requested change are described to the model; the answer is again only a draft.
+      const messages = buildDraftMessages(body.revise ? describeRevision(body.revise, body.description) : body.description, agents);
+      const out = await draft.complete({ botId: null, conversationId: null, modelRef: body.modelRef ?? autoRef("general"), messages, temperature: 0.3, maxOutputTokens: 2000, contract: { name: "a workflow", check: (text: string) => { try { parseWorkflowDraft(text, agents); return null; } catch (e) { return e instanceof Error ? e.message : "unreadable"; } } } });
+      const result = parseWorkflowDraft(out.text, agents);
+      draft.audit.record("workflow.draft", { model: `${out.providerId}/${out.modelId}`, saved: false }, { actor: "owner" });
+      return { ...result, model: `${out.providerId}/${out.modelId}` };
+    });
+  }
   app.get("/api/workflows", async (req) => {
     const q = z.strictObject({ archived: z.enum(["0", "1"]).optional() }).parse(req.query);
     return { workflows: wf.list(q.archived === "1"), runs: wf.listRuns(30), waiting: wf.waitingCheckpoints(), limits: { ...GRAPH_LIMITS, ...WORKFLOW_LIMITS } };

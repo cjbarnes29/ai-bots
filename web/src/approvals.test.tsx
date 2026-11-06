@@ -121,7 +121,7 @@ describe("the Approvals page", () => {
     const api = createFakeApi();
     api.ext.approvals.push(request(), request());
     renderApp(api, "/");
-    expect(await screen.findByRole("link", { name: /^Monitoring, 2 waiting$/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /^Decisions & approvals, 2 waiting$/ })).toBeInTheDocument();
   });
 
   it("shows the security log", async () => {
