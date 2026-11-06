@@ -24,6 +24,20 @@ const nodeSchema = z.discriminatedUnion("type", [
   }),
   z.strictObject({ id, type: z.literal("bot_task"), label, ...pos, botId: z.string().uuid(), instruction: template, retries: z.number().int().min(0).max(2).default(0) }),
   z.strictObject({ id, type: z.literal("manager"), label, ...pos, goal: template }),
+  /**
+   * An outside action done through the SAME approval gate every agent uses: a READ runs at once if the chosen agent is allowed to read that service; a WRITE never runs by itself,
+   * it creates an approval request and the run waits until the owner decides it on the Approvals page. This box grants nothing.
+   */
+  z.strictObject({
+    id,
+    type: z.literal("integration"),
+    label,
+    ...pos,
+    botId: z.string().uuid(),
+    connector: z.string().regex(/^[a-z0-9_]{1,24}$/),
+    action: z.string().regex(/^[a-z0-9_]{1,40}$/),
+    args: z.record(z.string().regex(/^[A-Za-z0-9_]{1,40}$/), z.union([z.string().max(2000), z.number(), z.boolean()])).refine((o) => Object.keys(o).length <= 20, "At most 20 fields").default({}),
+  }),
   z.strictObject({
     id,
     type: z.literal("condition"),

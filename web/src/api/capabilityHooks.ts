@@ -45,3 +45,14 @@ export function useRescanCapabilities() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: () => api<CapabilityView>("POST", "/api/capabilities/refresh"), onSuccess: () => qc.invalidateQueries({ queryKey: ["capabilities"] }) });
 }
+
+export interface VmReadiness {
+  ready: false;
+  summary: string;
+  steps: { id: string; title: string; state: "met" | "not_done" | "unknown"; evidence: string; needsOwnerApproval: boolean; where: string }[];
+  sizing: { hostRamGb: number; hostCpuThreads: number; vmRamGb: number; vmCpus: number; note: string };
+  approvalOrder: string[];
+}
+export function useVmReadiness() {
+  return useQuery({ queryKey: ["capabilities", "vm-readiness"], queryFn: async () => (await api<{ readiness: VmReadiness }>("GET", "/api/capabilities/vm-readiness")).readiness, retry: false });
+}

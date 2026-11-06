@@ -68,6 +68,11 @@ export interface WorkflowDeps {
   getTask: (id: string) => TaskRecord | undefined;
   manager: Pick<ManagerService, "start" | "view" | "cancel">;
   botExists: (id: string) => boolean;
+  /** The approval gate (the same one agents use). Without it, outside-action boxes fail with a clear message. */
+  actions?: {
+    request(botId: string, taskId: string | null, req: { connector: string; action: string; args: Record<string, unknown> }): Promise<{ status: "done"; text: string } | { status: "pending_approval"; approvalId: string } | { status: "denied"; reason: string } | { status: "failed"; reason: string }>;
+    exists(connector: string, action: string): boolean;
+  };
   automationPaused: () => boolean;
   pollMs?: number;
 }
@@ -113,7 +118,8 @@ export class WorkflowService {
   /** Rules from graph.ts, plus checks that need the database (the bots must exist). */
   private problemsOf(g: Graph): Problem[] {
     const problems = validateGraph(g);
-    for (const n of g.nodes) if (n.type === "bot_task" && !this.d.botExists(n.botId)) problems.push({ node: n.id, message: "The bot chosen for this box does not exist any more." });
+    for (const n of g.nodes) if ((n.type === "bot_task" || n.type === "integration") && !this.d.botExists(n.botId)) problems.push({ node: n.id, message: "The bot chosen for this box does not exist any more." });
+    for (const n of g.nodes) if (n.type === "integration" && this.d.actions && !this.d.actions.exists(n.connector, n.action)) problems.push({ node: n.id, message: `"${n.connector}.${n.action}" is not an outside action that exists.` });
     return problems;
   }
 
@@ -276,12 +282,36 @@ export class WorkflowService {
     return started;
   }
 
+  /**
+   * Outside-action boxes that were waiting for an approval: when the owner has decided it (on the Approvals page), the box finishes or fails and the run goes on.
+   * Executed = its result becomes the box's output. Failed, denied or expired = the box fails with that reason. Pending = nothing happens.
+   */
+  resolveApprovals(): number {
+    let n = 0;
+    const rows = this.d.db.prepare("SELECT s.run_id, s.node_id, s.ref_id FROM workflow_steps s JOIN workflow_runs r ON r.id = s.run_id WHERE s.status = 'waiting' AND s.ref_kind = 'approval' AND r.status IN ('waiting','running')").all();
+    for (const r of rows) {
+      const a = this.d.db.prepare("SELECT status, result, error FROM approval_requests WHERE id = ?").get(String(r["ref_id"]));
+      if (!a) continue;
+      const runId = String(r["run_id"]);
+      const nodeId = String(r["node_id"]);
+      const st = String(a["status"]);
+      if (st === "executed") this.setStep(runId, nodeId, { status: "completed", output: clip(String(a["result"] ?? ""), WORKFLOW_LIMITS.maxOutput), finished_at: this.iso() });
+      else if (st === "failed" || st === "denied" || st === "expired") this.setStep(runId, nodeId, { status: "failed", error: clip(st === "failed" ? `The approved action failed: ${String(a["error"] ?? "")}` : `The approval was ${st}, so the action did not happen.`, 400), finished_at: this.iso() });
+      else continue;
+      this.d.db.prepare("UPDATE workflow_runs SET status = 'queued' WHERE id = ? AND status = 'waiting'").run(runId);
+      this.d.audit.record("workflow.approval_resolved", { run: runId, node: nodeId, approval: String(r["ref_id"]), status: st });
+      n++;
+    }
+    return n;
+  }
+
   // ---------------------------------------------------------------- the queue
   /** Starts queued runs (at most two at a time). Called by the clock; failures never escape. */
   tick(): number {
     let started = 0;
     try {
       if (this.d.automationPaused()) return 0;
+      this.resolveApprovals();
       const room = WORKFLOW_LIMITS.concurrentRuns - this.inFlight.size;
       if (room <= 0) return 0;
       const queued = this.d.db.prepare("SELECT id FROM workflow_runs WHERE status = 'queued' ORDER BY created_at, rowid LIMIT ?").all(room);
@@ -439,6 +469,20 @@ export class WorkflowService {
           }
           throw new AppError(502, "task_failed", last);
         }
+        case "integration": {
+          if (!this.d.actions) throw new AppError(501, "no_gate", "Outside actions are not available here.");
+          const args: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(node.args)) args[k] = typeof v === "string" ? renderTemplate(v, scope) : v;
+          const out = await this.d.actions.request(node.botId, null, { connector: node.connector, action: node.action, args });
+          if (out.status === "done") return done(out.text);
+          if (out.status === "pending_approval") {
+            // A write never runs by itself: wait for the owner to decide it on the Approvals page. tick() picks the answer up.
+            this.setStep(runId, node.id, { status: "waiting", ref_kind: "approval", ref_id: out.approvalId, output: `Waiting for your approval on the Approvals page: ${node.connector}.${node.action}` });
+            this.d.audit.record("workflow.approval_waiting", { run: runId, node: node.id, approval: out.approvalId });
+            return;
+          }
+          throw new AppError(502, "action_refused", out.reason);
+        }
         case "manager": {
           const run = this.d.manager.start(renderTemplate(node.goal, scope), {}, "workflow");
           this.setStep(runId, node.id, { ref_kind: "manager", ref_id: run.id });
@@ -458,7 +502,7 @@ export class WorkflowService {
       const asked = this.d.db.prepare("SELECT COUNT(*) AS n FROM approval_requests WHERE task_id = ?").get(String(s["ref_id"])) as { n: number };
       return Number(asked.n) === 0;
     }
-    return s["ref_kind"] !== "manager"; // a Manager run may have created tasks of its own: never repeat it
+    return s["ref_kind"] !== "manager" && s["ref_kind"] !== "approval"; // a Manager run may have created tasks of its own: never repeat it
   }
 
   private async awaitTask(runId: string, taskId: string): Promise<string> {
@@ -506,6 +550,9 @@ export class WorkflowService {
     const s = this.d.db.prepare("SELECT status FROM workflow_steps WHERE run_id = ? AND node_id = ?").get(runId, nodeId);
     if (!s) throw new AppError(404, "step_not_found", "That step does not exist.");
     if (s["status"] !== "waiting") throw new AppError(409, "step_not_waiting", "This checkpoint is not waiting for a decision.");
+    // An outside-action box is decided on the Approvals page, never here: a checkpoint button must not be a way around the approval gate.
+    const ref = this.d.db.prepare("SELECT ref_kind FROM workflow_steps WHERE run_id = ? AND node_id = ?").get(runId, nodeId);
+    if (ref?.["ref_kind"] === "approval") throw new AppError(409, "needs_approval", "This box is waiting for an approval request. Decide it on the Approvals page.");
     if (approve) this.setStep(runId, nodeId, { status: "completed", decided_by: by, finished_at: this.iso() });
     else this.setStep(runId, nodeId, { status: "failed", error: `Stopped at a checkpoint by ${by}.`, decided_by: by, finished_at: this.iso() });
     this.d.db.prepare("UPDATE workflow_runs SET status = 'queued' WHERE id = ? AND status = 'waiting'").run(runId);
@@ -614,7 +661,7 @@ export class WorkflowService {
 
   waitingCheckpoints(): { runId: string; workflowName: string; nodeId: string; message: string }[] {
     return this.d.db
-      .prepare("SELECT s.run_id, s.node_id, s.output, w.name FROM workflow_steps s JOIN workflow_runs r ON r.id = s.run_id JOIN workflows w ON w.id = r.workflow_id WHERE s.status = 'waiting' AND r.status = 'waiting' ORDER BY r.created_at")
+      .prepare("SELECT s.run_id, s.node_id, s.output, w.name FROM workflow_steps s JOIN workflow_runs r ON r.id = s.run_id JOIN workflows w ON w.id = r.workflow_id WHERE s.status = 'waiting' AND s.ref_kind IS NOT 'approval' AND r.status = 'waiting' ORDER BY r.created_at")
       .all()
       .map((x) => ({ runId: String(x["run_id"]), workflowName: String(x["name"]), nodeId: String(x["node_id"]), message: String(x["output"] ?? "") }));
   }

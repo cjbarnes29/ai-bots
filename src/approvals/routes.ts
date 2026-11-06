@@ -23,7 +23,15 @@ function parseId(value: unknown): string {
  * Only the dashboard can approve or deny: a bot has no way to call these. Every change needs the client header,
  * which other websites cannot add.
  */
-export async function registerApprovalRoutes(app: FastifyInstance, gate: ActionGate, audit: AuditLog): Promise<void> {
+export async function registerApprovalRoutes(app: FastifyInstance, gate: ActionGate, audit: AuditLog, onDecided?: () => void): Promise<void> {
+  /** Tells whoever is waiting on a decision (a workflow run) right away, so it does not have to wait for the next clock tick. A problem here never changes the decision. */
+  const decided = () => {
+    try {
+      onDecided?.();
+    } catch {
+      /* never changes the decision */
+    }
+  };
   app.get("/api/external/status", async () => gate.status());
 
   app.put("/api/external/pause", async (req) => {
@@ -38,11 +46,17 @@ export async function registerApprovalRoutes(app: FastifyInstance, gate: ActionG
 
   app.get<{ Params: { id: string } }>("/api/approvals/:id", async (req) => ({ approval: gate.get(parseId(req.params.id)) }));
 
-  app.post<{ Params: { id: string } }>("/api/approvals/:id/approve", async (req) => ({ approval: await gate.approve(parseId(req.params.id)) }));
+  app.post<{ Params: { id: string } }>("/api/approvals/:id/approve", async (req) => {
+    const approval = await gate.approve(parseId(req.params.id));
+    decided();
+    return { approval };
+  });
 
   app.post<{ Params: { id: string } }>("/api/approvals/:id/deny", async (req) => {
     const body = denySchema.parse(req.body ?? {});
-    return { approval: gate.deny(parseId(req.params.id), body.reason ?? null) };
+    const approval = gate.deny(parseId(req.params.id), body.reason ?? null);
+    decided();
+    return { approval };
   });
 
   app.get("/api/audit", async (req) => ({ events: audit.list(auditQuery.parse(req.query).limit) }));

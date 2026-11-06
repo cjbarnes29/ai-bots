@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/client";
-import { useCreateWorkflow, useUpdateWorkflow, useValidateWorkflow } from "../api/hooks";
+import { useCreateWorkflow, useIntegrations, useUpdateWorkflow, useValidateWorkflow } from "../api/hooks";
 import type { Bot, WfEdge, WfGraph, WfNode } from "../api/types";
 import { useNarrow } from "../lib/useNarrow";
 import { SplitPane } from "./ui/SplitPane";
@@ -11,11 +11,12 @@ const NODE_H = 78;
 const CANVAS_W = 1100;
 const CANVAS_H = 520;
 
-const TYPE_LABEL: Record<string, string> = { trigger: "Start", bot_task: "Bot task", manager: "Manager", condition: "If", checkpoint: "Checkpoint", set: "Set text", end: "End" };
+const TYPE_LABEL: Record<string, string> = { trigger: "Start", bot_task: "Bot task", manager: "Manager", integration: "Outside action", condition: "If", checkpoint: "Checkpoint", set: "Set text", end: "End" };
 const TYPE_STYLE: Record<string, string> = {
   trigger: "border-green-500 bg-green-50 dark:bg-green-950/40",
   bot_task: "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40",
   manager: "border-violet-500 bg-violet-50 dark:bg-violet-950/40",
+  integration: "border-teal-500 bg-teal-50 dark:bg-teal-950/40",
   condition: "border-amber-500 bg-amber-50 dark:bg-amber-950/40",
   checkpoint: "border-rose-500 bg-rose-50 dark:bg-rose-950/40",
   set: "border-sky-500 bg-sky-50 dark:bg-sky-950/40",
@@ -36,6 +37,8 @@ function defaults(type: string, bots: Bot[]): Record<string, unknown> {
       return { botId: bots[0]?.id ?? "", instruction: "Do this: {{input}}", retries: 0 };
     case "manager":
       return { goal: "Help with: {{input}}" };
+    case "integration":
+      return { botId: bots[0]?.id ?? "", connector: "", action: "", args: {} };
     case "condition":
       return { left: "{{input}}", op: "contains", value: "" };
     case "checkpoint":
@@ -157,7 +160,7 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
       </div>
 
       <div className="flex flex-wrap gap-2" aria-label="Add a box">
-        {(["bot_task", "manager", "condition", "checkpoint", "set", "end"] as const).map((t) => (
+        {(["bot_task", "manager", "integration", "condition", "checkpoint", "set", "end"] as const).map((t) => (
           <button key={t} className="btn-secondary" onClick={() => addNode(t)}>
             Add {TYPE_LABEL[t]}
           </button>
@@ -368,6 +371,7 @@ function NodeForm({ node, bots, onPatch }: { node: WfNode; bots: Bot[]; onPatch:
         </>
       )}
       {node.type === "manager" && input("goal", "What to ask the Manager", { area: true })}
+      {node.type === "integration" && <IntegrationFields node={node} bots={bots} onPatch={onPatch} />}
       {node.type === "condition" && (
         <>
           {input("left", "Look at this text (for example {{boxname}})")}
@@ -388,6 +392,75 @@ function NodeForm({ node, bots, onPatch }: { node: WfNode; bots: Bot[]; onPatch:
       {node.type === "checkpoint" && input("message", "What to show you before it continues", { area: true, max: 500 })}
       {node.type === "set" && input("value", "Text to produce", { area: true })}
     </div>
+  );
+}
+
+/**
+ * An outside action box. It goes through the same approval gate as an agent: a read runs at once only if the chosen agent is allowed to read that service;
+ * a write always waits for your approval on the Approvals page, and the workflow continues only after you approve. It grants nothing.
+ */
+function IntegrationFields({ node, bots, onPatch }: { node: WfNode; bots: Bot[]; onPatch: (p: Record<string, unknown>) => void }) {
+  const integrations = useIntegrations();
+  const list = integrations.data?.integrations ?? [];
+  const connector = String(node["connector"] ?? "");
+  const action = String(node["action"] ?? "");
+  const svc = list.find((i) => i.id === connector);
+  const act = svc?.actions.find((a) => a.name === action);
+  const args = (node["args"] as Record<string, string | number | boolean> | undefined) ?? {};
+  const [text, setText] = useState(() => Object.entries(args).map(([k, v]) => `${k} = ${String(v)}`).join("\n"));
+  const parse = (value: string) => {
+    const out: Record<string, string | number | boolean> = {};
+    for (const line of value.split("\n")) {
+      const i = line.indexOf("=");
+      if (i < 1) continue;
+      const k = line.slice(0, i).trim();
+      const v = line.slice(i + 1).trim();
+      if (!/^[A-Za-z0-9_]{1,40}$/.test(k)) continue;
+      out[k] = v === "true" ? true : v === "false" ? false : v !== "" && /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v;
+    }
+    return out;
+  };
+  return (
+    <>
+      <label className="block text-sm">
+        <span className="label">Which agent acts</span>
+        <select aria-label="Acting agent" value={String(node["botId"] ?? "")} onChange={(e) => onPatch({ botId: e.target.value })}>
+          <option value="">Choose an agent…</option>
+          {bots.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-sm">
+        <span className="label">Service</span>
+        <select aria-label="Service" value={connector} onChange={(e) => onPatch({ connector: e.target.value, action: "" })}>
+          <option value="">Choose a service…</option>
+          {list.map((i) => (
+            <option key={i.id} value={i.id}>
+              {i.label}{i.notReady ? " (not set up)" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-sm">
+        <span className="label">Action</span>
+        <select aria-label="Action" value={action} disabled={!svc} onChange={(e) => onPatch({ action: e.target.value })}>
+          <option value="">Choose an action…</option>
+          {(svc?.actions ?? []).map((a) => (
+            <option key={a.name} value={a.name}>
+              {a.name} ({a.kind === "write" ? "needs your approval" : "read"})
+            </option>
+          ))}
+        </select>
+      </label>
+      {act && <p className="hint" role="note">{act.description}. {act.kind === "write" ? "The workflow stops here until you approve this on the Approvals page. Nothing is sent or saved before that." : "A read runs straight away, but only if this agent is allowed to read this service (its Permissions tab)."}</p>}
+      <label className="block text-sm">
+        <span className="label">Fields, one per line as name = value ({"{{input}}"} and {"{{boxname}}"} fill in earlier results)</span>
+        <textarea aria-label="Action fields" rows={4} value={text} onChange={(e) => { setText(e.target.value); onPatch({ args: parse(e.target.value) }); }} className="w-full" />
+      </label>
+    </>
   );
 }
 

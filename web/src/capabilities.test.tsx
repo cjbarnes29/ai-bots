@@ -38,6 +38,7 @@ function renderPage(initial: Capability[], changes: unknown[] = []) {
     const method = (init?.method ?? "GET").toUpperCase();
     const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
     if (url.includes("/api/capabilities/changes")) return json({ changes: state.changes });
+    if (url.includes("/api/capabilities/vm-readiness")) return json({ readiness: { ready: false, summary: "Not ready: 11 of 12 steps are not done or not known.", steps: [{ id: "vm", title: "Isolated VM created and configured", state: "not_done", evidence: "No VM exists.", needsOwnerApproval: true, where: "docs/TIER-B-PLAN.md" }], sizing: { hostRamGb: 16, hostCpuThreads: 8, vmRamGb: 8, vmCpus: 3, note: "A guest with about 8 GB would leave your PC 8 GB." }, approvalOrder: ["1 Run the firewall audit"] } });
     if (url.includes("/api/capabilities/refresh") && method === "POST") {
       state.rescans++;
       return json(view(state.caps));
@@ -66,9 +67,10 @@ describe("Capabilities page", () => {
   it("shows all six levels for each item and never turns 'not known' into 'yes'", async () => {
     renderPage([cap({ id: "telegram", name: "Telegram", group: "integration", state: "unverified" })]);
     const card = within(await screen.findByRole("listitem", { name: "Telegram" }));
-    for (const l of ["installed", "configured", "authenticated", "operational", "tested", "verified"]) expect(card.getByText(new RegExp(`^${l}:`))).toBeInTheDocument();
-    expect(card.getByText("operational: not known")).toBeInTheDocument();
-    expect(card.getByText("tested: no")).toBeInTheDocument();
+    const chips = within(card.getByRole("list", { name: /Evidence levels/ }));
+    for (const l of ["installed", "configured", "authenticated", "operational", "tested", "verified"]) expect(chips.getByText(new RegExp(`^${l}:`))).toBeInTheDocument();
+    expect(chips.getByText("operational: not known")).toBeInTheDocument();
+    expect(chips.getByText("tested: no")).toBeInTheDocument();
     expect(card.getByText("Set up, not proven")).toBeInTheDocument();
     expect(card.queryByText("Working")).not.toBeInTheDocument();
   });
@@ -85,7 +87,6 @@ describe("Capabilities page", () => {
     await userEvent.selectOptions(screen.getByLabelText(/^Show/), "needs_setup");
     expect(screen.queryByRole("listitem", { name: "Node.js" })).not.toBeInTheDocument();
     const gmail = within(screen.getByRole("listitem", { name: "Gmail" }));
-    await userEvent.click(gmail.getByText("Details"));
     expect(gmail.getByText("What needs you")).toBeInTheDocument();
     expect(gmail.getByText("Set it up in the Integrations Center.")).toBeInTheDocument();
   });
@@ -105,6 +106,15 @@ describe("Capabilities page", () => {
     const region = within(await screen.findByRole("region", { name: "Recent changes" }));
     expect(await region.findByText("Gone: Alpha")).toBeInTheDocument();
     expect(region.getByText(/Groq \(AI models\): authentication changed \(Working → Needs setting up\)/)).toBeInTheDocument();
+  });
+
+  it("shows the desktop and VM readiness as a read-only checklist that says what needs approval", async () => {
+    renderPage([cap({ id: "node", name: "Node.js", state: "available" })]);
+    const card = within(await screen.findByRole("region", { name: "Desktop and VM readiness" }));
+    expect(await card.findByText(/Not ready: 11 of 12/)).toBeInTheDocument();
+    await userEvent.click(card.getByText(/steps and what each needs/));
+    expect(card.getByText(/needs your separate approval/)).toBeInTheDocument();
+    expect(card.getByText("Run the firewall audit")).toBeInTheDocument();
   });
 
   it("states the supervised-only rule", async () => {
@@ -132,5 +142,45 @@ describe("Assistant capability answer", () => {
     expect(screen.getByText("Cannot do (and what is missing) (1)")).toBeInTheDocument();
     expect(screen.getByText(/Read from the live capability list/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open the Capabilities page" })).toHaveAttribute("href", "/capabilities");
+  });
+});
+
+describe("Capabilities page on a phone: compact, expandable entries", () => {
+  const narrow = () =>
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("max-width: 767px"), media: query, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, onchange: null, dispatchEvent: () => false }));
+  const caps = [cap({ id: "node", name: "Node.js", state: "available" }), cap({ id: "agent:1", name: "Alpha", group: "agent", state: "unverified" }), cap({ id: "gmail", name: "Gmail", group: "integration", state: "needs_setup", missing: ["Connect Gmail first."] })];
+
+  it("starts with every group and entry closed, so the page is a short list; the state is still visible in each row", async () => {
+    narrow();
+    renderPage(caps);
+    const tools = await screen.findByRole("region", { name: "Tools and programs" });
+    expect(tools.querySelector("details")).not.toHaveAttribute("open");
+    const row = screen.getByRole("listitem", { name: "Node.js" });
+    expect(row.querySelector("details")).not.toHaveAttribute("open");
+    expect(within(row).getByText("Working")).toBeInTheDocument();
+    expect(within(tools).getByText(/1 · 1 working/)).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Connected services" })).getByText(/1 · 0 working · 1 not fully working/)).toBeInTheDocument();
+  });
+
+  it("opens one group and one entry by tapping, and 'Expand all' / 'Collapse all' override the default", async () => {
+    narrow();
+    renderPage(caps);
+    const agents = await screen.findByRole("region", { name: "Agents" });
+    await userEvent.click(within(agents).getByText("Agents"));
+    expect(agents.querySelector("details")).toHaveAttribute("open");
+    const alpha = screen.getByRole("listitem", { name: "Alpha" });
+    await userEvent.click(within(alpha).getByText("Alpha"));
+    expect(alpha.querySelector("details")).toHaveAttribute("open");
+    await userEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    for (const li of screen.getAllByRole("listitem").filter((l) => l.getAttribute("aria-label") && l.querySelector("details.card"))) expect(li.querySelector("details")).toHaveAttribute("open");
+    await userEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(screen.getByRole("listitem", { name: "Alpha" }).querySelector("details")).not.toHaveAttribute("open");
+  });
+
+  it("wide screens start open", async () => {
+    vi.stubGlobal("matchMedia", undefined);
+    renderPage(caps);
+    const row = await screen.findByRole("listitem", { name: "Node.js" });
+    expect(row.querySelector("details")).toHaveAttribute("open");
   });
 });

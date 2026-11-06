@@ -108,6 +108,9 @@ export interface AgentFact {
   model: string | null;
   completedTasks: number;
   failedTasks: number;
+  /** Recent finished chains the platform itself confirmed (an executed action, a file that exists), and ones its own record contradicts. Optional: absent = not looked at. */
+  verifiedTasks?: number;
+  contradictedTasks?: number;
 }
 /** A workflow as the workflow service knows it. Archived workflows are not passed in. */
 export interface WorkflowFact {
@@ -120,6 +123,8 @@ export interface WorkflowFact {
   botIds: string[];
   /** Does a box ask the Manager? */
   usesManager: boolean;
+  /** Outside services its outside-action boxes use. Optional: absent = none. */
+  connectors?: string[];
   lastRunStatus: string | null;
   completedRuns: number;
   failedRuns: number;
@@ -462,12 +467,12 @@ function agentCapabilities(f: CapabilityFacts, known: Capability[]): Capability[
       authenticated: NA("Agents sign in to nothing themselves; connectors have their own sign-in."),
       operational: !configured ? NO("Not configured.") : !modelUsable ? NO("Its model cannot be used right now.") : a.completedTasks > 0 ? YES(`${a.completedTasks} task(s) completed.`) : UNK("Ready, but no completed task is recorded."),
       tested: UNK("No deliberate test of this agent is recorded."),
-      verified: NO("A completed task is not an independently checked result."),
+      verified: (a.verifiedTasks ?? 0) > 0 ? YES(`${a.verifiedTasks} recent result(s) were confirmed against the platform's own record (an approved action that ran, a file that exists).`) : NO("No result of this agent has been independently confirmed. A text answer cannot be checked, and a completed task alone is not confirmation."),
     };
     const o: Opts = {
       missing: configured ? (modelUsable ? [] : ["Its model is not usable right now."]) : [levels.configured.evidence],
       needsOwner: configured ? [] : ["Give it a model and switch it to Active (Agents page)."],
-      limits: [`${a.completedTasks} completed and ${a.failedTasks} failed task(s) on record.`, "Outside actions still need your approval."],
+      limits: [`${a.completedTasks} completed and ${a.failedTasks} failed task(s) on record.`, ...((a.contradictedTasks ?? 0) > 0 ? [`${a.contradictedTasks} recent result(s) are contradicted by the platform's own record: check them before relying on this agent.`] : []), "Outside actions still need your approval."],
     };
     if (configured && !modelUsable) o.partial = "Its model cannot be used right now, so it cannot run.";
     else if (configured && a.failedTasks > 0 && a.completedTasks === 0) o.partial = "Every recorded task failed.";
@@ -484,6 +489,11 @@ function workflowCapabilities(f: CapabilityFacts, known: Capability[]): Capabili
       const a = byId.get(`agent:${id}`);
       if (!a) dependencyProblems.push("A box uses an agent that no longer exists or is archived.");
       else if (a.state === "needs_setup" || a.state === "unavailable" || a.state === "partial") dependencyProblems.push(`Agent ${a.name}: ${a.stateReason}`);
+    }
+    for (const cid of new Set(w.connectors ?? [])) {
+      const c = byId.get(cid);
+      if (!c) dependencyProblems.push(`An outside-action box uses "${cid}", which is not part of this build.`);
+      else if (c.state === "needs_setup" || c.state === "unavailable") dependencyProblems.push(`${c.name}: ${c.stateReason}`);
     }
     if (w.usesManager && !aiOk) dependencyProblems.push("A box asks the Manager, which needs a verified AI model.");
     const valid = w.problems === 0;

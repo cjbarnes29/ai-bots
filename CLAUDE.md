@@ -87,6 +87,12 @@ A personal AI workforce: agents, a Manager, workflows, integrations behind an ap
 - Read `docs/CAPABILITIES.md` before touching `src/capabilities/`, the Assistant's capability answers, the Manager gate or the workflow run gate. The registry is the ONE source of truth for what the workforce can do: never add a second feature list, and never mark anything "working" because it is merely registered. Every new tool, connector, provider, agent or workflow appears by being reported by its own service; add its facts to `app.ts`, not a hand-written entry. Evidence levels (installed, configured, authenticated, operational, tested, verified) must come from recorded evidence; `verified` is never given to simulated, local-readiness-only or fake-only evidence.
 - All autonomy stays supervised until Guardian Tier B is verified: the registry lists unattended operation as unavailable, and the feasibility checker refuses it.
 
+## 5i. Result verification, outside-action workflow boxes, menu headings (D-083)
+- `src/verification/` decides whether a task result is CONFIRMED from the platform's own record; it reads only and uses no model. Never make a result look confirmed because the agent says so, never scan the platform's appended record as the agent's claim, and never let a file be checked outside the folder gate. "Completed" is not "verified".
+- The workflow `integration` box goes through `ActionGate.request` like any agent action. Never give it a path that skips the gate, never let a checkpoint decision resolve it (`decide()` refuses a box whose step kind is `approval`), never retry it after it asked. Reads still need the agent's own read permission.
+- The menu's seven headings are captions in `nav.ts` (`HEADINGS`, `heading` per entry). They remove nothing and change no level. Browser checks: `scripts/e2e/modernization-e2e.mjs`, `scripts/e2e/capabilities-e2e.mjs`.
+- The real-provider script `scripts/e2e/real-modernization.mjs` must never be run without the owner's approval of the exact count (P-49).
+
 ## 6. Reporting
 Report faithfully: say what ran, what passed, what failed and what was NOT verified. If something is done and verified, say so plainly. Update the decision board and `docs/PROGRESS.md` when a decision, milestone or verification changes.
 

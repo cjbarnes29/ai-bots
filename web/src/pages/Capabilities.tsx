@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { LEVEL_ORDER, useCapabilities, useCapabilityChanges, useRescanCapabilities, type CapState, type Capability, type LevelState } from "../api/capabilityHooks";
+import { useNarrow } from "../lib/useNarrow";
+import { LEVEL_ORDER, useCapabilities, useCapabilityChanges, useRescanCapabilities, useVmReadiness, type CapState, type Capability, type LevelState } from "../api/capabilityHooks";
 
 /**
  * Capabilities: the live answer to "what can the workforce do right now?". Nothing on this page is a hand-kept list: it is drawn from the registry,
@@ -24,56 +25,90 @@ const LEVEL_STYLE: Record<LevelState, string> = {
 };
 const COST_LABEL: Record<string, string> = { free: "Free", free_with_limits: "Free, with limits", local: "On this PC", paid: "Paid (blocked)", simulated: "Simulated", unknown: "Cost unknown", not_applicable: "No cost" };
 
-function Card({ c }: { c: Capability }) {
+/**
+ * One capability. Closed, it is a single 44 px row: the name and what state it is in. Open, it shows why, the six evidence levels, and what is missing or needs you.
+ * On phones the entries start closed so the page is short; on wider screens they start open. "Expand all" and "Collapse all" override that.
+ */
+function Card({ c, open }: { c: Capability; open: boolean }) {
   return (
-    <li className="card space-y-2" aria-label={c.name}>
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="font-semibold [overflow-wrap:anywhere]">{c.name}</h3>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATE_STYLE[c.state]}`}>{STATE_LABEL[c.state]}</span>
-        <span className="hint text-xs">{COST_LABEL[c.cost] ?? c.cost}</span>
-      </div>
-      <p className="text-sm [overflow-wrap:anywhere]">{c.stateReason}</p>
-      <ul className="flex flex-wrap gap-1.5" aria-label={`Evidence levels for ${c.name}`}>
-        {LEVEL_ORDER.map((l) => (
-          <li key={l} title={c.levels[l].evidence} className={`rounded px-2 py-0.5 text-xs ${LEVEL_STYLE[c.levels[l].state]}`}>
-            {l}: {LEVEL_MARK[c.levels[l].state]}
-          </li>
-        ))}
-      </ul>
-      {(c.missing.length > 0 || c.needsOwner.length > 0 || c.limits.length > 0) && (
-        <details>
-          <summary className="min-h-11 cursor-pointer text-sm underline">Details</summary>
-          <div className="space-y-2 pt-1 text-sm">
-            {c.missing.length > 0 && (
-              <div>
-                <p className="font-medium">What is missing</p>
-                <ul className="list-disc pl-5">{c.missing.map((m) => <li key={m}>{m}</li>)}</ul>
-              </div>
-            )}
-            {c.needsOwner.length > 0 && (
-              <div>
-                <p className="font-medium">What needs you</p>
-                <ul className="list-disc pl-5">{c.needsOwner.map((m) => <li key={m}>{m}</li>)}</ul>
-              </div>
-            )}
-            {c.limits.length > 0 && (
-              <div>
-                <p className="font-medium">Limits</p>
-                <ul className="list-disc pl-5">{c.limits.map((m) => <li key={m}>{m}</li>)}</ul>
-              </div>
-            )}
+    <li aria-label={c.name}>
+      <details open={open} className="card group p-0">
+        <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
+          <span aria-hidden="true" className="text-slate-500 transition-transform group-open:rotate-90">›</span>
+          <h3 className="min-w-0 flex-1 font-semibold [overflow-wrap:anywhere]">{c.name}</h3>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATE_STYLE[c.state]}`}>{STATE_LABEL[c.state]}</span>
+        </summary>
+        <div className="space-y-2 border-t border-slate-200 px-3 pb-3 pt-2 dark:border-slate-700">
+          <p className="hint text-xs">{COST_LABEL[c.cost] ?? c.cost}</p>
+          <p className="text-sm [overflow-wrap:anywhere]">{c.stateReason}</p>
+          <ul className="flex flex-wrap gap-1.5" aria-label={`Evidence levels for ${c.name}`}>
+            {LEVEL_ORDER.map((l) => (
+              <li key={l} title={c.levels[l].evidence} className={`rounded px-2 py-0.5 text-xs ${LEVEL_STYLE[c.levels[l].state]}`}>
+                {l}: {LEVEL_MARK[c.levels[l].state]}
+              </li>
+            ))}
+          </ul>
+          {c.missing.length > 0 && (
+            <div className="text-sm">
+              <p className="font-medium">What is missing</p>
+              <ul className="list-disc pl-5">{c.missing.map((m) => <li key={m} className="[overflow-wrap:anywhere]">{m}</li>)}</ul>
+            </div>
+          )}
+          {c.needsOwner.length > 0 && (
+            <div className="text-sm">
+              <p className="font-medium">What needs you</p>
+              <ul className="list-disc pl-5">{c.needsOwner.map((m) => <li key={m} className="[overflow-wrap:anywhere]">{m}</li>)}</ul>
+            </div>
+          )}
+          {c.limits.length > 0 && (
+            <div className="text-sm">
+              <p className="font-medium">Limits</p>
+              <ul className="list-disc pl-5">{c.limits.map((m) => <li key={m} className="[overflow-wrap:anywhere]">{m}</li>)}</ul>
+            </div>
+          )}
+          <details>
+            <summary className="min-h-11 cursor-pointer text-sm underline">The evidence behind each level</summary>
             <dl className="hint text-xs">
               {LEVEL_ORDER.map((l) => (
                 <div key={l}>
                   <dt className="inline font-medium">{l}: </dt>
-                  <dd className="inline">{c.levels[l].evidence}</dd>
+                  <dd className="inline [overflow-wrap:anywhere]">{c.levels[l].evidence}</dd>
                 </div>
               ))}
             </dl>
-          </div>
-        </details>
-      )}
+          </details>
+        </div>
+      </details>
     </li>
+  );
+}
+
+/** Desktop agent and VM readiness: a read-only checklist. Nothing here creates, installs or changes anything; steps that would need your approval say so. */
+function VmReadinessCard() {
+  const q = useVmReadiness();
+  if (!q.data) return null;
+  const v = q.data;
+  const MARK = { met: "Done", not_done: "Not done", unknown: "Not known" } as const;
+  return (
+    <section aria-label="Desktop and VM readiness" className="card space-y-2">
+      <h2 className="text-lg font-semibold">Desktop and VM readiness</h2>
+      <p role="status" className="text-sm">{v.summary}</p>
+      <details>
+        <summary className="min-h-11 cursor-pointer text-sm underline">The {v.steps.length} steps and what each needs</summary>
+        <ul className="space-y-2 pt-1 text-sm">
+          {v.steps.map((s) => (
+            <li key={s.id} className="[overflow-wrap:anywhere]">
+              <span className="font-medium">{MARK[s.state]}:</span> {s.title}
+              {s.needsOwnerApproval && <span className="hint"> (needs your separate approval)</span>}
+              <p className="hint text-xs">{s.evidence} Where: {s.where}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="hint pt-2 text-xs">{v.sizing.note}</p>
+        <p className="pt-2 text-sm font-medium">Order of approvals</p>
+        <ol className="list-decimal pl-5 text-sm">{v.approvalOrder.map((a) => <li key={a}>{a.replace(/^\d+ /, "")}</li>)}</ol>
+      </details>
+    </section>
   );
 }
 
@@ -83,6 +118,11 @@ export function Capabilities() {
   const rescan = useRescanCapabilities();
   const [state, setState] = useState<CapState | "all">("all");
   const [group, setGroup] = useState<Capability["group"] | "all">("all");
+  const narrow = useNarrow();
+  /** auto = phones start closed and wide screens open; the buttons override it until the next choice. */
+  const [fold, setFold] = useState<"auto" | "open" | "closed">("auto");
+  const cardsOpen = fold === "open" || (fold === "auto" && !narrow);
+  const groupsOpen = fold === "open" || (fold === "auto" && !narrow);
 
   const shown = useMemo(() => (q.data?.capabilities ?? []).filter((c) => (state === "all" || c.state === state) && (group === "all" || c.group === group)), [q.data, state, group]);
   const groups = useMemo(() => {
@@ -132,18 +172,35 @@ export function Capabilities() {
               <button type="button" className="btn" onClick={() => rescan.mutate()} disabled={rescan.isPending}>
                 {rescan.isPending ? "Checking…" : "Check again now"}
               </button>
+              <button type="button" className="btn-secondary" onClick={() => setFold("open")}>
+                Expand all
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setFold("closed")}>
+                Collapse all
+              </button>
             </div>
           </section>
 
           {groups.length === 0 && <p className="hint">Nothing matches that filter.</p>}
-          {groups.map(([g, items]) => (
-            <section key={g} aria-label={GROUP_LABEL[g]} className="space-y-2">
-              <h2 className="text-lg font-semibold">
-                {GROUP_LABEL[g]} <span className="hint text-sm">({items.length})</span>
-              </h2>
-              <ul className="grid gap-2 lg:grid-cols-2">{items.map((c) => <Card key={c.id} c={c} />)}</ul>
-            </section>
-          ))}
+          {groups.map(([g, items]) => {
+            const working = items.filter((c) => c.state === "available").length;
+            const attention = items.length - working;
+            return (
+              <section key={`${g}:${fold}`} aria-label={GROUP_LABEL[g]}>
+                <details open={groupsOpen} className="space-y-2">
+                  <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-2">
+                    <h2 className="text-lg font-semibold">{GROUP_LABEL[g]}</h2>
+                    <span className="hint text-sm">
+                      {items.length} · {working} working{attention > 0 ? ` · ${attention} not fully working` : ""}
+                    </span>
+                  </summary>
+                  <ul className="grid gap-2 pt-2 lg:grid-cols-2">{items.map((c) => <Card key={`${c.id}:${fold}`} c={c} open={cardsOpen} />)}</ul>
+                </details>
+              </section>
+            );
+          })}
+
+          <VmReadinessCard />
 
           <section aria-label="Recent changes" className="card space-y-2">
             <h2 className="text-lg font-semibold">Recent changes</h2>

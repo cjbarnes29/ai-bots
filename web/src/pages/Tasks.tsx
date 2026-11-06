@@ -1,3 +1,4 @@
+import { ResultCheck } from "../components/ResultCheck";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
@@ -254,6 +255,8 @@ export function TaskDetail() {
           {errorText(cancel.error)}
         </p>
       )}
+
+      <ResultCheck taskId={task.id} finished={!working} />
 
       <ul aria-label="Task tree">
         <TaskNodeView node={task} />

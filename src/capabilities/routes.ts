@@ -8,6 +8,7 @@ const assessSchema = z.strictObject({ goal: z.string().min(1).max(4000) });
 export async function registerCapabilityRoutes(app: FastifyInstance, svc: CapabilityService, audit: { record(kind: string, detail?: Record<string, unknown>, options?: { actor?: string }): void }): Promise<void> {
   app.get("/api/capabilities", async () => svc.view());
   app.get("/api/capabilities/changes", async (req) => ({ changes: svc.changes(Number((req.query as { limit?: string }).limit) || 30) }));
+  app.get("/api/capabilities/vm-readiness", async () => ({ readiness: await svc.vmReadiness() }));
   app.post("/api/capabilities/refresh", async () => svc.view(true));
   app.post("/api/capabilities/assess", async (req) => {
     const { goal } = assessSchema.parse(req.body);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useMatches } from "react-router-dom";
 import { useExternalStatus } from "../../api/hooks";
 import { GuardianBanner } from "../GuardianBanner";
@@ -8,7 +8,7 @@ import { Breadcrumbs } from "./Breadcrumbs";
 import { SectionTabs } from "../SectionTabs";
 import { WorkspaceTabs } from "./WorkspaceTabs";
 import { SearchDialog } from "./SearchDialog";
-import { NAV, isActive, sectionFor, type NavEntry } from "./nav";
+import { NAV, headingLabel, isActive, sectionFor, type NavEntry } from "./nav";
 import { GuidanceNote, HiddenScreenNotice, LevelBar, useChooseLevel } from "./LevelBar";
 import { shownAt } from "../../lib/interfaceLevel";
 
@@ -100,8 +100,15 @@ export function AppShell() {
           <Icon name="search" />
           <span className={collapsed ? "md:sr-only" : "md:sr-only lg:not-sr-only"}>Search</span>
         </button>
-        {NAV.filter((e) => shownAt(e.level, level) || isActive(e, pathname)).map((entry) => (
-          <NavItem key={entry.to} entry={entry} collapsed={collapsed} active={isActive(entry, pathname)} waiting={entry.to === "/approvals" ? waiting : 0} />
+        {NAV.filter((e) => shownAt(e.level, level) || isActive(e, pathname)).map((entry, i, shown) => (
+          <Fragment key={entry.to}>
+            {(i === 0 || shown[i - 1]!.heading !== entry.heading) && (
+              <p className={`px-3 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${collapsed ? "hidden" : "hidden lg:block"}`} data-heading={entry.heading}>
+                {headingLabel(entry.heading)}
+              </p>
+            )}
+            <NavItem entry={entry} collapsed={collapsed} active={isActive(entry, pathname)} waiting={entry.to === "/approvals" ? waiting : 0} />
+          </Fragment>
         ))}
         <button
           type="button"
@@ -237,8 +244,14 @@ function MoreSheet({ pathname, waiting, level, onClose }: { pathname: string; wa
           </button>
         </div>
         <ul className="divide-y divide-slate-200 dark:divide-slate-800">
-          {NAV.filter((e) => !e.primary && (shownAt(e.level, level) || isActive(e, pathname))).map((e) => (
-            <li key={e.to}>
+          {NAV.filter((e) => !e.primary && (shownAt(e.level, level) || isActive(e, pathname))).map((e, i, shown) => (
+            <Fragment key={e.to}>
+              {(i === 0 || shown[i - 1]!.heading !== e.heading) && (
+                <li role="presentation" className="pt-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {headingLabel(e.heading)}
+                </li>
+              )}
+            <li>
               <Link to={e.to} aria-current={isActive(e, pathname) ? "page" : undefined} className="flex min-h-12 items-center gap-3 px-1 text-base">
                 <Icon name={e.icon} />
                 <span className="flex-1">{e.label}</span>
@@ -246,6 +259,7 @@ function MoreSheet({ pathname, waiting, level, onClose }: { pathname: string; wa
                 <Icon name="next" className="h-4 w-4 text-slate-400" />
               </Link>
             </li>
+            </Fragment>
           ))}
         </ul>
         {NAV.some((e) => !e.primary && !shownAt(e.level, level)) && (

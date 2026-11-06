@@ -259,3 +259,19 @@ describe("the More sheet keeps focus", () => {
   });
 
 });
+
+describe("menu headings (owner decision: seven headings over the 12 entries)", () => {
+  it("every entry belongs to one of the seven headings and none was removed", async () => {
+    const { HEADINGS } = await import("./components/shell/nav");
+    expect(HEADINGS.map((h) => h.label)).toEqual(["Global Assistant", "Inbox", "Projects", "Workflow Studio", "Business Workforce", "Activity", "Settings"]);
+    expect(NAV).toHaveLength(12);
+    for (const e of NAV) expect(HEADINGS.map((h) => h.id)).toContain(e.heading);
+    expect(new Set(NAV.map((e) => e.heading)).size).toBe(7);
+  });
+  it("each heading covers one run of neighbouring entries, and the Assistant is still first", async () => {
+    const seen: string[] = [];
+    for (const e of NAV) if (seen.at(-1) !== e.heading) seen.push(e.heading);
+    expect(seen).toEqual([...new Set(seen)]); // no heading is split in two
+    expect(NAV[0]?.to).toBe("/assistant");
+  });
+});

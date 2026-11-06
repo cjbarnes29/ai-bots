@@ -1,3 +1,4 @@
+import { existsSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -109,6 +110,9 @@ import { WorkflowService } from "./workflows/service.js";
 import { SkillService } from "./skills/service.js";
 import { registerSkillRoutes } from "./skills/routes.js";
 import { CapabilityService } from "./capabilities/service.js";
+import { VerificationService } from "./verification/service.js";
+import { registerVerificationRoutes } from "./verification/routes.js";
+import { resolveInRoots } from "./connectors/pc/paths.js";
 import { registerCapabilityRoutes } from "./capabilities/routes.js";
 import { ToolRegistry, realRunner, type CommandRunner } from "./tools/registry.js";
 import { ModelRouter } from "./routing/router.js";
@@ -152,6 +156,7 @@ declare module "fastify" {
     modelRouter: ModelRouter;
     tools: ToolRegistry;
     capabilities: CapabilityService;
+    verification: VerificationService;
     /** Inbound message sources. The real server checks them with the clock; tests call `inbound.tick()` by hand. */
     inbound: InboundService;
   }
@@ -517,7 +522,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     modeBlock: (botId, connectorId, kind) => botModes.block(botId, connectorId, kind),
     onPending: (approvalId, botId) => void inbox?.postFromEvent(botId, "approval_needed", { kind: "approval", id: approvalId }),
   });
-  await registerApprovalRoutes(app, gate, audit);
+  await registerApprovalRoutes(app, gate, audit, () => workflows.tick()); // a decided approval lets a waiting workflow continue at once
   await registerGuardianRoutes(app, guardian);
   await registerAccessRoutes(app, access, audit);
   await registerBotStudioRoutes(app, { agents: agentService, modes: botModes, audit, complete: (input) => llm.complete(input) });
@@ -627,6 +632,27 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   app.decorate("workspace", workspace);
   await registerWorkspaceRoutes(app, workspace);
   await registerHubRoutes(app, new HubService({ db }), db);
+  // Independent result verification (M4): compares what a task's reply claims with the platform's own record. Files are checked through the folder gate.
+  const verification = new VerificationService({
+    db,
+    audit,
+    probe: (abs) => {
+      const r = resolveInRoots(pcService.roots(), abs, pcService.roots()[0] ?? ".");
+      if (!r.ok) return { state: "unreadable", reason: r.reason };
+      try {
+        folderGate?.require({ subject: "workforce", path: r.abs, op: "read" });
+      } catch (err) {
+        return { state: "unreadable", reason: err instanceof Error ? err.message.slice(0, 120) : "not allowed to read" };
+      }
+      try {
+        return statSync(r.abs).isFile() ? { state: "ok", size: statSync(r.abs).size } : { state: "missing" };
+      } catch {
+        return { state: "missing" };
+      }
+    },
+  });
+  app.decorate("verification", verification);
+  await registerVerificationRoutes(app, verification);
   let automation: AutomationService | undefined; // created just below; the engine tells it when a chain ends
   const engine = new TaskEngine({
     tasks: taskRepo,
@@ -639,6 +665,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     taskOutcome: (task, replies) => workspace.outcome(task, replies),
     ...(options.sleep ? { sleep: options.sleep } : {}),
     onRootFinished: (task) => {
+      verification.record(task.id); // records the verdict (never throws)
       automation?.onRootFinished(task);
       try {
         decisionsRef?.onRootFinished(task);
@@ -722,10 +749,13 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     tools: (fresh) => (fresh ? tools.refresh() : tools.list()),
     kv: { get: (k) => approvalRepo.getSetting(k), set: (k, v) => approvalRepo.setSetting(k, v, new Date(now()).toISOString()) },
     probeFfmpeg: () => (options.toolRunner ?? realRunner)("ffmpeg", ["-version"]),
+    // A file-exists check only (nothing is started or opened); tests that inject their own tool runner never look at the real machine.
+    vmwareFound: () => (options.toolRunner ? null : ["C:/Program Files (x86)/VMware/VMware Workstation/vmware.exe", "C:/Program Files/VMware/VMware Workstation/vmware.exe"].some((f) => existsSync(f))),
     audit,
     now,
     facts: () => ({
       agents: (() => {
+        const vCounts = verification.countsByBot();
         const done = new Map<string, { completed: number; failed: number }>();
         for (const row of db.prepare("SELECT assignee_bot_id AS b, status AS s, COUNT(*) AS n FROM tasks WHERE status IN ('completed', 'failed') GROUP BY assignee_bot_id, status").all()) {
           const e = done.get(String(row["b"])) ?? { completed: 0, failed: 0 };
@@ -733,7 +763,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
           else e.failed = Number(row["n"]);
           done.set(String(row["b"]), e);
         }
-        return agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, role: b.role, status: b.status, runtime: b.runtime, model: b.model, completedTasks: done.get(b.id)?.completed ?? 0, failedTasks: done.get(b.id)?.failed ?? 0 }));
+        return agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, role: b.role, status: b.status, runtime: b.runtime, model: b.model, completedTasks: done.get(b.id)?.completed ?? 0, failedTasks: done.get(b.id)?.failed ?? 0, verifiedTasks: vCounts.get(b.id)?.verified ?? 0, contradictedTasks: vCounts.get(b.id)?.contradicted ?? 0 }));
       })(),
       workflows: (() => {
         const runs = new Map<string, { completed: number; failed: number }>();
@@ -748,7 +778,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
           name: w.name,
           enabled: w.enabled,
           problems: w.problems.length,
-          botIds: w.graph.nodes.flatMap((n) => (n.type === "bot_task" ? [n.botId] : [])),
+          botIds: w.graph.nodes.flatMap((n) => (n.type === "bot_task" || n.type === "integration" ? [n.botId] : [])),
+          connectors: [...new Set(w.graph.nodes.flatMap((n) => (n.type === "integration" ? [n.connector] : [])))],
           usesManager: w.graph.nodes.some((n) => n.type === "manager"),
           lastRunStatus: w.lastRun?.status ?? null,
           completedRuns: runs.get(w.id)?.completed ?? 0,
@@ -857,6 +888,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
   // ---- Workflows (Stage 6): drawn as boxes and arrows, with a saved queue that survives restarts ----
   const workflows = new WorkflowService({
+    actions: { request: (botId, taskId, req) => gate.request(botId, taskId, req), exists: (connector, action) => registry.action(connector, action) !== undefined },
     db,
     audit,
     now,

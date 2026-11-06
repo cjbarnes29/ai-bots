@@ -738,7 +738,7 @@ export interface PcOverview {
 // ---- workflows (Stage 6)
 export interface WfNode {
   id: string;
-  type: "trigger" | "bot_task" | "manager" | "condition" | "checkpoint" | "set" | "end";
+  type: "trigger" | "bot_task" | "manager" | "integration" | "condition" | "checkpoint" | "set" | "end";
   label: string;
   x: number;
   y: number;

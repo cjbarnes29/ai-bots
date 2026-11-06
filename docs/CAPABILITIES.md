@@ -71,6 +71,37 @@ Agents and workflows follow the same six levels. Their **operational** level mea
 - **Manager:** the planning prompt's "can do / NOT available" lists come from the registry (unproven things are listed as not to be relied on); `POST /api/manager/runs` assesses the goal first (M2).
 - **Workflow engine:** `POST /api/workflows/:id/run` is refused with 422 `workflow_not_ready` and the reasons when the workflow's capability is "partly working" because an agent it uses cannot run (paused, no model, model unusable, archived) or the Manager has no verified model. `proceedAnyway: true` overrides this and grants nothing. Workflows that are invalid or switched off keep their existing engine messages.
 
+## Independent result verification (M4, D-083)
+
+"Completed" only means an agent stopped. `src/verification/` compares what a task's reply CLAIMS with the platform's own record. It reads only, uses no model and cannot approve, run or change anything.
+
+| Verdict | Meaning |
+|---|---|
+| verified | at least one independent piece of evidence (an approved action that ran; a file that exists with the size the action reported) and nothing contradicts the result |
+| unverified | finished, but nothing the platform can check (a text answer): the agent's own words |
+| waiting | an outside action is still waiting for the owner's approval |
+| contradicted | the reply claims an action (sent, saved, published...) with no matching executed action, an action failed, or a reported file is missing or has a different size |
+| not_applicable | the task did not finish with a result |
+
+- Claims are found by plain word patterns, only for things outside the chat ("I have sent...", "the file was saved"), skipping negations, plans and questions; only the agent's own words are scanned (the platform's appended record is not). A reply cannot talk its way into "verified".
+- Files are checked through the folder permission gate; a file that cannot be read is "not confirmed", never a pass.
+- A chain's verdict is its worst step. The verdict is always recomputed from the current record, so approving an action later turns "waiting" into "verified". It is written to the audit log (`task.verification`) when new or changed.
+- API: `GET /api/tasks/:id/verification` (one task), `GET /api/tasks/:id/chain-verification` (the chain, records the verdict). Dashboard: the "Result check" panel on the task page.
+- Registry link: an agent's **verified** level is "yes" only when at least one of its recent finished chains is currently verified; contradicted results are listed in its limits.
+- Not covered: whether a text answer is correct or good; numbers or facts inside a reply; actions other than approved connector actions (for example things a Manager step did through its own tasks are covered through their task ids, but a Manager's final text is not separately scanned).
+
+## Outside-action workflow boxes (M6, D-083)
+
+Workflow Studio has a new box, **Outside action** (`type: "integration"`): an agent, a service, an action and its fields (templates like `{{input}}` allowed). It goes through the SAME approval gate as an agent: a read runs at once only if that agent is allowed to read that service; a write never runs by itself, it creates an approval request and the run **waits** (step status `waiting`, kind `approval`). The owner decides on the Approvals page; the run continues at once after the decision (the approve/deny routes tell the workflow engine; the 30-second clock is only a backstop). Executed means the action's result becomes the box's output; failed, denied or expired fails the box with that reason. The existing **Checkpoint** box is the plain "approve before continuing" box. Rules: the checkpoint buttons can NOT decide an outside-action box (409 `needs_approval`); such a box is never retried automatically or by hand once it asked; the pause switch, folder gate and Guardian hold still apply; the box grants nothing. The registry's workflow entry depends on the agents and services its boxes use, and a run is refused (422 `workflow_not_ready`, `proceedAnyway` overrides) when they cannot work. Limit: a restart in the instant between the request and the saved wait can create a second request (documented, same as other boxes).
+
+## Menu headings (M7, D-083)
+
+The 12 menu entries are unchanged (same order, addresses, levels, tabs; the AI Assistant is still first). They are grouped under seven caption headings: **Global Assistant** (AI Assistant), **Inbox** (Dashboard), **Projects** (Projects), **Workflow Studio** (Workflows), **Business Workforce** (AI Agents, Knowledge Center), **Activity** (Tasks & history, Decisions & approvals), **Settings** (AI Models, Apps & Integrations, Creative Studio, Settings). A heading appears only when one of its entries is listed at the current interface level. The Inbox page and the Business Workforce page stay where they were (tabs under Tasks & history and Apps & Integrations). The mapping lives in `web/src/components/shell/nav.ts` (`HEADINGS`, `heading` on each entry).
+
+## Desktop and VM readiness (M9, D-083)
+
+`GET /api/capabilities/vm-readiness` and a card on the Capabilities page: a read-only checklist of 12 steps between today's supervised desktop engine and an isolated VM, with the evidence for each, what needs the owner's separate approval, where the review-only material is, a sizing suggestion from the real host (always leaves the owner 8 GB) and the approval order from D-040. It is never "ready". The only look at the machine is a file-exists check for VMware's usual install folders. Nothing is installed, created, started or changed.
+
 ## Limits (state these plainly)
 
 - Matching is by keywords in English; it can miss an ability or over-match. The answer says so (`caveat`).

@@ -71,6 +71,14 @@ Dependencies: only the three runtime packages already used (`fastify`, `@fastify
 ### 5g. Automatic capability discovery (2026-11-06)
 - Open **Apps & Integrations > Capabilities** (Advanced level) or ask the Assistant "what can you do?". The list builds itself from the real services: new agents, workflows, AI models, connections and tools appear, removed ones disappear, and every change is written to the audit log. A new agent says "set up, not proven" until it completes a task. Workflow runs are refused (with reasons) when an agent they use cannot run; you can still send them with `proceedAnyway`. Tested with fakes only; not yet checked in a real browser or with a real provider. Uncommitted.
 
+### 5h. Result checks, outside-action workflow boxes, menu headings and VM readiness (2026-11-06)
+- **Task page > Result check** now says whether a result is confirmed by the platform (an approved action ran, the file really exists), not checked (a text answer), waiting for your approval, or contradicted (the reply claims something the record does not support). "Completed" alone never means confirmed.
+- **Workflow editor > Add Outside action:** a box that does something outside through the same approval gate. A write waits for you on the Approvals page and the workflow continues right after you decide. The checkpoint buttons cannot approve it.
+- **Menu:** the same 12 entries under seven headings (Global Assistant, Inbox, Projects, Workflow Studio, Business Workforce, Activity, Settings).
+- **Capabilities page > Desktop and VM readiness:** a read-only checklist; the VM is NOT built and nothing was installed or changed.
+- **Waiting for you:** the real-provider test needs your approval of exactly 16 free Groq requests (`docs/PROVIDER-VALIDATION-PLAN.md`, board P-49). Until then none of this has been seen with a real model.
+- Two commits were made at your instruction (`18dfce7`, `952f4b4`); the work in this section is **uncommitted**.
+
 ### 5e0. Chat error "Developer instruction is not enabled" (fixed in code, 2026-11-05)
 - Models that do not accept a system message (the Gemma family) now get the bot's instructions inside the first message instead. Tested against a fake provider only; try the same bot again and tell me if the error is gone.
 

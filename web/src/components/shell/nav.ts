@@ -8,7 +8,26 @@ export interface NavTab {
   match: string[];
 }
 
+/**
+ * The seven headings the menu is grouped under (owner decision 2026-11-06). They are captions only: every one of the 12 entries below still exists,
+ * keeps its address, its level and its tabs, and a heading is shown only when at least one of its entries is listed at the current interface level.
+ * The order of the entries did not change (the AI Assistant stays first, D-077), so each heading covers a run of neighbouring entries.
+ */
+export const HEADINGS = [
+  { id: "assistant", label: "Global Assistant" },
+  { id: "inbox", label: "Inbox" },
+  { id: "projects", label: "Projects" },
+  { id: "workflow", label: "Workflow Studio" },
+  { id: "business", label: "Business Workforce" },
+  { id: "activity", label: "Activity" },
+  { id: "settings", label: "Settings" },
+] as const;
+export type HeadingId = (typeof HEADINGS)[number]["id"];
+export const headingLabel = (id: HeadingId): string => HEADINGS.find((h) => h.id === id)!.label;
+
 export interface NavEntry {
+  /** The heading this entry is listed under. */
+  heading: HeadingId;
   to: string;
   label: string;
   icon: IconName;
@@ -28,11 +47,11 @@ export interface NavEntry {
  */
 export const NAV: NavEntry[] = [
   // The main entry point: a permanent chat workspace, never a panel inside another section.
-  { to: "/assistant", label: "AI Assistant", level: "simple", icon: "chat", match: ["/assistant"], primary: true, tabs: [] },
-  { to: "/", label: "Dashboard", level: "simple", icon: "dashboard", match: [], primary: true, tabs: [] },
-  { to: "/projects", label: "Projects", level: "simple", icon: "briefcase", match: ["/projects"], primary: true, tabs: [] },
+  { heading: "assistant", to: "/assistant", label: "AI Assistant", level: "simple", icon: "chat", match: ["/assistant"], primary: true, tabs: [] },
+  { heading: "inbox", to: "/", label: "Dashboard", level: "simple", icon: "dashboard", match: [], primary: true, tabs: [] },
+  { heading: "projects", to: "/projects", label: "Projects", level: "simple", icon: "briefcase", match: ["/projects"], primary: true, tabs: [] },
   {
-    to: "/workflows",
+    heading: "workflow", to: "/workflows",
     label: "Workflows", level: "intermediate",
     icon: "workflow",
     match: ["/workflows", "/automation"],
@@ -43,7 +62,7 @@ export const NAV: NavEntry[] = [
     ],
   },
   {
-    to: "/agents",
+    heading: "business", to: "/agents",
     label: "AI Agents", level: "intermediate",
     icon: "agents",
     match: ["/agents", "/bots", "/studio", "/groups", "/workforce"],
@@ -56,7 +75,7 @@ export const NAV: NavEntry[] = [
     ],
   },
   {
-    to: "/knowledge",
+    heading: "business", to: "/knowledge",
     label: "Knowledge Center", level: "intermediate",
     icon: "book",
     match: ["/knowledge"],
@@ -64,7 +83,7 @@ export const NAV: NavEntry[] = [
     tabs: [{ to: "/knowledge", label: "Shared notes", match: ["/knowledge"] }],
   },
   {
-    to: "/tasks",
+    heading: "activity", to: "/tasks",
     label: "Tasks & history", level: "intermediate",
     icon: "activity",
     match: ["/tasks", "/monitor", "/inbox"],
@@ -76,7 +95,7 @@ export const NAV: NavEntry[] = [
     ],
   },
   {
-    to: "/approvals",
+    heading: "activity", to: "/approvals",
     label: "Decisions & approvals", level: "simple",
     icon: "approvals",
     match: ["/approvals", "/decisions"],
@@ -87,7 +106,7 @@ export const NAV: NavEntry[] = [
     ],
   },
   {
-    to: "/models",
+    heading: "settings", to: "/models",
     label: "AI Models", level: "advanced",
     icon: "cpu",
     match: ["/models", "/settings/ai-models", "/usage"],
@@ -95,7 +114,7 @@ export const NAV: NavEntry[] = [
     tabs: [{ to: "/models", label: "Providers & models", match: ["/models", "/settings/ai-models", "/usage"] }],
   },
   {
-    to: "/integrations",
+    heading: "settings", to: "/integrations",
     label: "Apps & Integrations", level: "advanced",
     icon: "plug",
     match: ["/integrations", "/pc", "/access", "/business", "/capabilities"],
@@ -108,8 +127,8 @@ export const NAV: NavEntry[] = [
       { to: "/business", label: "Business Workforce", match: ["/business"] },
     ],
   },
-  { to: "/creative", label: "Creative Studio", level: "advanced", icon: "palette", match: ["/creative"], primary: false, tabs: [] },
-  { to: "/settings", label: "Settings", level: "advanced", icon: "settings", match: ["/settings"], primary: false, tabs: [] },
+  { heading: "settings", to: "/creative", label: "Creative Studio", level: "advanced", icon: "palette", match: ["/creative"], primary: false, tabs: [] },
+  { heading: "settings", to: "/settings", label: "Settings", level: "advanced", icon: "settings", match: ["/settings"], primary: false, tabs: [] },
 ];
 
 const covers = (prefix: string, pathname: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);

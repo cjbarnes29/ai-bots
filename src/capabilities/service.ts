@@ -1,6 +1,7 @@
 import { cpus, totalmem } from "node:os";
 import type { ToolInfo } from "../tools/registry.js";
 import { assess, type Assessment } from "./feasibility.js";
+import { vmReadiness, type VmReadiness } from "./vm-readiness.js";
 import { LEVELS, buildCapabilities, summarize, type CapGroup, type CapLevel, type Capability, type CapabilityFacts, type CapState, type Summary } from "./registry.js";
 
 /**
@@ -24,6 +25,8 @@ export interface CapabilityDeps {
     record(kind: string, detail?: Record<string, unknown>, options?: { actor?: string }): void;
     recent?(kinds: string[], limit: number): { id: number; createdAt: string; kind: string; detail: Record<string, unknown> }[];
   };
+  /** A read-only look for VMware in its usual install folders (a file-exists check; nothing is started). null = not looked. */
+  vmwareFound?: () => boolean | null;
   /** The existing key/value settings store. Optional: without it the baseline lives in memory only. */
   kv?: { get(key: string): string | null; set(key: string, value: string): void };
   now: () => number;
@@ -126,6 +129,11 @@ export class CapabilityService {
       available: caps.filter((c) => c.state === "available").map((c) => c.name),
       notAvailable: caps.filter((c) => c.state !== "available").map((c) => (c.state === "unverified" || c.state === "partial" ? `${c.name} (set up but unproven: do not rely on it)` : c.name)),
     };
+  }
+
+  /** The desktop and VM readiness checklist (M9): read-only, creates and changes nothing. */
+  async vmReadiness(): Promise<VmReadiness> {
+    return vmReadiness({ ramGb: Math.round(totalmem() / 1024 ** 3), cpuThreads: cpus().length, vmwareFound: this.d.vmwareFound?.() ?? null, caps: await this.list() });
   }
 
   /** The recent change history, newest first, read from the audit log. */
