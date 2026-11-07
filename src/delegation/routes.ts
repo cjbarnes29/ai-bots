@@ -1,12 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { AppError } from "../errors.js";
+import type { CapabilityService } from "../capabilities/service.js";
 import type { TaskEngine } from "./engine.js";
 import { delegationLimitsUpdateSchema } from "./limits.js";
 import type { DelegationService } from "./service.js";
 
 const idSchema = z.string().uuid();
-const submitSchema = z.strictObject({ instruction: z.string(), projectId: z.string().uuid().optional(), saveToWorkspace: z.boolean().optional() });
+const submitSchema = z.strictObject({ instruction: z.string(), projectId: z.string().uuid().optional(), saveToWorkspace: z.boolean().optional(), proceedAnyway: z.boolean().optional() });
 const teamSchema = z.strictObject({ targetBotIds: z.array(z.string().uuid()).max(100) });
 
 function parseId(value: unknown, code: string, message: string): string {
@@ -19,6 +20,8 @@ export async function registerDelegationRoutes(
   app: FastifyInstance,
   service: DelegationService,
   engine: TaskEngine,
+  capabilities?: CapabilityService,
+  audit?: { record(kind: string, detail?: Record<string, unknown>, options?: { actor?: string }): void },
 ): Promise<void> {
   // ---- who a bot may hand work to (nobody, until you say so) ----
   app.get<{ Params: { id: string } }>("/api/bots/:id/delegation", async (req) => {
@@ -33,8 +36,17 @@ export async function registerDelegationRoutes(
   // ---- tasks ----
   app.post<{ Params: { id: string } }>("/api/bots/:id/tasks", async (req, reply) => {
     const body = submitSchema.parse(req.body);
+    let assessment: Awaited<ReturnType<CapabilityService["assess"]>> | undefined;
+    if (capabilities) {
+      assessment = await capabilities.assess(body.instruction);
+      audit?.record("capability.assessed", { classification: assessment.classification, blockers: assessment.blockers, goal: body.instruction.slice(0, 120), via: "delegation" }, { actor: "system" });
+      const policyBlocked = assessment.requirements.filter((r) => r.status === "blocked_by_policy");
+      if (assessment.classification === "unsupported" && policyBlocked.length > 0 && body.proceedAnyway !== true) {
+        return reply.code(422).send({ error: "task_unsupported", message: `${assessment.summary} Send the request again with proceedAnyway if you want a best-effort attempt; approval and permission gates still apply.`, assessment });
+      }
+    }
     const task = service.submit(parseId(req.params.id, "bot_not_found", "Bot not found"), body.instruction, body.projectId, body.saveToWorkspace === undefined ? {} : { saveToWorkspace: body.saveToWorkspace });
-    return reply.code(202).send({ task });
+    return reply.code(202).send({ task, ...(assessment ? { assessment } : {}) });
   });
 
   app.get("/api/tasks", async () => ({ tasks: service.listRoots() }));

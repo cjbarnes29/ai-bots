@@ -836,7 +836,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   app.decorate("workforce", workforce);
   await registerWorkforceRoutes(app, workforce);
   const delegation = new DelegationService(taskRepo, engine, (id) => agentService.getBot(id), now, projects, (rootId, save) => workspace.expect(rootId, save));
-  await registerDelegationRoutes(app, delegation, engine);
+  await registerDelegationRoutes(app, delegation, engine, capabilities, audit);
   // The AI Assistant edits only through the existing services (projects, knowledge, agents, tasks). Restricted requests are refused and logged; nothing here can delete, approve, send or change permissions.
   await registerAssistantRoutes(app, new AssistantActions({ db, audit, projects, knowledge, agents: agentService, cancelTask: (id) => void delegation.cancel(id), complete: (input) => llm.complete(input), now }), db, now, guardian ? (token: string) => guardian.checkProof(token) : undefined, capabilities);
 

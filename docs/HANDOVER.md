@@ -1,7 +1,13 @@
 # Handover
 
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
-Updated whenever something changes. Last update: 2026-11-05 (real model tests run; migration 019 applied; screens next, groups deferred).
+Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-07.
+
+## Current checkpoint (2026-11-07)
+- The latest implementation commit is `f5cb7e5` (M4-M9 modernization). The direct bot task route now includes a capability assessment and blocks explicitly policy-prohibited unsupported requests unless the caller asks for a best-effort attempt; see NV-38 and the 2026-11-07 entry in `docs/PROGRESS.md`.
+- Current full check: backend 2,013 tests, dashboard 447 tests, both typechecks and production build pass. The dashboard build still warns that its minified JavaScript chunk is larger than 500 kB.
+- Real-provider P-49 remains unapproved and unrun. No real provider requests were made for this audit/change. Guardian Tier B, dedicated account, VM/isolation and elevated firewall audit remain not built or not run; unattended operation remains unavailable.
+- This file's sections 1-8 contain historical owner guidance and older snapshots. For current implementation detail, use `docs/PROGRESS.md`, `docs/CAPABILITIES.md` and `docs/REPOSITORY-AUDIT-2026-11-07.md`.
 
 ## 1. Completion criteria (the owner's list) and their real state
 | Criterion | State | Evidence / what is missing |

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestApp, setupGeminiModel, type TestApp } from "../test-app.js";
+import { switchOn } from "../llm/test-helpers.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let t: TestApp;
@@ -91,6 +92,23 @@ describe("capability API (real app wiring, fake services)", () => {
     expect(res.body.run.id).toBeTruthy();
     expect(res.body.assessment.classification).toBe("fully");
     await t.app.manager.idle();
+  });
+
+  it("direct bot tasks refuse impossible requests unless the owner explicitly asks for a best-effort attempt", async () => {
+    const model = await setupGeminiModel(t);
+    const bot = (await switchOn(t.call, await t.call("POST", "/api/bots", { name: "Helper", model }))).body.bot;
+    const refused = await t.call("POST", `/api/bots/${bot.id}/tasks`, { instruction: "Deploy the website to production" });
+    expect(refused.status).toBe(422);
+    expect(refused.body.error).toBe("task_unsupported");
+    expect(refused.body.assessment.requirements.some((r: any) => r.status === "blocked_by_policy")).toBe(true);
+    expect((await t.call("GET", "/api/tasks")).body.tasks).toHaveLength(0);
+
+    const accepted = await t.call("POST", `/api/bots/${bot.id}/tasks`, { instruction: "Deploy the website to production", proceedAnyway: true });
+    expect(accepted.status).toBe(202);
+    expect(accepted.body.assessment.classification).toBe("unsupported");
+    expect(accepted.body.task.id).toBeTruthy();
+    const audit = (await t.call("GET", "/api/audit?limit=100")).body.events;
+    expect(audit.some((e: any) => e.kind === "capability.assessed" && e.detail.via === "delegation")).toBe(true);
   });
 
   it("a task that only needs setup (not impossible) is accepted, and the missing pieces are reported", async () => {

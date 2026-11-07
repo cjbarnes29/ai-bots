@@ -46,6 +46,7 @@ Groups: tool, model, integration, permission, authentication, environment. Inclu
 
 - `GET /api/capabilities`, `POST /api/capabilities/refresh`, `POST /api/capabilities/assess` (all read-only; assess writes one `capability.assessed` audit line holding a 120-character clip).
 - `POST /api/manager/runs`: the Manager assesses the goal first. A task that is **impossible as asked** (something it needs is not built, not installed, or forbidden) is refused with 422 `task_unsupported` and the assessment. The owner may resend with `proceedAnyway: true` for a best-effort plan; this grants nothing. Tasks that merely need setup or are unproven are accepted and the response carries the assessment. One existing test (`skills.test.ts`, "make a video") now sends `proceedAnyway: true` because the behaviour changed on purpose.
+- `POST /api/bots/:id/tasks`: direct task submissions are assessed before a task is created. An otherwise unsupported task is refused when the wording explicitly matches a policy prohibition (for example, deploying or purchasing); `proceedAnyway: true` requests a best-effort attempt and grants nothing. Requests that mention an unavailable capability without a policy prohibition are accepted with their assessment so existing text-work and fallback flows remain usable. Every assessment is audited with `via: "delegation"` and a short, clipped instruction.
 - Changes of a capability's state between listings are written to the audit log as `capability.changed` (that is how "reassess when something changes" is recorded without a new table). The registry is rebuilt on every call (10 s cache), so connecting a provider, passing a test or pausing approvals shows at once.
 
 ## Automatic discovery and updates (D-082)
@@ -107,7 +108,7 @@ The 12 menu entries are unchanged (same order, addresses, levels, tabs; the AI A
 - Matching is by keywords in English; it can miss an ability or over-match. The answer says so (`caveat`).
 - "Authenticated" for a provider means its last call or model-list request was accepted. It does not prove a particular model works; that is what verified means.
 - All evidence today comes from fake services in development except the Groq runs recorded on the decision board. Nothing here proves a real Gmail, Google, Telegram, GitHub or Notion connection (NV-3, NV-4).
-- Not built yet: checks on delegation tasks created directly (only Manager requests and workflow runs are gated), tool probes are cached 30 s so a program installed a moment ago may take that long to show ("Check again now" re-probes), real-provider runs of the checker and of the Assistant answers, a browser-driven check of the new page, other languages than English for the Assistant questions.
+- Limits: tool probes are cached 30 s so a program installed a moment ago may take that long to show ("Check again now" re-probes); real-provider runs of the checker and Assistant answers, browser-driven checks of the page, and languages other than English for Assistant questions remain unverified or unsupported. Tasks launched by schedules and event triggers still enter through their existing automation path; they are not pre-assessed here.
 - Per-model entries are limited to callable or verified models (80 at most).
 - Everything is supervised-only. No autonomy was added.
 
