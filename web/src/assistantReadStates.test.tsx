@@ -11,10 +11,10 @@ const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { sta
 const down = () => json({ error: "synthetic_unavailable", message: "Synthetic read unavailable" }, 503);
 const sample = { id: "act1", level: "review", status: "applied", summary: "Rename project", before: { name: "A" }, after: { name: "B" }, undoable: true, error: null };
 
-function setup(handler: (method: string, url: string) => Response | undefined, stored?: Record<string, string>) {
+function setup(handler: (method: string, url: string) => Response | undefined, stored?: Record<string, string>, bots = [makeBot({ name: "Atlas", status: "active", model: "demo/simulated-echo" })]) {
   sessionStorage.clear();
   Object.entries(stored ?? {}).forEach(([k, v]) => sessionStorage.setItem(k, v));
-  const base = createFakeApi([makeBot({ name: "Atlas", status: "active", model: "demo/simulated-echo" })]);
+  const base = createFakeApi(bots);
   vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
     const out = handler(init?.method ?? "GET", String(input));
     return out ? Promise.resolve(out) : base.fetch(input, init);
@@ -87,5 +87,13 @@ describe("Assistant read states", () => {
     expect(screen.getByRole("button", { name: "Apply this change" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Results and review changes/ }));
+  });
+  it("keeps an unsent message and the project choice when the helper is switched", async () => {
+    setup((m, u) => ok(u), undefined, [makeBot({ name: "Atlas", status: "active", model: "demo/simulated-echo" }), makeBot({ name: "Borealis", status: "active", model: "demo/simulated-echo" })]);
+    const box = await screen.findByLabelText(/Your message/i);
+    await userEvent.type(box, "half written question");
+    await userEvent.selectOptions(screen.getByLabelText("Talk to"), "Borealis");
+    expect(await screen.findByLabelText(/Your message/i)).toHaveValue("half written question");
+    expect(screen.getByLabelText("Talk to")).toHaveDisplayValue("Borealis");
   });
 });

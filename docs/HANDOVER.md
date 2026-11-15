@@ -3,7 +3,13 @@
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
-## Resume here: D-106 Assistant slice built; browser re-run done for hub and levels (2026-11-15)
+## Resume here: D-106 committed; helper-switch draft test added (2026-11-15)
+
+- **Committed locally 2026-11-15 (owner approved all four; no push):** `3505a6b` P-49 results and verifier fixes, `f412fdf` backend verification/provenance/approval linkage/execution assessment, `c354fdf` dashboard (approvals, result checks, Projects/Assistant read states), `a39be3e` docs and evidence. Each was verified from a staged-only export (autocrlf off): 2,015/2,322/2,322/2,322 backend and 447/447/514/514 dashboard, typechecks and builds. Left untracked on purpose: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`. Older "UNCOMMITTED" wording below is historical.
+- Added the required helper-switch regression test (`web/src/assistantReadStates.test.tsx`, now 10 cases): an unsent message and the helper choice survive switching helper. Docs-and-test change after the commits is UNCOMMITTED.
+- **Remaining:** daily-use re-run (replaces results.json), real usability/phone/screen reader/provider, Tier B, owner recovery, Gemini/Google setup (owner). Offer clickable choices.
+
+## D-106 context (historical): Assistant slice built (2026-11-15)
 
 - Owner chose the Assistant slice. Built (presentation only): failed agent/suggestion/change reads now say so with Retry; neutral "Review change" label after a decision; chat before earlier results with a "Results and review changes" button; side column Changes, Suggestions, Workflows; selector "New conversations go in". Files: `web/src/pages/Assistant.tsx`, `web/src/components/assistant/AssistantPanels.tsx`, new `web/src/assistantReadStates.test.tsx` (9 cases). Full check passed: **2,322 backend + 514 dashboard**, typechecks, build. Board D-106, PROGRESS "Assistant slice".
 - **Browser re-run done:** hub 113/113, levels 44/44 (script fixes: Files heading text, two waits). `daily-use-e2e.mjs` not re-run (overwrites D-104 evidence; run only if the owner accepts replacing results.json). **Next choice (clickable):** helper-switch draft regression test, daily-use re-run, or commit review. Nothing is committed; keep all staged/unstaged work. Real phone/screen reader/provider, Tier B and owner recovery stay NOT VERIFIED.
