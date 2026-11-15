@@ -7,7 +7,8 @@ Updated whenever something changes. Historical details below include older snaps
 
 - **Committed locally 2026-11-15 (owner approved all four; no push):** `3505a6b` P-49 results and verifier fixes, `f412fdf` backend verification/provenance/approval linkage/execution assessment, `c354fdf` dashboard (approvals, result checks, Projects/Assistant read states), `a39be3e` docs and evidence. Each was verified from a staged-only export (autocrlf off): 2,015/2,322/2,322/2,322 backend and 447/447/514/514 dashboard, typechecks and builds. Left untracked on purpose: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`. Older "UNCOMMITTED" wording below is historical.
 - Added the required helper-switch regression test (`web/src/assistantReadStates.test.tsx`, now 10 cases): an unsent message and the helper choice survive switching helper. Docs-and-test change after the commits is UNCOMMITTED.
-- **Remaining:** daily-use re-run (replaces results.json), real usability/phone/screen reader/provider, Tier B, owner recovery, Gemini/Google setup (owner). Offer clickable choices.
+- **Daily-use re-run done (D-107, uncommitted):** 63 passed, 0 findings, 10/10 scenarios on the fake-service harness.
+- **Remaining:** real usability/phone/screen reader/provider, Tier B, owner recovery, Gemini/Google setup (owner). Offer clickable choices.
 
 ## D-106 context (historical): Assistant slice built (2026-11-15)
 

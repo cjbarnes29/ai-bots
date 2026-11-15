@@ -840,3 +840,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 ## Commits and helper-switch test (2026-11-15; board D-106)
 - Owner approved four local commits: 3505a6b (P-49), f412fdf (backend), c354fdf (dashboard), a39be3e (docs/evidence). Each verified from a staged-only export with core.autocrlf=false (a first export with line-ending conversion failed the byte-identical 017_groups.sql test: export artifact, not a code fault). No push, no tag.
 - Added the helper-switch draft regression (unsent text and helper choice survive switching helper). Remaining: daily-use re-run, real-device/provider/usability evidence, Tier B, owner recovery.
+
+## Daily-use re-run (2026-11-15; board D-107, NV-45)
+- `scripts/e2e/daily-use-e2e.mjs` re-run on the committed code: 63 passed, 0 findings, 10/10 scenarios, 17/32 fake calls; no outside request. Project list, project hub, helper list and suggestions failures now show explicit error states. Evidence in `docs/evidence/daily-use/` (new timestamped files; results.json replaced). Synthetic only; real owner/phone/screen reader/provider NOT VERIFIED. Uncommitted.

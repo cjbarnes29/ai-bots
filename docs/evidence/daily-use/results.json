@@ -1,6 +1,6 @@
 {
   "syntheticOnly": true,
-  "attempt": "1794739317728",
+  "attempt": "1794743658677",
   "scenarios": [
     {
       "id": "1-find-project",
@@ -108,7 +108,7 @@
       "scenario": "3-draft-and-context",
       "name": "existing conversation context is distinguishable",
       "status": "pass",
-      "detail": "Talk to\nDemo Writer\nFile new conversations under\nNo project\nDemo Launch\nDemo Launch Backup\nWhat I found or did\nClear\n\nYou asked: “show my projects”\n\nI found 2 projects. Which one do you mean?\n\nI understood: project. To send this to the model instead, start the message with “ask:”.\n\nOpen Demo Launch\nproject · Fictional launch project.\nOpen Demo Launch Backup\nproject · Separate fictional project.\nRelated:\nProject: Demo Launch\nAgent: Demo Writer\n\nTest chat. Demo Writer only replies when you send a message. It has no tools and can't take any action"
+      "detail": "Talk to\nDemo Writer\nNew conversations go in\nNo project\nDemo Launch\nDemo Launch Backup\n\nThis only sets where a NEW conversation is filed. A conversation already open keeps its place.\n\nResults and review changes (1)\nRelated:\nProject: Demo Launch\nAgent: Demo Writer\n\nTest chat. Demo Writer only replies when you send a message. It has no tools and can't take any action.\n\nConversation\nNew conversation\nWhat is the marker in the attached fictional brief? (2)\nStart a new conversation\n\nYou\n\nWhat is the marker in the attached fictional brief?\n\ndemo-brief."
     },
     {
       "scenario": "3-draft-and-context",
@@ -329,26 +329,26 @@
     {
       "scenario": "10-failures-and-phone",
       "name": "project list failure has explicit error state",
-      "status": "finding",
-      "detail": "Interface level\nSimple\nIntermediate\nAdvanced\n\nJust the essentials: tell the AI Assistant what you want, keep track of your projects, and approve what needs you. Nothing is removed: every screen is still reachable by search or by asking the assistant.\n\nProjects\nProjects\nAI Assistant\nApprovals\nTasks (item)\nWorkflow Studio\nHome\n/\nProjects\n\nWhat is this? A project keeps everything about one piece of work in one place: its chats, tasks, files and decisions. Open a project to see what needs you.\n\nProjects\n\nGroup related conversations, tasks, workflows and schedules, with shared instructions.\n\nNew project name\nCreate project\n Show archived\n\nChoose a project to open it."
+      "status": "pass",
+      "detail": "Interface level\nSimple\nIntermediate\nAdvanced\n\nJust the essentials: tell the AI Assistant what you want, keep track of your projects, and approve what needs you. Nothing is removed: every screen is still reachable by search or by asking the assistant.\n\nProjects\nProjects\nAI Assistant\nApprovals\nTasks (item)\nWorkflow Studio\nHome\n/\nProjects\n\nWhat is this? A project keeps everything about one piece of work in one place: its chats, tasks, files and decisions. Open a project to see what needs you.\n\nProjects\n\nKeep conversations, tasks, files and decisions together. Open a project to see what needs you and continue with the AI Assistant.\n\nNew project name\nCreate project\n Show archived\n\nCould not load projects. Try again when the connection returns.\n\nRetry projects"
     },
     {
       "scenario": "10-failures-and-phone",
       "name": "project hub failure has explicit error state",
       "status": "pass",
-      "detail": "Overview\nConversations\nTasks & history\nFiles & knowledge\nDecisions & approvals\n\nThis project could not be loaded."
+      "detail": "Could not load project activity. Try again when the connection returns.\n\nRetry project activity\nOverview\nConversations\nTasks & history\nFiles & knowledge\nDecisions & approvals\n\nThis project could not be loaded."
     },
     {
       "scenario": "10-failures-and-phone",
       "name": "helper list failure has explicit error state",
-      "status": "finding",
-      "detail": "d to Active. You can still ask me to find and open things, or show a summary:\n\nFind or open something\nGo\nWhat I found or did\nClear\n\nYou asked: “why did my last task fail”\n\nYour latest failed task was \"Synthetic prior task\" (agent Demo Writer). Recorded reason: fictional outage in seeded prior task\n\nOpen the task\n\nYou asked: “publish the website”\n\nI will not do that myself. Sending or publishing anything outside the app always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Decisions & approvals\n\nYou asked: “approve the pending approval”\n\nI will not do that myself. Approvals and permission or security changes always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Decisions & approvals\n\nYou asked: “delete the project \"Demo Launch\"”\n\nI will not do that myself. Deleting or erasing something always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Projects\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: done\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nUndo\nOpen the project\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: rejected\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nOpen the project\nOpen AI Agents"
+      "status": "pass",
+      "detail": "ether one is set up. You can still ask me to find and open things, or show a summary:\n\nFind or open something\nGo\nWhat I found or did\nClear\n\nYou asked: “why did my last task fail”\n\nYour latest failed task was \"Synthetic prior task\" (agent Demo Writer). Recorded reason: fictional outage in seeded prior task\n\nOpen the task\n\nYou asked: “publish the website”\n\nI will not do that myself. Sending or publishing anything outside the app always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Decisions & approvals\n\nYou asked: “approve the pending approval”\n\nI will not do that myself. Approvals and permission or security changes always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Decisions & approvals\n\nYou asked: “delete the project \"Demo Launch\"”\n\nI will not do that myself. Deleting or erasing something always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Projects\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nReview change\nStatus: done\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nUndo\nOpen the project\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nReview change\nStatus: rejected\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nOpen the project\nOpen AI Agents"
     },
     {
       "scenario": "10-failures-and-phone",
       "name": "suggestions failure has explicit error state",
-      "status": "finding",
-      "detail": "Suggestions\n\nWorked out from your real projects, tasks, approvals and documents. Nothing here changes anything until you act.\n\nNothing needs attention right now."
+      "status": "pass",
+      "detail": "Suggestions\n\nWorked out from your real projects, tasks, approvals and documents. Nothing here changes anything until you act.\n\nCould not load suggestions. Try again when the connection returns.\n\nRetry suggestions"
     },
     {
       "scenario": "10-failures-and-phone",
@@ -423,26 +423,7 @@
       "detail": ""
     }
   ],
-  "issues": [
-    {
-      "id": "DU-READ-PROJECTS",
-      "severity": "S2",
-      "name": "project list failure has explicit error state",
-      "detail": "Interface level\nSimple\nIntermediate\nAdvanced\n\nJust the essentials: tell the AI Assistant what you want, keep track of your projects, and approve what needs you. Nothing is removed: every screen is still reachable by search or by asking the assistant.\n\nProjects\nProjects\nAI Assistant\nApprovals\nTasks (item)\nWorkflow Studio\nHome\n/\nProjects\n\nWhat is this? A project keeps everything about one piece of work in one place: its chats, tasks, files and decisions. Open a project to see what needs you.\n\nProjects\n\nGroup related conversations, tasks, workflows and schedules, with shared instructions.\n\nNew project name\nCreate project\n Show archived\n\nChoose a project to open it."
-    },
-    {
-      "id": "DU-READ-HELPERS",
-      "severity": "S2",
-      "name": "helper list failure has explicit error state",
-      "detail": "d to Active. You can still ask me to find and open things, or show a summary:\n\nFind or open something\nGo\nWhat I found or did\nClear\n\nYou asked: “why did my last task fail”\n\nYour latest failed task was \"Synthetic prior task\" (agent Demo Writer). Recorded reason: fictional outage in seeded prior task\n\nOpen the task\n\nYou asked: “publish the website”\n\nI will not do that myself. Sending or publishing anything outside the app always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Decisions & approvals\n\nYou asked: “approve the pending approval”\n\nI will not do that myself. Approvals and permission or security changes always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Decisions & approvals\n\nYou asked: “delete the project \"Demo Launch\"”\n\nI will not do that myself. Deleting or erasing something always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Projects\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: done\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nUndo\nOpen the project\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: rejected\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nOpen the project\nOpen AI Agents"
-    },
-    {
-      "id": "DU-READ-SUGGESTIONS",
-      "severity": "S2",
-      "name": "suggestions failure has explicit error state",
-      "detail": "Suggestions\n\nWorked out from your real projects, tasks, approvals and documents. Nothing here changes anything until you act.\n\nNothing needs attention right now."
-    }
-  ],
+  "issues": [],
   "fatal": null,
   "fakeCalls": [
     {
@@ -522,19 +503,19 @@
     "Manager/workflow file-evidence corners: copied synthetic receipt for existing scratch CSV; no new execution"
   ],
   "ids": {
-    "bot": "33477e64-23b3-4609-a8fa-fea83e87c596",
-    "project": "846f2c15-4f02-47a1-9634-67ab5c70f62f",
-    "otherProject": "d4196986-823e-42ab-aef9-425ab9b2d8f4",
-    "folder": "543db13a-abb3-4ad6-bf8f-c8b2ef342bf2",
-    "failed": "21afc715-cab3-4e22-b223-abb0afa9bd11",
-    "conversation": "35b54243-d413-4987-8f88-74558666ccdc",
-    "deniedTask": "2c194666-6127-458f-82ae-74717461c82f",
-    "fileTask": "62a314bb-e1ed-4eb2-8fc5-616f0f6c3290",
-    "approval": "c5deab73-919c-44b6-8bd6-6200b71c54f2",
-    "manager": "e46d4383-4006-4d1c-a931-ece4c91bba09",
-    "workflow": "7d0aed49-8371-400d-8c99-60da368f623e",
-    "seedManager": "92616f3a-69fc-46bf-9454-e45bfb4797e1",
-    "seedWorkflow": "bd9439a8-5e8c-4372-be9c-377cb3767417"
+    "bot": "885c39e6-f060-4122-b752-d4d8d786e817",
+    "project": "acc4708e-5fc0-40c1-bbe8-dbe578cd95ad",
+    "otherProject": "2c5884cc-c596-4150-89c6-24887d2491b5",
+    "folder": "6a325eb4-bf80-4cb0-be42-8f8249167bb6",
+    "failed": "fdfb7baf-4a4f-4329-aa81-9c745f342b49",
+    "conversation": "8b61fb73-8a04-45be-907b-385862ca362a",
+    "deniedTask": "2821c360-f579-4239-b62b-375d67d13598",
+    "fileTask": "d7729a6e-4e85-4e8d-94e8-6000f9a3dda6",
+    "approval": "f0b031e8-6ea1-4b0e-814d-7d22d715d55c",
+    "manager": "e20c217a-514a-4908-a01d-aa30e5dea1cb",
+    "workflow": "c497e0ab-dd23-491c-a7e2-39241f6a14eb",
+    "seedManager": "c71c5d96-9a19-40d9-9194-3533f51ee5ac",
+    "seedWorkflow": "75dcc4fd-08ac-4644-8f81-fef284e1e1a4"
   },
   "scratchRemoved": true,
   "productChanges": false,

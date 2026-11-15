@@ -1,0 +1,523 @@
+{
+  "syntheticOnly": true,
+  "attempt": "1794743658677",
+  "scenarios": [
+    {
+      "id": "1-find-project",
+      "status": "observed"
+    },
+    {
+      "id": "2-attachment",
+      "status": "observed"
+    },
+    {
+      "id": "3-draft-and-context",
+      "status": "observed"
+    },
+    {
+      "id": "4-safe-and-review",
+      "status": "observed"
+    },
+    {
+      "id": "5-restricted",
+      "status": "observed"
+    },
+    {
+      "id": "6-project-task-file",
+      "status": "observed"
+    },
+    {
+      "id": "7-result-checks",
+      "status": "observed"
+    },
+    {
+      "id": "8-explain-and-draft",
+      "status": "observed"
+    },
+    {
+      "id": "9-controlled-restart",
+      "status": "observed"
+    },
+    {
+      "id": "10-failures-and-phone",
+      "status": "observed"
+    }
+  ],
+  "results": [
+    {
+      "scenario": "1-find-project",
+      "name": "correct project opens with one h1",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "1-find-project",
+      "name": "Simple project retains five sections",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "1-find-project",
+      "name": "ambiguous lookup asks which project",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "1-find-project",
+      "name": "navigation and lookup made no passive model request",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "2-attachment",
+      "name": "attachment answer cites the scripted source",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "2-attachment",
+      "name": "temporary attachment is absent from Knowledge Center",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "2-attachment",
+      "name": "new conversation belongs to the chosen project",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "3-draft-and-context",
+      "name": "unsent draft survives navigation",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "3-draft-and-context",
+      "name": "level switch keeps the draft",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "3-draft-and-context",
+      "name": "project selection does not reassign an existing conversation",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "3-draft-and-context",
+      "name": "existing conversation context is distinguishable",
+      "status": "pass",
+      "detail": "Talk to\nDemo Writer\nNew conversations go in\nNo project\nDemo Launch\nDemo Launch Backup\n\nThis only sets where a NEW conversation is filed. A conversation already open keeps its place.\n\nResults and review changes (1)\nRelated:\nProject: Demo Launch\nAgent: Demo Writer\n\nTest chat. Demo Writer only replies when you send a message. It has no tools and can't take any action.\n\nConversation\nNew conversation\nWhat is the marker in the attached fictional brief? (2)\nStart a new conversation\n\nYou\n\nWhat is the marker in the attached fictional brief?\n\ndemo-brief."
+    },
+    {
+      "scenario": "3-draft-and-context",
+      "name": "context and level changes made no passive model request",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "safe rename uses saved server state",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "safe rename is undoable",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review draft does not change stored description",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review has before and after",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review Reject uses owner control",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review draft does not change stored description",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review has before and after",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review Apply this change uses owner control",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "5-restricted",
+      "name": "restricted request refused: delete the project \"Demo Launch\"",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "5-restricted",
+      "name": "restricted request refused: approve the pending approval",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "5-restricted",
+      "name": "restricted request refused: publish the website",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "5-restricted",
+      "name": "restricted requests caused no project deletion or file effect",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "project task completes with a saved result",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "first file request waits without creating a file",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "denied request never created the CSV",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "project task completes with a saved result",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "exactly one approved scratch file exists",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "project shared result entries are saved",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "task shows action/file evidence separately",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "Manager final summary stays unverified",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "weak workflow Manager link supplies zero inherited evidence",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "seeded Manager file evidence is initially checkable",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "seeded workflow file evidence is initially checkable",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "scratch folder grant identity is available",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "revoked file access is reported as unchecked",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "Manager does not retain full file confirmation after revoke",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "workflow does not retain full file confirmation after revoke",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "8-explain-and-draft",
+      "name": "failure explanation links recorded seeded task",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "8-explain-and-draft",
+      "name": "draft is not automatically saved",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "8-explain-and-draft",
+      "name": "opening draft still does not save it",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "9-controlled-restart",
+      "name": "scratch restart does not call a model or create task/approval duplicates",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "9-controlled-restart",
+      "name": "shared entries persist on scratch reopen",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "9-controlled-restart",
+      "name": "conversation still belongs to its original project",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "9-controlled-restart",
+      "name": "temporary attachment remains absent from Knowledge Center",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "9-controlled-restart",
+      "name": "browser restores the same conversation after scratch restart",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "project list failure has explicit error state",
+      "status": "pass",
+      "detail": "Interface level\nSimple\nIntermediate\nAdvanced\n\nJust the essentials: tell the AI Assistant what you want, keep track of your projects, and approve what needs you. Nothing is removed: every screen is still reachable by search or by asking the assistant.\n\nProjects\nProjects\nAI Assistant\nApprovals\nTasks (item)\nWorkflow Studio\nHome\n/\nProjects\n\nWhat is this? A project keeps everything about one piece of work in one place: its chats, tasks, files and decisions. Open a project to see what needs you.\n\nProjects\n\nKeep conversations, tasks, files and decisions together. Open a project to see what needs you and continue with the AI Assistant.\n\nNew project name\nCreate project\n Show archived\n\nCould not load projects. Try again when the connection returns.\n\nRetry projects"
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "project hub failure has explicit error state",
+      "status": "pass",
+      "detail": "Could not load project activity. Try again when the connection returns.\n\nRetry project activity\nOverview\nConversations\nTasks & history\nFiles & knowledge\nDecisions & approvals\n\nThis project could not be loaded."
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "helper list failure has explicit error state",
+      "status": "pass",
+      "detail": "ether one is set up. You can still ask me to find and open things, or show a summary:\n\nFind or open something\nGo\nWhat I found or did\nClear\n\nYou asked: “why did my last task fail”\n\nYour latest failed task was \"Synthetic prior task\" (agent Demo Writer). Recorded reason: fictional outage in seeded prior task\n\nOpen the task\n\nYou asked: “publish the website”\n\nI will not do that myself. Sending or publishing anything outside the app always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Decisions & approvals\n\nYou asked: “approve the pending approval”\n\nI will not do that myself. Approvals and permission or security changes always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Decisions & approvals\n\nYou asked: “delete the project \"Demo Launch\"”\n\nI will not do that myself. Deleting or erasing something always needs your own explicit action, so I have not changed anything. You can do it yourself here:\n\nOpen Projects\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nReview change\nStatus: done\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nUndo\nOpen the project\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nReview change\nStatus: rejected\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nOpen the project\nOpen AI Agents"
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "suggestions failure has explicit error state",
+      "status": "pass",
+      "detail": "Suggestions\n\nWorked out from your real projects, tasks, approvals and documents. Nothing here changes anything until you act.\n\nCould not load suggestions. Try again when the connection returns.\n\nRetry suggestions"
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "1440px layout has one h1 and no page overflow",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "1440px keyboard message receives a NEW fake reply",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "390px layout has one h1 and no page overflow",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "390px keyboard message receives a NEW fake reply",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "360px layout has one h1 and no page overflow",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "360px keyboard message receives a NEW fake reply",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "768px layout has one h1 and no page overflow",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "768px keyboard message receives a NEW fake reply",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "final",
+      "name": "all ten scenarios observed",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "final",
+      "name": "no outside request attempted",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "final",
+      "name": "fake calls stayed within 32",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "final",
+      "name": "no uncaught browser errors",
+      "status": "pass",
+      "detail": ""
+    }
+  ],
+  "issues": [],
+  "fatal": null,
+  "fakeCalls": [
+    {
+      "index": 1,
+      "kind": "registry-connectivity"
+    },
+    {
+      "index": 2,
+      "kind": "registry-json"
+    },
+    {
+      "index": 3,
+      "kind": "registry-identity"
+    },
+    {
+      "index": 4,
+      "kind": "attachment-answer"
+    },
+    {
+      "index": 5,
+      "kind": "description-review"
+    },
+    {
+      "index": 6,
+      "kind": "description-review"
+    },
+    {
+      "index": 7,
+      "kind": "task-file-deny"
+    },
+    {
+      "index": 8,
+      "kind": "task-file-deny"
+    },
+    {
+      "index": 9,
+      "kind": "task-file-approve"
+    },
+    {
+      "index": 10,
+      "kind": "task-file-approve"
+    },
+    {
+      "index": 11,
+      "kind": "manager-direct"
+    },
+    {
+      "index": 12,
+      "kind": "manager-direct"
+    },
+    {
+      "index": 13,
+      "kind": "workflow-draft"
+    },
+    {
+      "index": 14,
+      "kind": "ordinary-chat"
+    },
+    {
+      "index": 15,
+      "kind": "ordinary-chat"
+    },
+    {
+      "index": 16,
+      "kind": "ordinary-chat"
+    },
+    {
+      "index": 17,
+      "kind": "ordinary-chat"
+    }
+  ],
+  "pageErrors": [],
+  "blockedOrigins": [],
+  "seeded": [
+    "projects/helper/folder grant",
+    "prior failed task (not executed)",
+    "Manager/workflow file-evidence corners: copied synthetic receipt for existing scratch CSV; no new execution"
+  ],
+  "ids": {
+    "bot": "885c39e6-f060-4122-b752-d4d8d786e817",
+    "project": "acc4708e-5fc0-40c1-bbe8-dbe578cd95ad",
+    "otherProject": "2c5884cc-c596-4150-89c6-24887d2491b5",
+    "folder": "6a325eb4-bf80-4cb0-be42-8f8249167bb6",
+    "failed": "fdfb7baf-4a4f-4329-aa81-9c745f342b49",
+    "conversation": "8b61fb73-8a04-45be-907b-385862ca362a",
+    "deniedTask": "2821c360-f579-4239-b62b-375d67d13598",
+    "fileTask": "d7729a6e-4e85-4e8d-94e8-6000f9a3dda6",
+    "approval": "f0b031e8-6ea1-4b0e-814d-7d22d715d55c",
+    "manager": "e20c217a-514a-4908-a01d-aa30e5dea1cb",
+    "workflow": "c497e0ab-dd23-491c-a7e2-39241f6a14eb",
+    "seedManager": "c71c5d96-9a19-40d9-9194-3533f51ee5ac",
+    "seedWorkflow": "75dcc4fd-08ac-4644-8f81-fef284e1e1a4"
+  },
+  "scratchRemoved": true,
+  "productChanges": false,
+  "pacing": "Injected scratch clock advances one logical minute between owner requests; default per-minute limits unchanged"
+}
