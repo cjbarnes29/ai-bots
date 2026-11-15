@@ -895,3 +895,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## real-windows flake investigation (2026-11-15; board D-115)
 - Not reproduced: 6 consecutive full backend runs (3 live tree, 3 scratch export) all 2,346/2,346 on a quiet machine. Earlier single failures (7, each a different test) happened during busy periods; the file passes alone. Hypothesis (unproven): real-window focus/timing under load or another session using the desktop. No code, timeout or assertion changed. Uncommitted docs.
+
+## Development aids drafted (2026-11-15; board D-116)
+- Pilot A of the Superpowers reuse catalogue: three documentation drafts in `docs/dev-aids/` (root-cause debugging, evidence before completion, small plan template), adapted to this project's rules, provenance recorded, no upstream text copied. Nothing installed or registered. Not piloted yet. Uncommitted.

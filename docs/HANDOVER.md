@@ -17,7 +17,13 @@ Owner approved and requested actual GitHub research plus instructions for Claude
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
-## Resume here: D-114 Part 3 built and COMMITTED locally (no push); backlinks/receipts plan parts 1-3 done (2026-11-15)
+## Resume here: D-116 development aids drafted (uncommitted); latest commit 981a1c2 (2026-11-15)
+
+- **Drafted (UNCOMMITTED, D-116):** `docs/dev-aids/ROOT-CAUSE-DEBUGGING.md`, `EVIDENCE-BEFORE-COMPLETION.md`, `SMALL-PLAN-TEMPLATE.md` (pilot A). Documentation only; nothing installed or registered; not piloted. Use them for the next real debugging/plan/completion report and judge by the acceptance notes in each.
+- Still untracked and not mine: `docs/reusable-claude-kit/` (other session), `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+- Open next choices: project item picker, Tier B prep (owner-run), Gemini/Google setup (owner), pilot B (scratch Superpowers audit; needs an exact read count), real-browser zoom check.
+
+## Earlier resume block (historical)
 
 - **Built and committed (D-114; see `git log`; staged-only exports passed 2,346 backend + 528 dashboard):** `readReceipts` on `/api/tasks/:id/chain-verification` + "Outside reads recorded" in the task check; Manager origin wording in the workflow check; D-113 type fix. Files: src/verification/{service,routes}.ts, web/src/api/verificationHooks.ts, web/src/components/{ResultCheck,WorkflowResultCheck}.tsx, new src/verification/read-receipts-view.test.ts and web/src/readReceiptsPanel.test.tsx, scripts/e2e/modernization-e2e.mjs (one wait), docs. Full check 2,346 backend + 528 dashboard; browser 42/42, 29/29, 34/34.
 - Two untracked docs not written by this session: `docs/GITHUB-SYSTEMS-RESEARCH-PLAN.md`, `docs/HOOKS-AND-SKILLS-REUSE-PLAN.md` (leave them out of commits unless the owner says).
