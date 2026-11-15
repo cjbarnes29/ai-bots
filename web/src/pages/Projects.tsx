@@ -1,12 +1,74 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { useProject, useProjectAction, useProjects } from "../api/workHooks";
+import { useMemoryNotes, useSchedules, useTasks, useWorkflows } from "../api/hooks";
+import { useInbox, useProject, useProjectAction, useProjects } from "../api/workHooks";
 import { isHubTab, ProjectHub } from "../components/hub/ProjectHub";
 import { QueryStatus } from "../components/ui/QueryStatus";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 const KINDS = ["conversation", "workflow", "schedule", "task", "note"];
+const KIND_NOUN: Record<string, string> = { conversation: "conversation", workflow: "workflow", schedule: "schedule", task: "task", note: "shared note" };
+type Choice = { id: string; label: string };
+type Source = { choices: Choice[]; query: { data: unknown; isPending: boolean; isError: boolean; isFetching: boolean; dataUpdatedAt: number; refetch: () => unknown } };
+const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n)}…` : t);
+
+/** Each source reads only when its kind is chosen. A failed read says so; it is never shown as "nothing to link". */
+function ConversationChoices({ children }: { children: (s: Source) => React.ReactNode }) {
+  const q = useInbox("all", "");
+  return <>{children({ query: q, choices: (q.data?.items ?? []).map((i) => ({ id: i.conversationId, label: `${i.title} (${i.botName})` })) })}</>;
+}
+function WorkflowChoices({ children }: { children: (s: Source) => React.ReactNode }) {
+  const q = useWorkflows(false);
+  return <>{children({ query: q, choices: (q.data?.workflows ?? []).map((w) => ({ id: w.id, label: w.name })) })}</>;
+}
+function ScheduleChoices({ children }: { children: (s: Source) => React.ReactNode }) {
+  const q = useSchedules();
+  return <>{children({ query: q, choices: (q.data ?? []).map((x) => ({ id: x.id, label: `${x.name} (${x.botName})` })) })}</>;
+}
+function TaskChoices({ children }: { children: (s: Source) => React.ReactNode }) {
+  const q = useTasks();
+  const newest = [...(q.data ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50);
+  return <>{children({ query: q, choices: newest.map((t) => ({ id: t.id, label: `${clip(t.instruction, 60)} (${t.assigneeName}, ${t.status})` })) })}</>;
+}
+function NoteChoices({ children }: { children: (s: Source) => React.ReactNode }) {
+  const q = useMemoryNotes("shared", "", false, "");
+  return <>{children({ query: q, choices: (q.data ?? []).map((n) => ({ id: n.id, label: n.title })) })}</>;
+}
+const SOURCES: Record<string, (p: { children: (s: Source) => React.ReactNode }) => React.JSX.Element> = { conversation: ConversationChoices, workflow: WorkflowChoices, schedule: ScheduleChoices, task: TaskChoices, note: NoteChoices };
+
+/** Pick what to link from a list of real items (already-linked ones are left out). The raw id box below stays for anything not listed. */
+function ItemPicker({ kind, linked, value, onChange }: { kind: string; linked: Set<string>; value: string; onChange: (id: string) => void }) {
+  const Source = SOURCES[kind]!;
+  const noun = KIND_NOUN[kind] ?? kind;
+  return (
+    <Source>
+      {({ choices, query }) => {
+        const open = choices.filter((c) => !linked.has(c.id));
+        return (
+          <div className="space-y-1">
+            <QueryStatus query={query} label={`${noun} list`} />
+            {query.isError && <button type="button" className="btn-secondary min-h-11" disabled={query.isFetching} onClick={() => void query.refetch()}>Retry {noun} list</button>}
+            {!query.isError && !query.isPending && open.length === 0 && <p className="hint text-sm">{choices.length === 0 ? `No ${noun} exists yet.` : `Every ${noun} is already linked to this project.`}</p>}
+            {open.length > 0 && (
+              <label className="text-sm">
+                {`Choose a ${noun}`}
+                <select className="input ml-1 max-w-full" aria-label={`Choose a ${noun}`} value={open.some((c) => c.id === value) ? value : ""} onChange={(e) => onChange(e.target.value)}>
+                  <option value="">Choose…</option>
+                  {open.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        );
+      }}
+    </Source>
+  );
+}
 
 function Detail({ id, onGone }: { id: string; onGone: () => void }) {
   const one = useProject(id);
@@ -78,16 +140,20 @@ function Detail({ id, onGone }: { id: string; onGone: () => void }) {
       <div className="flex flex-wrap items-end gap-2">
         <label className="text-sm">
           Kind
-          <select className="input ml-1" aria-label="Item kind" value={kind} onChange={(e) => setKind(e.target.value)}>
+          <select className="input ml-1" aria-label="Item kind" value={kind} onChange={(e) => { setKind(e.target.value); setItemId(""); }}>
             {KINDS.map((k) => (
               <option key={k}>{k}</option>
             ))}
           </select>
         </label>
-        <label className="text-sm">
-          Item id
-          <input className="input ml-1" aria-label="Item id" value={itemId} onChange={(e) => setItemId(e.target.value)} />
-        </label>
+        <ItemPicker kind={kind} linked={new Set(one.data.items.filter((it) => it.kind === kind).map((it) => it.id))} value={itemId} onChange={setItemId} />
+        <details className="text-sm">
+          <summary className="min-h-11 cursor-pointer">Enter an id instead</summary>
+          <label className="text-sm">
+            Item id
+            <input className="input ml-1" aria-label="Item id" value={itemId} onChange={(e) => setItemId(e.target.value)} />
+          </label>
+        </details>
         <button className="btn-secondary" disabled={!itemId.trim() || act.isPending} onClick={() => act.mutate({ op: "link", id, kind, itemId: itemId.trim() }, { onSuccess: () => setItemId("") })}>
           Link item
         </button>
