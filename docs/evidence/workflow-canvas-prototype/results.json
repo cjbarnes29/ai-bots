@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-15",
+  "scope": "SCRATCH COPY ONLY. @xyflow/react 12.12.1 (MIT) installed in a copy of web/ outside this repository. This repository's package.json, lockfile and node_modules were not changed.",
+  "installed": "20 packages added (@xyflow/react 12.12.1, @xyflow/system 0.0.84, zustand 4.5.7, classcat, d3-drag, d3-zoom, d3-selection and related d3 modules with their @types, use-sync-external-store); npm reported 0 vulnerabilities",
+  "typecheck_existing_strict_settings": "pass (with Node type definitions supplied in the scratch parent folder, as the repo root provides them)",
+  "production_build_vite8": "pass; extra chunk proto 185.62 kB (60.22 kB gzip); upstream issue 5734 did NOT block this build",
+  "adapter_roundtrip_tests": "5/5 pass (sample graph, empty graph, unknown fields and edge conditions, position-only change without mutating input, 500 nodes in order)",
+  "built_bundle_in_headless_edge": "11/12 pass after correcting two test-page artifacts (debug JSON width, favicon 404)",
+  "real_finding": "At a 390 px screen React Flow fits the view at scale 0.5, so 14 px connection handles render at 7 px; fails the 44 px touch-target rule. Prototype does not solve it.",
+  "not_observed": ["real phone/touch drag", "screen reader", "keyboard-only creation of arrows", "integration with the real editor, server validation, save/reopen, versions, run map, approvals", "dark mode and reduced-motion", "performance on large real graphs", "behaviour with the real app's Vite dev server"],
+  "note_on_keyboard_delete": "Backspace deleted a selected box in the prototype; a real integration must route deletion through the existing validated editor behaviour."
+}

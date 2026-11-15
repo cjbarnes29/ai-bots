@@ -3,7 +3,7 @@
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
-## Resume here: D-106 committed; helper-switch draft test added (2026-11-15)
+## Resume here: D-110 option A BUILT (workflow drawing zoom/pan, uncommitted; see plan "Option A built"). Earlier D-109 scratch prototype DONE (see `docs/WORKFLOW-CANVAS-PLAN.md` "Prototype result"; repo unchanged, next needs the owner: add dependency to repo, or fall back to option A). Earlier D-108 plan ( read `docs/WORKFLOW-CANVAS-PLAN.md`; plan only, nothing installed or built). Earlier: D-106 committed; helper-switch draft test added (2026-11-15)
 
 - **Committed locally 2026-11-15 (owner approved all four; no push):** `3505a6b` P-49 results and verifier fixes, `f412fdf` backend verification/provenance/approval linkage/execution assessment, `c354fdf` dashboard (approvals, result checks, Projects/Assistant read states), `a39be3e` docs and evidence. Each was verified from a staged-only export (autocrlf off): 2,015/2,322/2,322/2,322 backend and 447/447/514/514 dashboard, typechecks and builds. Left untracked on purpose: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`. Older "UNCOMMITTED" wording below is historical.
 - Added the required helper-switch regression test (`web/src/assistantReadStates.test.tsx`, now 10 cases): an unsent message and the helper choice survive switching helper. Docs-and-test change after the commits is UNCOMMITTED.

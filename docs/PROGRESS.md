@@ -843,3 +843,10 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## Daily-use re-run (2026-11-15; board D-107, NV-45)
 - `scripts/e2e/daily-use-e2e.mjs` re-run on the committed code: 63 passed, 0 findings, 10/10 scenarios, 17/32 fake calls; no outside request. Project list, project hub, helper list and suggestions failures now show explicit error states. Evidence in `docs/evidence/daily-use/` (new timestamped files; results.json replaced). Synthetic only; real owner/phone/screen reader/provider NOT VERIFIED. Uncommitted.
+
+## Workflow canvas plan (2026-11-15; board D-108)
+- Planning only: `docs/WORKFLOW-CANVAS-PLAN.md`. Options A (improve current editor), B (scratch-only React Flow prototype, Vite 8 production test, stop rule), C (leave). No install, dependency, code or test change. Owner's choice pending.
+- **Prototype run (D-109):** scratch-only `@xyflow/react` 12.12.1. Vite 8 production build passes; adapter round trip 5/5; built bundle 11/12 in headless Edge; real finding: 7 px touch handles at phone zoom. Repo unchanged; no dependency added. Evidence `docs/evidence/workflow-canvas-prototype/`.
+
+## Workflow drawing zoom/pan (2026-11-15; board D-110)
+- Option A built in `web/src/components/WorkflowEditor.tsx`: zoom, Actual size, Fit to window, mouse-pan, zoom-aware dragging, growing drawing, clearer labels. New `web/src/workflowCanvasZoom.test.tsx` (5). Full check 2,322 backend + 520 dashboard; redesign 89/89 and modernization 34/34 browser scripts. One known load flake (`real-windows.test.ts`) failed once, passed alone 25/25 and in the next full run. Not observed: real-browser zoom/pan, phone, screen reader. Uncommitted.
