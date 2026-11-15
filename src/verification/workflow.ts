@@ -83,7 +83,7 @@ export function checkWorkflow<T>(db: DatabaseSync, id: string, readChain: (id: s
         const step: WorkflowVerification["steps"][number] = { nodeId: String(row["node_id"]).slice(0, 24), type: node?.type ?? "unknown", label: node?.label ?? "", status: String(row["status"]), binding: "invalid", reason: "The saved graph or step reference is invalid; no evidence was included." };
         const ref = typeof row["ref_id"] === "string" && uuid.safeParse(row["ref_id"]).success ? String(row["ref_id"]) : undefined;
         if (!node) { coverageComplete = false; uncertain = true; }
-        else if (["trigger", "end", "set", "condition", "checkpoint"].includes(node.type)) {
+        else if (["trigger", "end", "set", "condition", "checkpoint", "check_result"].includes(node.type)) {
           if (row["ref_kind"] === null && row["ref_id"] === null) { step.binding = "structural"; step.reason = "Structural step only; it supplies no outside-effect evidence."; }
           else uncertain = true;
           if (node.type === "checkpoint" && step.status === "waiting") checkpointWaiting = true;

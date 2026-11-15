@@ -76,6 +76,8 @@ export interface WorkflowDeps {
     exists(connector: string, action: string): boolean;
   };
   automationPaused: () => boolean;
+  /** Read-only platform check of one agent task (the verification service). Without it a Check result box outputs "unverified". */
+  checkTask?: (taskId: string) => { status: string } | undefined;
   pollMs?: number;
 }
 
@@ -477,6 +479,11 @@ export class WorkflowService {
         case "condition": {
           const left = renderTemplate(node.left, scope);
           return done(evaluateCondition(node.op, left, renderTemplate(node.value, scope)) ? "true" : "false");
+        }
+        case "check_result": {
+          const target = this.steps(runId).get(node.target);
+          const verdict = target?.status === "completed" && target.refKind === "task" && target.refId ? this.d.checkTask?.(target.refId)?.status : undefined;
+          return done(verdict ?? "unverified");
         }
         case "checkpoint": {
           this.setStep(runId, node.id, { status: "waiting", output: renderTemplate(node.message, scope) });

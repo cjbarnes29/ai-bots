@@ -49,6 +49,11 @@ const nodeSchema = z.discriminatedUnion("type", [
   }),
   z.strictObject({ id, type: z.literal("checkpoint"), label, ...pos, message: z.string().min(1).max(500) }),
   z.strictObject({ id, type: z.literal("set"), label, ...pos, value: template }),
+  /**
+   * Reads the platform's own recorded check of an EARLIER agent-task box and outputs one word: verified, unverified, waiting, contradicted or not_applicable.
+   * Read-only: no model, no outside call, no permission. "Completed" is not "verified"; a box that did not complete outputs unverified.
+   */
+  z.strictObject({ id, type: z.literal("check_result"), label, ...pos, target: id }),
   z.strictObject({ id, type: z.literal("end"), label, ...pos }),
 ]);
 
@@ -103,6 +108,20 @@ export function validateGraph(g: Graph): Problem[] {
     if (n.type !== "condition") continue;
     const out = g.edges.filter((e) => e.from === n.id);
     if (out.filter((e) => e.when === "true").length > 1 || out.filter((e) => e.when === "false").length > 1) problems.push({ node: n.id, message: "An If box can have only one true arrow and one false arrow." });
+  }
+  for (const n of g.nodes) {
+    if (n.type !== "check_result") continue;
+    const target = byId.get(n.target);
+    if (!target) problems.push({ node: n.id, message: "The box this check looks at does not exist." });
+    else if (target.type !== "bot_task") problems.push({ node: n.id, message: "A Check result box can only look at an Agent task box." });
+    else {
+      const adj = new Map<string, string[]>();
+      for (const e of g.edges) adj.set(e.from, [...(adj.get(e.from) ?? []), e.to]);
+      const seen = new Set<string>([target.id]);
+      const queue = [target.id];
+      while (queue.length) for (const v of adj.get(queue.shift()!) ?? []) if (!seen.has(v)) (seen.add(v), queue.push(v));
+      if (!seen.has(n.id)) problems.push({ node: n.id, message: "A Check result box must come after the box it looks at." });
+    }
   }
   // No loops: a workflow always moves forward, so it always finishes.
   const next = new Map<string, string[]>();

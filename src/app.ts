@@ -911,6 +911,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       }
     },
     automationPaused: () => automation!.isPaused() || guardianHeld() !== null,
+    checkTask: (taskId) => verification.verifyChain(taskId),
     ...(options.managerPollMs ? { pollMs: options.managerPollMs } : {}),
   });
   workflows.recover();
