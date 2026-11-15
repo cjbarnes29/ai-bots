@@ -16,7 +16,8 @@ const MARK = { pass: "Confirmed", fail: "Failed", note: "Note" } as const;
  */
 export function ResultCheck({ taskId, finished }: { taskId: string; finished: boolean }) {
   const q = useChainVerification(taskId, finished);
-  if (!finished || !q.data || q.data.status === "not_applicable") return null;
+  const reads = q.data?.readReceipts ?? [];
+  if (!finished || !q.data || (q.data.status === "not_applicable" && reads.length === 0)) return null;
   const v = q.data;
   return (
     <section aria-label="Result check" className="card space-y-2">
@@ -27,6 +28,19 @@ export function ResultCheck({ taskId, finished }: { taskId: string; finished: bo
       <p className="text-sm [overflow-wrap:anywhere]" role="status">
         {v.summary}
       </p>
+      {reads.length > 0 && (
+        <section aria-label="Outside reads recorded" className="space-y-1">
+          <h3 className="text-sm font-semibold">Outside reads recorded ({reads.length})</h3>
+          <p className="hint text-xs">A read receipt only means the platform recorded that a read ran for this task. It does not show the agent used what it read, or that the data was correct or complete.</p>
+          <ul className="list-disc space-y-1 pl-5 text-sm [overflow-wrap:anywhere]">
+            {reads.map((r, i) => (
+              <li key={i}>
+                {r.connector}.{r.actionName} · {new Date(r.at).toLocaleString()} · {r.resultChars} characters returned
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {v.checks.length > 0 && (
         <details>
           <summary className="min-h-11 cursor-pointer text-sm underline">What was checked ({v.checks.length})</summary>

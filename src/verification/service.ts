@@ -15,6 +15,8 @@ export interface VerificationDeps {
   audit: {
     record(kind: string, detail?: Record<string, unknown>, options?: { botId?: string; actor?: string }): void;
     latest(kinds: string[], detailContains?: string[]): { detail: Record<string, unknown> } | null;
+    /** Exact-task read receipts (hashes only). Optional so older fakes keep working. */
+    readReceipts?(taskId: string, limit?: number): { createdAt: string; connector: string; actionName: string; resultChars: number }[];
   };
   /** Checks a file the platform itself created. Goes through the folder permission gate; "unreadable" is an honest answer, never a pass. */
   probe: FileProbe;
@@ -69,6 +71,23 @@ export class VerificationService {
   verifyTask(id: string): Verification | undefined {
     const t = this.task(id);
     return t ? verifyTask(t, this.actions(t.id), this.d.probe, t.authorship) : undefined;
+  }
+
+  /**
+   * Outside reads recorded for the tasks of one chain (D-112/D-114). Purely informational: it NEVER changes a verdict, and it says only that a read ran for that task,
+   * not that its content was used or correct. Hashes and counts only. Bounded; older reads without a task id are not listed.
+   */
+  readReceiptsForChain(rootId: string, limit = 20): { taskId: string; connector: string; actionName: string; at: string; resultChars: number }[] {
+    if (!this.d.audit.readReceipts) return [];
+    const out: { taskId: string; connector: string; actionName: string; at: string; resultChars: number }[] = [];
+    for (const row of this.d.db.prepare("SELECT id FROM tasks WHERE root_id = ? ORDER BY created_at, id LIMIT 50").all(rootId)) {
+      const taskId = String(row["id"]);
+      for (const r of this.d.audit.readReceipts(taskId, limit - out.length)) {
+        out.push({ taskId, connector: r.connector, actionName: r.actionName, at: r.createdAt, resultChars: r.resultChars });
+        if (out.length >= limit) return out;
+      }
+    }
+    return out;
   }
 
   /** Lifecycle completeness is separate from evidence: an unfinished/failed member can never make a whole chain confirmed. */

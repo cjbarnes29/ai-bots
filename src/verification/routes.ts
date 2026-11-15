@@ -27,6 +27,6 @@ export async function registerVerificationRoutes(app: FastifyInstance, svc: Veri
     const v = svc.verifyChain(rootId);
     if (!v) throw new AppError(404, "task_not_found", "Task not found");
     svc.record(rootId);
-    return { verification: v };
+    return { verification: { ...v, readReceipts: svc.readReceiptsForChain(rootId) } };
   });
 }

@@ -29,7 +29,7 @@ export function WorkflowResultCheck({ runId, runStatus }: { runId: string; runSt
               <span className="font-medium">{s.label || s.nodeId}</span> · {s.status}. {s.reason}
               {s.binding === "valid" && s.sourceKind === "task" && s.sourceId && <Link className="inline-flex min-h-11 items-center px-2 underline" to={`/tasks/${s.sourceId}`}>View task evidence</Link>}
               {s.binding === "valid" && s.sourceKind === "approval" && s.sourceId && <Link className="inline-flex min-h-11 items-center px-2 underline" to={`/approvals?focus=${s.sourceId}`}>View approval record</Link>}
-              {s.sourceKind === "manager" && s.sourceId && <p className="hint">Referenced Manager run: {s.sourceId}. Its evidence is not inherited.</p>}
+              {s.sourceKind === "manager" && s.sourceId && <p className="hint">Referenced Manager run: {s.sourceId}. Its evidence is not inherited.{s.originLink === "agreed" ? " Origin record: agreed both ways (this box started it)." : s.originLink === "conflict" ? " Origin record: conflicting or duplicated; not linked." : s.originLink === "none" ? " Origin record: none (older run or not recorded); not linked." : ""}</p>}
             </li>)}</ul>
             {v.sources.length > 0 && <details>
               <summary className="flex min-h-11 cursor-pointer items-center underline">Recorded evidence details ({v.sources.length})</summary>

@@ -131,6 +131,7 @@ try {
   await ed.waitFor({ timeout: 8000 });
   await ed.getByRole("button", { name: "Add Outside action" }).click();
   await ed.getByLabel("Service").waitFor({ timeout: 8000 });
+  await until(async () => (await ed.getByLabel("Service").locator("option").count()) > 1, 8000); // the service list loads after the box appears
   check("M6: the editor offers 'Add Outside action' with service and action pickers", (await ed.getByLabel("Service").locator("option").count()) > 1);
   await ed.getByLabel("Service").selectOption("pc");
   await ed.getByLabel("Action", { exact: true }).selectOption("write_file");
