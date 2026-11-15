@@ -17,7 +17,14 @@ Owner approved and requested actual GitHub research plus instructions for Claude
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
-## Resume here: D-119 Tier B owner checklist prepared and committed (no push) (2026-11-15)
+## Resume here: D-120 Gemini owner checklist prepared and committed (no push) (2026-11-15)
+
+- **Prepared and committed (D-120; see git log):** `docs/OWNER-GEMINI-SETUP.md`. The owner creates a free no-billing key and pastes it ONLY into the Integrations Center Gemini wizard, then says "Gemini connected". Claude must get the owner's approval of the exact count (proposed 2 Google requests) before any real request, must never see or log the key, and has not checked Google's current limits. NV-3 stays NOT VERIFIED until one real reply is recorded.
+- Owner-run and still waiting: Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10).
+- Not mine and untracked: `docs/reusable-claude-kit/`, `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+- Open next choices: commit the Gemini checklist, pilot B (scratch Superpowers audit; needs an exact read count), point CLAUDE.md at `docs/dev-aids/`, read `docs/reusable-claude-kit/`.
+
+## Earlier resume block (historical)
 
 - **Prepared and committed (D-119; see git log):** `docs/OWNER-TIER-B-CHECKLIST.md`. The owner must run the three Guardian checks and the elevated read-only firewall audit and share the real results; Claude then reviews the audit output (UltraViewer/UltraVNC, Public any-port rules, NetBIOS/file sharing, VMware Authd, MetaTrader) and records the owner's results in `docs/SECURITY-AUDIT.md`. Do NOT record anything as passed before the owner's real results. `scripts/security/tier-b/*.ps1` stay review-only.
 - Not mine and untracked: `docs/reusable-claude-kit/`, `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.

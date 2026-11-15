@@ -907,3 +907,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## Tier B owner checklist prepared (2026-11-15; board D-119)
 - `docs/OWNER-TIER-B-CHECKLIST.md`: owner-run Guardian checks (lock, idle, STOP) and the read-only elevated firewall audit, with a report template. Nothing was run by Claude. NV-8 and NV-10 stay NOT RUN until the owner shares real results. Uncommitted.
+
+## Gemini owner checklist prepared (2026-11-15; board D-120)
+- `docs/OWNER-GEMINI-SETUP.md`: owner steps, rules, proposed 2-request approval, reporting and unknowns. No outside request, no key seen; Google's current limits not checked. NV-3 stays NOT VERIFIED. Uncommitted.
