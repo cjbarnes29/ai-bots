@@ -17,7 +17,13 @@ Owner approved and requested actual GitHub research plus instructions for Claude
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
-## Resume here: D-116 development aids drafted (uncommitted); latest commit 981a1c2 (2026-11-15)
+## Resume here: D-117 project item picker committed (no push) (2026-11-15)
+
+- **Built and committed (D-117; see git log):** `web/src/pages/Projects.tsx` (picker for Link item; raw id kept under "Enter an id instead") and new `web/src/projectItemPicker.test.tsx` (10 cases). Full check 2,346 backend + 538 dashboard; hub browser 113/113. Limits: tasks are the newest 50; bot-scoped notes not offered; no real-device check.
+- Not mine and untracked: `docs/reusable-claude-kit/`, `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+- Open next choices: commit the picker, Tier B prep (owner-run), Gemini/Google setup (owner), pilot B (scratch Superpowers audit; needs an exact read count), real-browser zoom check, point CLAUDE.md at `docs/dev-aids/`.
+
+## Earlier resume block (historical)
 
 - **Drafted (UNCOMMITTED, D-116):** `docs/dev-aids/ROOT-CAUSE-DEBUGGING.md`, `EVIDENCE-BEFORE-COMPLETION.md`, `SMALL-PLAN-TEMPLATE.md` (pilot A). Documentation only; nothing installed or registered; not piloted. Use them for the next real debugging/plan/completion report and judge by the acceptance notes in each.
 - Still untracked and not mine: `docs/reusable-claude-kit/` (other session), `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.

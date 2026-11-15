@@ -898,3 +898,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## Development aids drafted (2026-11-15; board D-116)
 - Pilot A of the Superpowers reuse catalogue: three documentation drafts in `docs/dev-aids/` (root-cause debugging, evidence before completion, small plan template), adapted to this project's rules, provenance recorded, no upstream text copied. Nothing installed or registered. Not piloted yet. Uncommitted.
+
+## Project item picker (2026-11-15; board D-117)
+- Settings > Link item now offers real conversations/workflows/schedules/tasks/shared notes by name (linked ones left out; failed reads show Retry; raw id box kept under "Enter an id instead"). `web/src/pages/Projects.tsx` + `web/src/projectItemPicker.test.tsx` (10). Full check 2,346 backend + 538 dashboard; hub browser 113/113. Uncommitted.
