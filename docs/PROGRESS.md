@@ -850,3 +850,14 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## Workflow drawing zoom/pan (2026-11-15; board D-110)
 - Option A built in `web/src/components/WorkflowEditor.tsx`: zoom, Actual size, Fit to window, mouse-pan, zoom-aware dragging, growing drawing, clearer labels. New `web/src/workflowCanvasZoom.test.tsx` (5). Full check 2,322 backend + 520 dashboard; redesign 89/89 and modernization 34/34 browser scripts. One known load flake (`real-windows.test.ts`) failed once, passed alone 25/25 and in the next full run. Not observed: real-browser zoom/pan, phone, screen reader. Uncommitted.
+
+## Backlinks and read receipts plan (2026-11-15; board D-111)
+- Planning only: `docs/BACKLINKS-RECEIPTS-PLAN.md`. No migration needed (append-only audit events with new JSON fields). Build order proposed: read receipt, then `manager.origin` backlink, then panel wording. Nothing built or run; owner approval of the build order pending.
+
+## Read receipts built (2026-11-15; board D-112)
+- Step 1 of `docs/BACKLINKS-RECEIPTS-PLAN.md`: gate writes task id + connector.action + args/result hashes on `external.read`; `AuditLog.readReceipts(taskId)` reads exact matches only. 6 new cases; full check 2,328 backend + 520 dashboard. No migration/dependency/UI change; nothing shows receipts yet. Next: Part 1 (`manager.origin` backlink), then Part 3 wording. Uncommitted.
+
+## Manager origin backlink built (2026-11-15; board D-113)
+- Part 1 of `docs/BACKLINKS-RECEIPTS-PLAN.md`: `manager.origin` audit event written with the Manager run in one transaction; verification reports `originLink` agreed/none/conflict for workflow-started Manager steps. Binding stays `unbound` and no Manager evidence is inherited. 15 new cases; full check 2,341 backend + 520 dashboard. No migration/dependency/UI change. Next: Part 3 wording (show "linked" and "read receipt" in the existing panels). Uncommitted.
+
+- **Commit verification note (2026-11-15):** staged-only exports of the receipts and origin commits passed after re-run; the docs-only export failed one real-windows test (different each run) on several attempts, passed alone 25/25 and the live tree passed 2,341/2,341. Known load-sensitive tests; scratch-export cause NOT investigated.
