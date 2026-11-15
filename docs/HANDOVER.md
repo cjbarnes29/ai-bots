@@ -21,7 +21,7 @@ Updated whenever something changes. Historical details below include older snaps
 
 - **Prepared and committed (D-120; see git log):** `docs/OWNER-GEMINI-SETUP.md`. The owner creates a free no-billing key and pastes it ONLY into the Integrations Center Gemini wizard, then says "Gemini connected". Claude must get the owner's approval of the exact count (proposed 2 Google requests) before any real request, must never see or log the key, and has not checked Google's current limits. NV-3 stays NOT VERIFIED until one real reply is recorded.
 - Owner-run and still waiting: Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10).
-- Not mine and untracked: `docs/reusable-claude-kit/`, `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+- `docs/reusable-claude-kit/` (Claude Project instructions, context template, manual research prompt; written by another session, untested in Claude Projects, example snapshot dated at D-114/D-115) was reviewed and committed as-is at the owner's choice. Still untracked and not mine: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
 - Open next choices: commit the Gemini checklist, pilot B (scratch Superpowers audit; needs an exact read count), point CLAUDE.md at `docs/dev-aids/`, read `docs/reusable-claude-kit/`.
 
 ## Earlier resume block (historical)
