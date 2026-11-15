@@ -119,6 +119,8 @@ export interface ManagerDeps {
   validateModel: (ref: string) => void;
   /** What tools exist and which do not, so the plan never relies on something that is missing. */
   toolsSummary?: () => Promise<{ available: string[]; notAvailable: string[] }>;
+  /** Covers internal starts as well as HTTP requests; no tools or permissions are added to the Manager. */
+  preflight?: (run: { id: string; goal: string; requestedBy: string }, proceedAnyway: boolean) => Promise<void>;
   /** How long to wait between looks at a specialist's task. */
   pollMs?: number;
 }
@@ -244,7 +246,7 @@ export class ManagerService {
       .run(this.iso());
   }
 
-  start(goal: string, budget: Partial<ManagerSettings["defaultBudget"]> = {}, requestedBy = "owner"): RunView {
+  start(goal: string, budget: Partial<ManagerSettings["defaultBudget"]> = {}, requestedBy = "owner", options: { proceedAnyway?: boolean } = {}): RunView {
     const s = this.settings();
     if (!s.enabled) throw new AppError(409, "manager_off", "The Manager is switched off in Settings.");
     const text = goal.trim();
@@ -265,8 +267,8 @@ export class ManagerService {
     this.d.db
       .prepare("INSERT INTO manager_runs (id, goal, status, budget_calls, budget_tokens, budget_steps, requested_by, created_at) VALUES (?, ?, 'planning', ?, ?, ?, ?, ?)")
       .run(id, text, merged.maxModelCalls, merged.maxTokens, merged.maxSteps, requestedBy, this.iso());
-    this.d.audit.record("manager.run_started", { id, budget: merged }, { actor: requestedBy });
-    const p = this.execute(id).finally(() => this.running.delete(id));
+    this.d.audit.record("manager.run_started", { id, budget: merged, ...(options.proceedAnyway === true ? { proceedAnyway: true } : {}) }, { actor: requestedBy });
+    const p = this.execute(id, requestedBy, options.proceedAnyway === true).finally(() => this.running.delete(id));
     this.running.set(id, p);
     return this.view(id);
   }
@@ -343,10 +345,13 @@ export class ManagerService {
     throw new AppError(502, "manager_unreadable", "The model's answer could not be understood, even after a second try.");
   }
 
-  private async execute(id: string): Promise<void> {
+  private async execute(id: string, requestedBy: string, proceedAnyway: boolean): Promise<void> {
     const settings = this.settings();
     try {
       const run = this.view(id);
+      this.checkLive(id);
+      await this.d.preflight?.({ id, goal: run.goal, requestedBy }, proceedAnyway);
+      this.checkLive(id);
       const specialists = this.specialists();
       const tools = (await this.d.toolsSummary?.()) ?? null;
       const plan = await this.askJson(id, planPrompt(run.budget.maxSteps, specialists, tools), `Request:\n${run.goal}`, planSchema, settings);

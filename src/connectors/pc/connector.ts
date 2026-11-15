@@ -125,6 +125,7 @@ export function createPcConnector(pc: PcService, folders?: FolderGate): Connecto
     // ---------- MODIFY (every one needs your approval) ----------
     make_dir: {
       kind: "write",
+      resultSupport: [{ operation: "create", objects: ["folder"] }],
       description: "Create a folder inside a workspace",
       args: z.strictObject({ path: pathArg }),
       summarize: (a) => `Create the folder ${String(a["path"])}`,
@@ -138,6 +139,7 @@ export function createPcConnector(pc: PcService, folders?: FolderGate): Connecto
     },
     write_file: {
       kind: "write",
+      resultSupport: [{ operation: "create", objects: ["file"] }, { operation: "save", objects: ["file"] }, { operation: "write", objects: ["file"] }],
       description: `Create a text file inside a workspace (up to ${MAX_FILE_BYTES} characters). It will not replace an existing file unless overwrite is true`,
       args: z.strictObject({ path: pathArg, content: z.string().max(MAX_FILE_BYTES), overwrite: z.boolean().optional() }),
       summarize: (a) => `${a["overwrite"] ? "Create or REPLACE" : "Create"} the file ${String(a["path"])} (${String(a["content"]).length} characters)`,
@@ -154,6 +156,7 @@ export function createPcConnector(pc: PcService, folders?: FolderGate): Connecto
     },
     delete_path: {
       kind: "write",
+      resultSupport: [{ operation: "remove_to_trash", objects: ["file", "folder"] }],
       description: "Remove a file or folder inside a workspace. It is MOVED to the .awp-trash folder, not erased, so it can be recovered",
       args: z.strictObject({ path: pathArg }).superRefine((v, ctx) => {
         const r = resolveInRoots(pc.roots(), v.path, firstRoot());

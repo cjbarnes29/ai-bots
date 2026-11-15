@@ -80,6 +80,7 @@ export function createTelegramConnector(baseUrl: string = TELEGRAM_BASE_URL): Co
     actions: {
       send_message: {
         kind: "write",
+        resultSupport: [{ operation: "send", objects: ["message"] }],
         description: "Send a text message to a Telegram chat (chat is a number, or @channelname)",
         args: z.strictObject({
           chat: z.string().regex(/^(-?\d{1,20}|@[A-Za-z0-9_]{4,64})$/, "must be a chat number or @name"),

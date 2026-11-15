@@ -35,6 +35,7 @@ export function createMemoryConnector(memory: MemoryService): ConnectorDefinitio
       },
       remember: {
         kind: "write",
+        resultSupport: [{ operation: "create", objects: ["note"] }, { operation: "save", objects: ["note"] }],
         description: "Ask to save a private note for yourself (needs the owner's approval; never saves secrets)",
         args: z.strictObject({ title: z.string().min(1).max(MEMORY_LIMITS.title), text: z.string().min(1).max(MEMORY_LIMITS.content) }),
         summarize: (a) => `Save a private memory note: "${String(a["title"]).slice(0, 100)}"`,

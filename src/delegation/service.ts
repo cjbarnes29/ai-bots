@@ -71,13 +71,13 @@ export class DelegationService {
    * Starts a task. With a project, the task is linked to it before it can start running (the engine starts queued work on a later tick),
    * so its very first model call already gets the project's shared workspace.
    */
-  submit(botId: string, instruction: string, projectId?: string, opts: { saveToWorkspace?: boolean } = {}): TaskRecord {
+  submit(botId: string, instruction: string, projectId?: string, opts: { saveToWorkspace?: boolean; proceedAnyway?: boolean } = {}): TaskRecord {
     if (projectId) {
       if (!this.projects) throw new AppError(400, "projects_unavailable", "Projects are not available here.");
       const p = this.projects.get(projectId);
       if (p.archived) throw new AppError(409, "project_archived", "That project is archived. Unarchive it first.");
     }
-    const task = this.engine.submit(botId, instruction);
+    const task = this.engine.submit(botId, instruction, { type: "user", proceedAnyway: opts.proceedAnyway === true });
     if (projectId) {
       this.projects!.link(projectId, "task", task.id);
       // In a project the agent must save its result to the workspace unless the owner said otherwise (a task that saves nothing is then not finished).

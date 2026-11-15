@@ -64,7 +64,25 @@ describe("independent chains: sequential by default, parallel only when the owne
     await t.call("PUT", "/api/delegation/limits", { maxParallelChains: 3 });
     await t.call("PUT", "/api/llm/limits", { maxConcurrentCloud: 4 });
     const bots = [await mkBot("A"), await mkBot("B"), await mkBot("C")];
+    // Hold the fake calls until all three arrive. Capability assessment before execution may
+    // take longer than the old 40 ms window under load; overlap must not depend on that timer.
+    let release!: () => void;
+    const barrier = new Promise<void>(resolve => { release = resolve; });
+    t.provider.complete = async (req: any) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      const last = String(req.messages.at(-1)?.content ?? "");
+      seen.push(last);
+      await barrier;
+      active -= 1;
+      return { ...OK_RESULT, text: `answer to ${last.slice(-12)}` };
+    };
     for (const [i, b] of bots.entries()) await submit(b.id, `job number ${i}`);
+    try {
+      await vi.waitFor(() => expect(active).toBe(3), { timeout: 4000, interval: 10 });
+    } finally {
+      release();
+    }
     await allDone();
     expect(maxActive).toBe(3);
     const done = await tasks();

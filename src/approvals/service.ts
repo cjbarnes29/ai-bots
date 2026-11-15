@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
 import type { BotRecord } from "../agent-manager/types.js";
 import type { AuditLog } from "../audit/audit.js";
 import type { ConnectorDefinition, ConnectorRegistry } from "../connectors/types.js";
@@ -27,6 +28,11 @@ export type ActionOutcome =
   | { status: "done"; text: string }
   | { status: "pending_approval"; approvalId: string }
   | { status: "denied" | "failed"; reason: string };
+
+/** Trusted app wiring only, never connector arguments or a model/HTTP option. */
+export interface PendingApprovalLink {
+  linkPending: (approvalId: string, connection: DatabaseSync) => boolean;
+}
 
 export interface ApprovalView {
   id: string;
@@ -142,7 +148,7 @@ export class ActionGate {
   }
 
   // ---- a bot asks ----
-  async request(botId: string, taskId: string | null, req: { connector: string; action: string; args: Record<string, unknown> }): Promise<ActionOutcome> {
+  async request(botId: string, taskId: string | null, req: { connector: string; action: string; args: Record<string, unknown> }, link?: PendingApprovalLink): Promise<ActionOutcome> {
     const { registry, repo, audit } = this.deps;
     const label = `${req.connector}.${req.action}`;
     const deny = (reason: string, kind = "external.denied"): ActionOutcome => {
@@ -202,33 +208,33 @@ export class ActionGate {
 
     // A write: it only ever waits for the owner.
     this.expireOld();
-    if (repo.countPending(botId) >= GATE_LIMITS.maxPendingPerBot) {
-      return deny(`This bot already has ${GATE_LIMITS.maxPendingPerBot} requests waiting for approval. They must be decided first.`);
-    }
-    const dayAgo = new Date(this.now() - 24 * 3_600_000).toISOString();
-    if (repo.countCreatedSince(botId, dayAgo) >= GATE_LIMITS.maxRequestsPerBotPerDay) {
-      return deny(`This bot reached its limit of ${GATE_LIMITS.maxRequestsPerBotPerDay} approval requests in a day.`);
-    }
-    const id = randomUUID();
-    repo.insert({
-      id,
-      botId,
-      taskId,
-      connector: req.connector,
-      action: req.action,
-      summary,
-      argsJson,
-      argsHash: sha256(argsJson),
-      createdAt: this.iso(),
-      expiresAt: new Date(this.now() + GATE_LIMITS.expiryMs).toISOString(),
-    });
-    audit.record("approval.requested", { id, action: label, summary }, { botId, actor: "bot" });
+    const createPending = (connection?: DatabaseSync): ActionOutcome => {
+      // For linked writes these checks run under the same write transaction as insert and link.
+      if (repo.countPending(botId) >= GATE_LIMITS.maxPendingPerBot) {
+        return deny(`This bot already has ${GATE_LIMITS.maxPendingPerBot} requests waiting for approval. They must be decided first.`);
+      }
+      const dayAgo = new Date(this.now() - 24 * 3_600_000).toISOString();
+      if (repo.countCreatedSince(botId, dayAgo) >= GATE_LIMITS.maxRequestsPerBotPerDay) {
+        return deny(`This bot reached its limit of ${GATE_LIMITS.maxRequestsPerBotPerDay} approval requests in a day.`);
+      }
+      const id = randomUUID();
+      repo.insert({ id, botId, taskId, connector: req.connector, action: req.action, summary, argsJson, argsHash: sha256(argsJson), createdAt: this.iso(), expiresAt: new Date(this.now() + GATE_LIMITS.expiryMs).toISOString() });
+      if (link) {
+        const attached: unknown = connection ? link.linkPending(id, connection) : false;
+        if (attached instanceof Promise) void attached.catch(() => undefined);
+        if (attached !== true) throw new AppError(409, "workflow_link_conflict", "The workflow could not attach this approval. The new request was rolled back.");
+      }
+      audit.record("approval.requested", { id, action: label, summary }, { botId, actor: "bot" });
+      return { status: "pending_approval", approvalId: id };
+    };
+    const outcome = link ? repo.transaction(connection => createPending(connection)) : createPending();
+    if (outcome.status !== "pending_approval") return outcome;
     try {
-      this.deps.onPending?.(id, botId);
+      this.deps.onPending?.(outcome.approvalId, botId);
     } catch {
       /* telling the inbox must never change what the gate decided */
     }
-    return { status: "pending_approval", approvalId: id };
+    return outcome;
   }
 
   // ---- the owner decides ----

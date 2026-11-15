@@ -59,6 +59,7 @@ export function createDocumentsConnector(pc: PcService, folders?: FolderGate): C
   const actions: Record<string, ActionSpec> = {
     create_document: {
       kind: "write",
+      resultSupport: [{ operation: "create", objects: ["document", "file"] }, { operation: "save", objects: ["document", "file"] }, { operation: "write", objects: ["document", "file"] }],
       description: "Create a report/document file in a workspace: format docx (Word), pdf, html or md. Blocks: heading, paragraph, bullets, numbered, table, chart, pagebreak",
       args: docSchema as unknown as ActionSpec["args"],
       summarize: (a) => `Create the ${String(a["format"]).toUpperCase()} document ${String(a["path"])} titled "${String(a["title"]).slice(0, 80)}" (${(a["blocks"] as unknown[]).length} blocks)`,
@@ -70,6 +71,7 @@ export function createDocumentsConnector(pc: PcService, folders?: FolderGate): C
     },
     create_spreadsheet: {
       kind: "write",
+      resultSupport: [{ operation: "create", objects: ["spreadsheet", "file"] }, { operation: "save", objects: ["spreadsheet", "file"] }, { operation: "write", objects: ["spreadsheet", "file"] }],
       description: "Create a spreadsheet in a workspace: format xlsx (Excel, one or more sheets) or csv (first sheet). Cells are text, numbers or true/false; formulas are never written",
       args: sheetsSchema as unknown as ActionSpec["args"],
       summarize: (a) => {
@@ -84,6 +86,7 @@ export function createDocumentsConnector(pc: PcService, folders?: FolderGate): C
     },
     create_presentation: {
       kind: "write",
+      resultSupport: [{ operation: "create", objects: ["presentation", "file"] }, { operation: "save", objects: ["presentation", "file"] }, { operation: "write", objects: ["presentation", "file"] }],
       description: "Create a PowerPoint presentation (.pptx): a title slide, then slides with a title, bullets and optionally a bar chart",
       args: slidesSchema as unknown as ActionSpec["args"],
       summarize: (a) => `Create the PowerPoint ${String(a["path"])} titled "${String(a["title"]).slice(0, 80)}" (${(a["slides"] as unknown[]).length + 1} slides)`,
@@ -91,6 +94,7 @@ export function createDocumentsConnector(pc: PcService, folders?: FolderGate): C
     },
     create_chart: {
       kind: "write",
+      resultSupport: [{ operation: "create", objects: ["chart", "file"] }, { operation: "save", objects: ["chart", "file"] }, { operation: "write", objects: ["chart", "file"] }],
       description: "Create a chart picture (.svg): kind bar, line or pie with labels and one or more series of numbers",
       args: chartFile as unknown as ActionSpec["args"],
       summarize: (a) => `Create the ${String((a["chart"] as { kind: string }).kind)} chart ${String(a["path"])}`,
@@ -98,6 +102,7 @@ export function createDocumentsConnector(pc: PcService, folders?: FolderGate): C
     },
     create_diagram: {
       kind: "write",
+      resultSupport: [{ operation: "create", objects: ["diagram", "file"] }, { operation: "save", objects: ["diagram", "file"] }, { operation: "write", objects: ["diagram", "file"] }],
       description: "Create a flow diagram picture (.svg) from nodes (id, label) and edges (from, to, optional label)",
       args: diagramFile as unknown as ActionSpec["args"],
       summarize: (a) => `Create the diagram ${String(a["path"])} (${(a["nodes"] as unknown[]).length} boxes)`,
@@ -105,6 +110,7 @@ export function createDocumentsConnector(pc: PcService, folders?: FolderGate): C
     },
     create_email_draft: {
       kind: "write",
+      resultSupport: [{ operation: "create", objects: ["draft", "file"] }, { operation: "save", objects: ["draft", "file"] }, { operation: "write", objects: ["draft", "file"] }],
       description: "Prepare an email DRAFT as a .eml file in a workspace, with up to 5 files from the workspace attached (pdf, xlsx, csv, docx, pptx, txt, md, html, svg). It is NOT sent: the owner opens the file in the mail program, checks it and sends it. The attachments must already exist",
       args: withExt(
         z.strictObject({

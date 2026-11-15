@@ -1,5 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
 import { combine, verifyTask, type ActionFact, type FileProbe, type TaskFact, type Verification, type VerificationStatus } from "./verify.js";
+import { copyResultSupport } from "./action-support.js";
+import { assessProvenance, type AuthorshipAssessment } from "../delegation/result-provenance.js";
+import { checkManager, type ManagerVerification } from "./manager.js";
+import { checkWorkflow, type WorkflowVerification } from "./workflow.js";
 
 /**
  * Reads the platform's own records (tasks, approval requests) and verifies a task or a whole chain with verify.ts.
@@ -14,37 +18,94 @@ export interface VerificationDeps {
   };
   /** Checks a file the platform itself created. Goes through the folder permission gate; "unreadable" is an honest answer, never a pass. */
   probe: FileProbe;
+  /** Exact action's source-owned metadata only; never executes or checks readiness/credentials. */
+  resultSupport?: (connector: string, action: string) => unknown;
 }
 
 type Row = Record<string, unknown>;
+type Member = TaskFact & { rootId: string; botId: string; authorship: AuthorshipAssessment };
+type ChainSnapshot = { task: Member; actions: ActionFact[] }[];
+const TASK_SELECT = `SELECT t.id,t.root_id,t.assignee_bot_id,t.status,t.result,
+ (SELECT COUNT(*) FROM task_events e WHERE e.task_id=t.id AND e.kind='result_provenance') AS provenance_count,
+ (SELECT e.detail FROM task_events e WHERE e.task_id=t.id AND e.kind='result_provenance' ORDER BY e.id LIMIT 1) AS provenance_detail,
+ (SELECT e.root_id FROM task_events e WHERE e.task_id=t.id AND e.kind='result_provenance' ORDER BY e.id LIMIT 1) AS provenance_root
+ FROM tasks t`;
+
+export interface ChainVerification extends Verification {
+  tasks: number;
+  completion: Record<TaskFact["status"], number> & { total: number };
+  incompleteTasks: { id: string; status: TaskFact["status"] }[];
+}
 
 export class VerificationService {
   constructor(private readonly d: VerificationDeps) {}
 
-  private task(id: string): (TaskFact & { rootId: string; botId: string }) | null {
-    const r = this.d.db.prepare("SELECT id, root_id, assignee_bot_id, status, result FROM tasks WHERE id = ?").get(id) as Row | undefined;
+  private fromRow(r: Row): TaskFact & { rootId: string; botId: string; authorship: AuthorshipAssessment } {
+    const task = { id: String(r["id"]), rootId: String(r["root_id"]), botId: String(r["assignee_bot_id"]), status: String(r["status"]) as TaskFact["status"], result: r["result"] === null ? null : String(r["result"]) };
+    const detail = r["provenance_detail"];
+    return { ...task, authorship: assessProvenance(task, r["provenance_count"], typeof detail === "string" ? { taskId: task.id, rootId: String(r["provenance_root"]), detail } : undefined) };
+  }
+
+  private task(id: string) {
+    const r = this.d.db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(id) as Row | undefined;
     if (!r) return null;
-    return { id: String(r["id"]), rootId: String(r["root_id"]), botId: String(r["assignee_bot_id"]), status: String(r["status"]) as TaskFact["status"], result: r["result"] === null ? null : String(r["result"]) };
+    return this.fromRow(r);
   }
   private actions(taskId: string): ActionFact[] {
     return this.d.db
       .prepare("SELECT id, task_id, connector, action, status, result, error, summary FROM approval_requests WHERE task_id = ? ORDER BY created_at")
       .all(taskId)
-      .map((r: Row) => ({ id: String(r["id"]), taskId: r["task_id"] === null ? null : String(r["task_id"]), connector: String(r["connector"]), action: String(r["action"]), status: String(r["status"]) as ActionFact["status"], result: r["result"] === null ? null : String(r["result"]), error: r["error"] === null ? null : String(r["error"]), summary: String(r["summary"]) }));
+      .map((r: Row) => this.actionFact(r));
+  }
+
+  private actionFact(r: Row): ActionFact {
+    const connector = String(r["connector"]), action = String(r["action"]);
+    let resultSupport;
+    try { resultSupport = copyResultSupport(this.d.resultSupport?.(connector, action)); } catch { /* unavailable metadata remains unknown */ }
+    return { id: String(r["id"]), taskId: r["task_id"] === null ? null : String(r["task_id"]), connector, action, resultSupport, status: String(r["status"]) as ActionFact["status"], result: r["result"] === null ? null : String(r["result"]), error: r["error"] === null ? null : String(r["error"]), summary: String(r["summary"]) };
   }
 
   /** One task. Undefined when the task does not exist. */
   verifyTask(id: string): Verification | undefined {
     const t = this.task(id);
-    return t ? verifyTask(t, this.actions(t.id), this.d.probe) : undefined;
+    return t ? verifyTask(t, this.actions(t.id), this.d.probe, t.authorship) : undefined;
   }
 
-  /** A whole chain: the root task and everything it handed on. The worst result wins. */
-  verifyChain(rootId: string): (Verification & { tasks: number }) | undefined {
-    const ids = this.d.db.prepare("SELECT id FROM tasks WHERE root_id = ? ORDER BY created_at").all(rootId).map((r: Row) => String(r["id"]));
-    if (ids.length === 0) return undefined;
-    const parts = ids.map((id) => this.verifyTask(id)!);
-    return { ...combine(parts), tasks: ids.length };
+  /** Lifecycle completeness is separate from evidence: an unfinished/failed member can never make a whole chain confirmed. */
+  verifyChain(rootId: string): ChainVerification | undefined {
+    return this.checkChain(this.readChain(rootId));
+  }
+
+  private readChain(rootId: string): ChainSnapshot {
+    return this.d.db.prepare(`${TASK_SELECT} WHERE t.root_id = ? ORDER BY t.created_at, t.id`).all(rootId)
+      .map(r => { const task = this.fromRow(r); return { task, actions: this.actions(task.id) }; });
+  }
+
+  private checkChain(snapshot: ChainSnapshot): ChainVerification | undefined {
+    const members = snapshot.map(s => s.task);
+    if (members.length === 0) return undefined;
+    const completion: ChainVerification["completion"] = { total: members.length, completed: 0, pending: 0, running: 0, failed: 0, cancelled: 0 };
+    for (const member of members) completion[member.status]++;
+    const incompleteTasks = members.filter(t => t.status !== "completed").map(({ id, status }) => ({ id, status }));
+    const verdict = combine(snapshot.map(({ task: t, actions }) => verifyTask(t, actions, this.d.probe, t.authorship)));
+    if (incompleteTasks.length > 0) {
+      if (verdict.status === "verified") verdict.status = "unverified";
+      const details = (["failed", "cancelled", "pending", "running"] as const).filter(s => completion[s] > 0).map(s => `${completion[s]} ${s}`).join(", ");
+      const warning = `${incompleteTasks.length} of ${members.length} task(s) did not complete successfully (${details}); this chain is not fully confirmed.`;
+      // Keep stronger contradiction/approval warnings, without repeating combine's all-confirmed wording.
+      verdict.summary = verdict.status === "contradicted" || verdict.status === "waiting" ? `${verdict.summary} ${warning}` : warning;
+    }
+    return { ...verdict, tasks: members.length, completion, incompleteTasks };
+  }
+
+  /** No writes/audit/model work. Snapshot references and evidence before any folder-gated file observations. */
+  verifyManager(id: string): ManagerVerification | undefined {
+    return checkManager(this.d.db, id, rootId => this.readChain(rootId), snapshot => this.checkChain(snapshot)!);
+  }
+
+  /** Uses exact saved workflow records only; never resolves approvals or ticks an executor. */
+  verifyWorkflow(id: string): WorkflowVerification | undefined {
+    return checkWorkflow(this.d.db, id, rootId => this.readChain(rootId), snapshot => this.checkChain(snapshot)!, row => this.actionFact(row), this.d.probe);
   }
 
   /** Writes the verdict to the audit log when it is new or different from the last one recorded for this chain. Never throws. */

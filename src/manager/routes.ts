@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { CapabilityService } from "../capabilities/service.js";
+import { assessmentBlocks } from "../capabilities/execution-policy.js";
 import { MANAGER_CEILINGS, managerSettingsPatch, type ManagerService } from "./service.js";
 
 const startSchema = z.strictObject({
@@ -35,14 +36,13 @@ export async function registerManagerRoutes(app: FastifyInstance, manager: Manag
     let assessment: Awaited<ReturnType<CapabilityService["assess"]>> | undefined;
     if (capabilities) {
       assessment = await capabilities.assess(body.goal);
-      audit?.record("capability.assessed", { classification: assessment.classification, blockers: assessment.blockers, goal: body.goal.slice(0, 120), via: "manager" }, { actor: "system" });
-      const hard = assessment.requirements.filter((r) => r.id !== "ai-models" && (r.status === "missing" || r.status === "blocked_by_policy"));
-      if (assessment.classification === "unsupported" && hard.length > 0 && body.proceedAnyway !== true) {
+      audit?.record("capability.assessed", { classification: assessment.classification, blockers: assessment.blockers, goal: body.goal.slice(0, 120), via: "manager", phase: "acceptance" }, { actor: "system" });
+      if (assessmentBlocks(assessment, "manager") && body.proceedAnyway !== true) {
         return reply.code(422).send({ error: "task_unsupported", message: `${assessment.summary} Send the request again with proceedAnyway if you want a best-effort plan anyway.`, assessment });
       }
     }
     reply.code(202);
-    return { run: manager.start(body.goal, body.budget ?? {}, requestedBy), ...(assessment ? { assessment } : {}) };
+    return { run: manager.start(body.goal, body.budget ?? {}, requestedBy, { proceedAnyway: body.proceedAnyway === true }), ...(assessment ? { assessment } : {}) };
   });
 
   app.get<{ Params: { id: string } }>("/api/manager/runs/:id", async (req) => ({ run: manager.view(z.string().uuid().parse(req.params.id)) }));

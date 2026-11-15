@@ -110,6 +110,7 @@ import { WorkflowService } from "./workflows/service.js";
 import { SkillService } from "./skills/service.js";
 import { registerSkillRoutes } from "./skills/routes.js";
 import { CapabilityService } from "./capabilities/service.js";
+import { assessExecution } from "./capabilities/execution-policy.js";
 import { VerificationService } from "./verification/service.js";
 import { registerVerificationRoutes } from "./verification/routes.js";
 import { resolveInRoots } from "./connectors/pc/paths.js";
@@ -636,6 +637,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const verification = new VerificationService({
     db,
     audit,
+    resultSupport: (connector, action) => {
+      const spec = registry.action(connector, action);
+      return spec?.kind === "write" ? spec.resultSupport : undefined;
+    },
     probe: (abs) => {
       const r = resolveInRoots(pcService.roots(), abs, pcService.roots()[0] ?? ".");
       if (!r.ok) return { state: "unreadable", reason: r.reason };
@@ -656,6 +661,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   let automation: AutomationService | undefined; // created just below; the engine tells it when a chain ends
   const engine = new TaskEngine({
     tasks: taskRepo,
+    preflight: (task, proceedAnyway) => assessExecution(capabilitiesRef, audit, { kind: "task", id: task.id, goal: task.instruction, source: task.parentId ? "delegated_child" : task.origin, proceedAnyway }),
     getBot: (id) => agentService.getBot(id),
     llm,
     now,
@@ -730,6 +736,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   // ---- The Manager AI (Stage 2): plans, uses specialist bots only when needed, checks and combines the result ----
   const manager = new ManagerService({
     db,
+    preflight: (run, proceedAnyway) => assessExecution(capabilitiesRef, audit, { kind: "manager", id: run.id, goal: run.goal, source: run.requestedBy, proceedAnyway }),
     now,
     engine,
     getTask: (id) => taskRepo.getTask(id),
@@ -888,7 +895,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
   // ---- Workflows (Stage 6): drawn as boxes and arrows, with a saved queue that survives restarts ----
   const workflows = new WorkflowService({
-    actions: { request: (botId, taskId, req) => gate.request(botId, taskId, req), exists: (connector, action) => registry.action(connector, action) !== undefined },
+    actions: { request: (botId, taskId, req, link) => gate.request(botId, taskId, req, link), exists: (connector, action) => registry.action(connector, action) !== undefined },
     db,
     audit,
     now,
@@ -907,6 +914,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     ...(options.managerPollMs ? { pollMs: options.managerPollMs } : {}),
   });
   workflows.recover();
+  workflows.reconcileApprovalsAfterRestart();
   automation.addEventListener((name, text) => workflows.onEvent(name, text));
   app.decorate("workflows", workflows);
   await registerWorkflowRoutes(app, workflows, { agents: () => agentService.listBots(false).map((b) => ({ id: b.id, name: b.name, role: b.role })), complete: (input) => llm.complete(input), audit }, (workflowId) => capabilities.get(`workflow:${workflowId}`));

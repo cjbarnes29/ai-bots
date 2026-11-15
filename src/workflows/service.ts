@@ -1,12 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { AuditLog } from "../audit/audit.js";
+import type { PendingApprovalLink } from "../approvals/service.js";
 import type { TaskEngine } from "../delegation/engine.js";
 import type { TaskRecord } from "../delegation/repository.js";
 import { AppError } from "../errors.js";
 import { LlmError } from "../llm/errors.js";
 import type { ManagerService, RunView as ManagerRunView } from "../manager/service.js";
 import { GRAPH_LIMITS, evaluateCondition, graphSchema, renderTemplate, validateGraph, type Graph, type GraphNode, type Problem } from "./graph.js";
+import { linkedWorkflowApproval } from "./approval-binding.js";
 
 /**
  * Workflows (Stage 6): boxes and arrows that start bot tasks and Manager requests, branch on their results, and can wait for a person.
@@ -70,7 +72,7 @@ export interface WorkflowDeps {
   botExists: (id: string) => boolean;
   /** The approval gate (the same one agents use). Without it, outside-action boxes fail with a clear message. */
   actions?: {
-    request(botId: string, taskId: string | null, req: { connector: string; action: string; args: Record<string, unknown> }): Promise<{ status: "done"; text: string } | { status: "pending_approval"; approvalId: string } | { status: "denied"; reason: string } | { status: "failed"; reason: string }>;
+    request(botId: string, taskId: string | null, req: { connector: string; action: string; args: Record<string, unknown> }, link?: PendingApprovalLink): Promise<{ status: "done"; text: string } | { status: "pending_approval"; approvalId: string } | { status: "denied"; reason: string } | { status: "failed"; reason: string }>;
     exists(connector: string, action: string): boolean;
   };
   automationPaused: () => boolean;
@@ -85,6 +87,7 @@ const TERMINAL_STEP = ["completed", "failed", "skipped"];
 export class WorkflowService {
   private readonly inFlight = new Map<string, Promise<void>>();
   private readonly cancelled = new Set<string>();
+  private startupReconciled = false;
 
   constructor(private readonly d: WorkflowDeps) {}
 
@@ -288,14 +291,14 @@ export class WorkflowService {
    */
   resolveApprovals(): number {
     let n = 0;
-    const rows = this.d.db.prepare("SELECT s.run_id, s.node_id, s.ref_id FROM workflow_steps s JOIN workflow_runs r ON r.id = s.run_id WHERE s.status = 'waiting' AND s.ref_kind = 'approval' AND r.status IN ('waiting','running')").all();
+    const rows = this.d.db.prepare("SELECT s.run_id, s.node_id, s.ref_id FROM workflow_steps s JOIN workflow_runs r ON r.id = s.run_id WHERE s.status = 'waiting' AND s.ref_kind = 'approval' AND r.status IN ('waiting','running','queued')").all();
     for (const r of rows) {
-      const a = this.d.db.prepare("SELECT status, result, error FROM approval_requests WHERE id = ?").get(String(r["ref_id"]));
-      if (!a) continue;
       const runId = String(r["run_id"]);
       const nodeId = String(r["node_id"]);
-      const st = String(a["status"]);
-      if (st === "executed") this.setStep(runId, nodeId, { status: "completed", output: clip(String(a["result"] ?? ""), WORKFLOW_LIMITS.maxOutput), finished_at: this.iso() });
+      const a = this.linkedApproval(runId, nodeId, String(r["ref_id"]));
+      const st = a ? String(a["status"]) : "invalid_link";
+      if (!a) this.setStep(runId, nodeId, { status: "failed", error: "The saved approval link is missing, mismatched or damaged. Review the approval history. Nothing was requested again.", finished_at: this.iso() });
+      else if (st === "executed") this.setStep(runId, nodeId, { status: "completed", output: clip(String(a["result"] ?? ""), WORKFLOW_LIMITS.maxOutput), finished_at: this.iso() });
       else if (st === "failed" || st === "denied" || st === "expired") this.setStep(runId, nodeId, { status: "failed", error: clip(st === "failed" ? `The approved action failed: ${String(a["error"] ?? "")}` : `The approval was ${st}, so the action did not happen.`, 400), finished_at: this.iso() });
       else continue;
       this.d.db.prepare("UPDATE workflow_runs SET status = 'queued' WHERE id = ? AND status = 'waiting'").run(runId);
@@ -303,6 +306,34 @@ export class WorkflowService {
       n++;
     }
     return n;
+  }
+
+  /** Read recorded evidence only. No gate call, payload rewrite or guessing another request. */
+  private linkedApproval(runId: string, nodeId: string, approvalId: string): Record<string, unknown> | undefined {
+    const run = this.d.db.prepare("SELECT graph FROM workflow_runs WHERE id = ?").get(runId);
+    if (!run) return undefined;
+    const node = graphSchema.parse(JSON.parse(String(run["graph"]))).nodes.find(n => n.id === nodeId);
+    const binding = linkedWorkflowApproval(this.d.db, node, approvalId);
+    return binding.ok ? binding.approval : undefined;
+  }
+
+  /** App startup only, after the previous executor has ended. Routine ticks must not call this. */
+  reconcileApprovalsAfterRestart(): number {
+    if (this.startupReconciled) return 0;
+    this.startupReconciled = true;
+    let n = 0;
+    const rows = this.d.db.prepare("SELECT s.run_id, s.node_id, s.ref_id FROM workflow_steps s JOIN workflow_runs r ON r.id = s.run_id WHERE s.status = 'waiting' AND s.ref_kind = 'approval' AND r.status IN ('waiting','running','queued')").all();
+    for (const row of rows) {
+      const runId = String(row["run_id"]);
+      const nodeId = String(row["node_id"]);
+      const approval = this.linkedApproval(runId, nodeId, String(row["ref_id"]));
+      if (approval?.["status"] !== "approved") continue;
+      this.setStep(runId, nodeId, { status: "failed", output: null, error: "The app restarted after approval but before the action's outcome was recorded. Review the approval history and outside effects. The action was not sent again.", finished_at: this.iso() });
+      this.d.db.prepare("UPDATE workflow_runs SET status = 'queued' WHERE id = ? AND status = 'waiting'").run(runId);
+      this.d.audit.record("workflow.integration_uncertain", { run: runId, node: nodeId, approval: String(row["ref_id"]), reason: "approved_without_receipt" });
+      n++;
+    }
+    return n + this.resolveApprovals();
   }
 
   // ---------------------------------------------------------------- the queue
@@ -473,12 +504,24 @@ export class WorkflowService {
           if (!this.d.actions) throw new AppError(501, "no_gate", "Outside actions are not available here.");
           const args: Record<string, unknown> = {};
           for (const [k, v] of Object.entries(node.args)) args[k] = typeof v === "string" ? renderTemplate(v, scope) : v;
-          const out = await this.d.actions.request(node.botId, null, { connector: node.connector, action: node.action, args });
+          const snapshot = this.d.db.prepare("SELECT graph, workflow_version FROM workflow_runs WHERE id = ?").get(runId)!;
+          const out = await this.d.actions.request(node.botId, null, { connector: node.connector, action: node.action, args }, {
+            linkPending: (approvalId, connection) => {
+              if (connection !== this.d.db) throw new AppError(500, "workflow_link_connection", "Approval and workflow must use the same database connection.");
+              const savedNode = graphSchema.parse(JSON.parse(String(snapshot["graph"]))).nodes.find(n => n.id === node.id);
+              if (JSON.stringify(savedNode) !== JSON.stringify(node)) return false;
+              const changed = this.d.db.prepare("UPDATE workflow_steps SET status = 'waiting', ref_kind = 'approval', ref_id = ?, output = ? WHERE run_id = ? AND node_id = ? AND status = 'running' AND attempts = ? AND ref_kind IS NULL AND ref_id IS NULL AND EXISTS (SELECT 1 FROM workflow_runs r WHERE r.id = ? AND r.status = 'running' AND r.workflow_version = ? AND r.graph = ?)")
+                .run(approvalId, `Waiting for your approval on the Approvals page: ${node.connector}.${node.action}`, runId, node.id, cur.attempts + 1, runId, Number(snapshot["workflow_version"]), String(snapshot["graph"]));
+              if (Number(changed.changes) !== 1) return false;
+              this.d.audit.record("workflow.approval_waiting", { run: runId, node: node.id, approval: approvalId });
+              return true;
+            },
+          });
           if (out.status === "done") return done(out.text);
           if (out.status === "pending_approval") {
             // A write never runs by itself: wait for the owner to decide it on the Approvals page. tick() picks the answer up.
-            this.setStep(runId, node.id, { status: "waiting", ref_kind: "approval", ref_id: out.approvalId, output: `Waiting for your approval on the Approvals page: ${node.connector}.${node.action}` });
-            this.d.audit.record("workflow.approval_waiting", { run: runId, node: node.id, approval: out.approvalId });
+            const linked = this.steps(runId).get(node.id);
+            if (linked?.refKind !== "approval" || linked.refId !== out.approvalId || !this.linkedApproval(runId, node.id, out.approvalId)) throw new AppError(409, "workflow_link_conflict", "The approval was not durably linked to this step. Review the approval history.");
             return;
           }
           throw new AppError(502, "action_refused", out.reason);
@@ -491,6 +534,10 @@ export class WorkflowService {
       }
     } catch (err) {
       if (err instanceof Stop) throw err;
+      // A competing/notification path may already have committed the winning link. Never
+      // overwrite it with a stale attempt's error (or revive a cancelled/terminal step).
+      const saved = this.steps(runId).get(node.id);
+      if (node.type === "integration" && saved?.refKind === "approval" && saved.refId && this.linkedApproval(runId, node.id, saved.refId)) return;
       this.setStep(runId, node.id, { status: "failed", error: clip(err instanceof AppError || err instanceof LlmError ? err.message : err instanceof Error ? err.message : "The box failed.", 400), finished_at: this.iso() });
     }
   }
@@ -502,7 +549,7 @@ export class WorkflowService {
       const asked = this.d.db.prepare("SELECT COUNT(*) AS n FROM approval_requests WHERE task_id = ?").get(String(s["ref_id"])) as { n: number };
       return Number(asked.n) === 0;
     }
-    return s["ref_kind"] !== "manager" && s["ref_kind"] !== "approval"; // a Manager run may have created tasks of its own: never repeat it
+    return s["ref_kind"] !== "manager" && s["ref_kind"] !== "approval" && s["ref_kind"] !== "integration_uncertain"; // a Manager run or uncertain integration may already have done outside work
   }
 
   private async awaitTask(runId: string, taskId: string): Promise<string> {
@@ -581,13 +628,19 @@ export class WorkflowService {
     if (["queued", "running"].includes(String(run["status"]))) throw new AppError(409, "run_busy", "This run is still working.");
     const s = this.d.db.prepare("SELECT status FROM workflow_steps WHERE run_id = ? AND node_id = ?").get(runId, nodeId);
     if (!s || s["status"] !== "failed") throw new AppError(409, "step_not_failed", "Only a failed box can be retried.");
-    if (!this.canRepeat(runId, nodeId)) throw new AppError(409, "cannot_repeat", "This box already asked for an outside action (or has been tried 3 times), so repeating it could do the same thing twice. Start a new run instead.");
+    if (!this.canRepeat(runId, nodeId)) throw new AppError(409, "cannot_repeat", "This box already asked for an outside action, has an uncertain outcome, or reached its retry limit. Repeating it could do the same thing twice. Review its recorded actions before deciding what to do next.");
     const graph = graphSchema.parse(JSON.parse(String(run["graph"])));
     // reset this box and everything downstream of it
     const down = new Set<string>([nodeId]);
     for (let grew = true; grew; ) {
       grew = false;
       for (const e of graph.edges) if (down.has(e.from) && !down.has(e.to)) (down.add(e.to), (grew = true));
+    }
+    // An earlier failed box must not become a way to replay a protected descendant.
+    // Check the whole reset set before changing any saved state (including already-completed boxes).
+    for (const id of down) {
+      const affected = this.d.db.prepare("SELECT status FROM workflow_steps WHERE run_id = ? AND node_id = ?").get(runId, id);
+      if (affected?.["status"] === "running" || !this.canRepeat(runId, id)) throw new AppError(409, "cannot_repeat", "Retrying this box would reset another box that is still running, already asked for an outside action, has an uncertain outcome, or reached its retry limit. Review the affected actions before deciding what to do next.");
     }
     for (const id of down) this.setStep(runId, id, { status: "pending", error: null, output: null, finished_at: null });
     this.setRun(runId, { status: "queued", error: null, finished_at: null });
@@ -599,14 +652,29 @@ export class WorkflowService {
    * After a restart: runs that were working continue from their checkpoints.
    *  - finished boxes stay finished;
    *  - a box that was running a bot task or Manager request is looked at: if that finished, its result is taken; if not, the box FAILS (it is never started a second time by itself);
+   *  - a running outside-action box has an uncertain outcome, even without a saved reference: it FAILS and cannot be retried, directly or through an upstream reset;
    *  - boxes that never started are simply started.
    */
   recover(): number {
     let n = 0;
-    for (const r of this.d.db.prepare("SELECT id FROM workflow_runs WHERE status IN ('running','queued')").all()) {
+    for (const r of this.d.db.prepare("SELECT id, graph FROM workflow_runs WHERE status IN ('running','queued')").all()) {
       const runId = String(r["id"]);
+      const graph = graphSchema.parse(JSON.parse(String(r["graph"])));
       for (const s of this.d.db.prepare("SELECT * FROM workflow_steps WHERE run_id = ? AND status = 'running'").all(runId)) {
         const nodeId = String(s["node_id"]);
+        if (graph.nodes.some((node) => node.id === nodeId && node.type === "integration")) {
+          // request() may have stored an approval or performed a read before its result/ref was saved.
+          // A missing reference is not proof that nothing happened. Preserve any known reference.
+          this.setStep(runId, nodeId, {
+            status: "failed",
+            ref_kind: s["ref_kind"] === null ? "integration_uncertain" : String(s["ref_kind"]),
+            output: null,
+            error: "The app restarted during an outside action. Its outcome is uncertain, so it was not requested again. Review the approval history and any outside effects before deciding what to do next. Retrying this box or an earlier box cannot repeat it.",
+            finished_at: this.iso(),
+          });
+          this.d.audit.record("workflow.integration_uncertain", { run: runId, node: nodeId });
+          continue;
+        }
         let finished: { ok: boolean; text: string } | null = null;
         if (s["ref_kind"] === "task" && s["ref_id"] !== null) {
           const t = this.d.getTask(String(s["ref_id"]));

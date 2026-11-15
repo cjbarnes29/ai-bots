@@ -127,6 +127,7 @@ export function createGithubConnector(base: string = GITHUB_API): ConnectorDefin
       },
       create_issue: {
         kind: "write",
+        resultSupport: [{ operation: "create", objects: ["issue"] }],
         description: "Open a new issue in a repository",
         args: z.strictObject({ repo: repoName, title: z.string().min(1).max(200), body: z.string().max(MAX_TEXT).default("") }),
         summarize: (a) => `Open a GitHub issue in ${String(a["repo"])}: "${clip(String(a["title"]), 100)}"`,
@@ -137,6 +138,7 @@ export function createGithubConnector(base: string = GITHUB_API): ConnectorDefin
       },
       comment_issue: {
         kind: "write",
+        resultSupport: [{ operation: "post_comment", objects: ["comment"] }, { operation: "append", objects: ["comment"] }],
         description: "Add a comment to an issue or pull request",
         args: z.strictObject({ repo: repoName, number: z.number().int().min(1).max(10_000_000), body: textField }),
         summarize: (a) => `Comment on GitHub ${String(a["repo"])}#${String(a["number"])}: "${clip(String(a["body"]), 100)}"`,
@@ -213,6 +215,7 @@ export function createNotionConnector(base: string = NOTION_API): ConnectorDefin
       },
       create_page: {
         kind: "write",
+        resultSupport: [{ operation: "create", objects: ["page"] }, { operation: "save", objects: ["page"] }],
         description: "Create a new Notion page under an existing page",
         args: z.strictObject({ parentPageId: pageId, title: z.string().min(1).max(200), text: z.string().max(MAX_TEXT).default("") }),
         summarize: (a) => `Create a Notion page "${clip(String(a["title"]), 100)}"`,
@@ -223,6 +226,7 @@ export function createNotionConnector(base: string = NOTION_API): ConnectorDefin
       },
       append_text: {
         kind: "write",
+        resultSupport: [{ operation: "append", objects: ["page"] }, { operation: "write", objects: ["page"] }],
         description: "Add text to the end of a Notion page",
         args: z.strictObject({ pageId, text: textField }),
         summarize: (a) => `Add text to Notion page ${String(a["pageId"])}: "${clip(String(a["text"]), 100)}"`,
@@ -480,6 +484,7 @@ export function createGoogleWorkspaceConnector(options: { urls?: GoogleUrls; now
       },
       drive_create_doc: {
         kind: "write",
+        resultSupport: [{ operation: "create", objects: ["document"] }, { operation: "save", objects: ["document"] }],
         description: "Create a new Google Doc from text (in the owner's Drive; cannot change existing files)",
         args: z.strictObject({ name: z.string().min(1).max(200), text: z.string().max(MAX_TEXT * 5) }),
         summarize: (a) => `Create the Google Doc "${clip(String(a["name"]), 100)}"`,
@@ -493,6 +498,7 @@ export function createGoogleWorkspaceConnector(options: { urls?: GoogleUrls; now
       },
       calendar_create_event: {
         kind: "write",
+        resultSupport: [{ operation: "create", objects: ["event"] }, { operation: "schedule", objects: ["event"] }],
         description: "Add an event to the primary calendar (no guests, so no invitations are sent)",
         args: z.strictObject({ title: z.string().min(1).max(200), start: isoTime, end: isoTime, notes: z.string().max(1000).default("") }),
         summarize: (a) => `Add calendar event "${clip(String(a["title"]), 100)}" at ${String(a["start"])}`,
@@ -504,6 +510,7 @@ export function createGoogleWorkspaceConnector(options: { urls?: GoogleUrls; now
       },
       tasks_create: {
         kind: "write",
+        resultSupport: [{ operation: "create", objects: ["task"] }],
         description: "Add a task to the default task list",
         args: z.strictObject({ title: z.string().min(1).max(200), notes: z.string().max(1000).default("") }),
         summarize: (a) => `Add Google Task "${clip(String(a["title"]), 100)}"`,

@@ -14,9 +14,17 @@ export interface ActionContext {
   taskId?: string | null;
 }
 
+export const RESULT_OPERATIONS = ["send", "create", "save", "write", "append", "schedule", "remove_to_trash", "post_comment"] as const;
+export const RESULT_OBJECTS = ["email", "message", "file", "folder", "document", "spreadsheet", "presentation", "chart", "diagram", "draft", "event", "task", "issue", "comment", "page", "note", "lead_rows"] as const;
+export type ResultOperation = (typeof RESULT_OPERATIONS)[number];
+export type ResultObject = (typeof RESULT_OBJECTS)[number];
+export type ResultSupport = readonly { operation: ResultOperation; objects: readonly ResultObject[] }[];
+
 export interface ActionSpec {
   /** "read" actions run straight away if the bot may read this connector. "write" actions ALWAYS need the owner's approval. */
   kind: "read" | "write";
+  /** Source-owned action-type facts, never permissions or proof of a particular target/content. Omitted = unknown. */
+  resultSupport?: ResultSupport;
   /** A short description shown to the bot and to you. */
   description: string;
   /** The exact shape of the arguments. Anything else is rejected. */

@@ -49,6 +49,23 @@ function toApproval(r: Row): ApprovalRecord {
 export class ApprovalRepository {
   constructor(private readonly db: DatabaseSync) {}
 
+  /** One connection, synchronous work only; BEGIN failure must never roll back a caller's transaction. */
+  transaction<T>(work: (db: DatabaseSync) => T): T {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const result = work(this.db);
+      if (result !== null && (typeof result === "object" || typeof result === "function") && typeof (result as { then?: unknown }).then === "function") {
+        if (result instanceof Promise) void result.catch(() => undefined);
+        throw new Error("Approval transactions must be synchronous.");
+      }
+      this.db.exec("COMMIT");
+      return result;
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
+  }
+
   insert(a: Pick<ApprovalRecord, "id" | "botId" | "taskId" | "connector" | "action" | "summary" | "argsJson" | "argsHash" | "createdAt" | "expiresAt">): void {
     this.db
       .prepare(

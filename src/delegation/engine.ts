@@ -8,7 +8,6 @@ import type { CompleteOutput, LlmService } from "../llm/service.js";
 import type { ChatMessage } from "../llm/types.js";
 import { buildSystemPrompt } from "../runtimes/prompt.js";
 import {
-  MAX_RESULT_CHARS,
   delegationLimitsUpdateSchema,
   mergeDelegationLimits,
   type DelegationLimits,
@@ -19,6 +18,7 @@ import type { ActionOutcome } from "../approvals/service.js";
 import { buildDelegationAddendum, parseDelegations, stripDelegations } from "./protocol.js";
 import { stripWorkspaceBlocks } from "../project-workspace/protocol.js";
 import type { TaskOrigin, TaskRecord, TaskRepository, TeamMember } from "./repository.js";
+import { renderResult, type ResultSegment, type RenderedResult } from "./result-provenance.js";
 
 /** Who is starting a task. Schedules and triggers use this, so their tasks are labelled and counted. */
 export interface StartOrigin {
@@ -27,6 +27,8 @@ export interface StartOrigin {
   label?: string;
   /** How many automatic hops led to this task. */
   depth?: number;
+  /** Explicit owner best-effort choice for this root only. Never inherited by delegated tasks. */
+  proceedAnyway?: boolean;
 }
 
 const LIMITS_KEY = "limits";
@@ -42,7 +44,7 @@ class TaskFailure extends Error {
     public readonly code: string,
     message: string,
     /** What the agent wrote before the task failed (kept on the failed task, so finished work is never lost). */
-    public readonly partial?: string,
+    public readonly partial?: ResultSegment[],
   ) {
     super(message);
   }
@@ -106,6 +108,8 @@ export interface EngineDeps {
   onRootFinished?: (task: TaskRecord) => void;
   /** The Guardian: a reason in plain words while nothing new may start or continue (paused, stopped, locked), otherwise null. */
   startGuard?: () => string | null;
+  /** Shared capability assessment before any task (including a delegated child) reads context or calls its model. */
+  preflight?: (task: TaskRecord, proceedAnyway: boolean) => Promise<void>;
   /**
    * Context for one task, read right before its first model call (the project's shared workspace): `system` is added to the instructions,
    * `user` to the task message as information. Null when there is none. A problem here never stops a task.
@@ -132,7 +136,7 @@ interface Feedback {
 export class TaskEngine {
   private readonly now: () => number;
   /** Chains waiting for a place, and how many are running now. */
-  private waiting: string[] = [];
+  private waiting: { id: string; proceedAnyway: boolean }[] = [];
   private running = 0;
   private queued = 0;
   private idleWaiters: (() => void)[] = [];
@@ -224,9 +228,9 @@ export class TaskEngine {
         originLabel: origin.label ?? null,
         originDepth: origin.depth ?? 0,
       });
-      this.deps.tasks.insertEvent(id, id, "created", JSON.stringify({ assignee: bot.name, origin: origin.type, ...(origin.label ? { label: origin.label } : {}) }), now);
+      this.deps.tasks.insertEvent(id, id, "created", JSON.stringify({ assignee: bot.name, origin: origin.type, ...(origin.label ? { label: origin.label } : {}), ...(origin.proceedAnyway === true ? { proceedAnyway: true } : {}) }), now);
     });
-    this.enqueue(id);
+    this.enqueue(id, origin.proceedAnyway === true);
     return this.mustTask(id);
   }
 
@@ -240,9 +244,9 @@ export class TaskEngine {
     return Math.max(1, Math.min(wanted, slots));
   }
 
-  private enqueue(rootId: string): void {
+  private enqueue(rootId: string, proceedAnyway = false): void {
     this.queued += 1;
-    this.waiting.push(rootId);
+    this.waiting.push({ id: rootId, proceedAnyway });
     // Started on the next tick, like the old queue: the caller still sees the task as pending.
     void Promise.resolve().then(() => this.pump());
   }
@@ -250,9 +254,9 @@ export class TaskEngine {
   /** Starts waiting chains while there is room. Each chain is a separate, independent piece of work; nothing is started twice. */
   private pump(): void {
     while (this.running < this.parallelChains() && this.waiting.length > 0) {
-      const id = this.waiting.shift()!;
+      const { id, proceedAnyway } = this.waiting.shift()!;
       this.running += 1;
-      void this.runTask(id)
+      void this.runTask(id, proceedAnyway)
         .catch(() => {
           /* runTask records its own failures */
         })
@@ -315,30 +319,40 @@ export class TaskEngine {
     if (this.deps.tasks.getTask(taskId)?.status === "cancelled") throw new Cancelled();
   }
 
-  private async runTask(taskId: string): Promise<void> {
+  private async runTask(taskId: string, proceedAnyway = false): Promise<void> {
     const task = this.mustTask(taskId);
     if (task.status === "cancelled") return;
     this.deps.tasks.markRunning(taskId, this.iso());
     this.event(task.rootId, taskId, "started", { assignee: task.assigneeName, depth: task.depth });
     try {
+      this.stopIfHeld();
+      await this.deps.preflight?.(task, proceedAnyway);
+      this.throwIfCancelled(taskId);
+      this.stopIfHeld();
       const result = await this.execute(task);
       this.throwIfCancelled(taskId);
-      const truncated = result.length > MAX_RESULT_CHARS;
-      this.deps.tasks.finish(taskId, "completed", this.iso(), {
-        result: truncated ? `${result.slice(0, MAX_RESULT_CHARS)}\n\n[Cut: the answer was longer than ${MAX_RESULT_CHARS.toLocaleString()} characters.]` : result,
-      });
-      this.event(task.rootId, taskId, "completed", { characters: result.length });
-      this.notifyRootFinished(taskId);
+      this.persistResult(task, "completed", renderResult(result));
     } catch (err) {
       if (err instanceof Cancelled) return;
       const info = this.describe(err);
-      const partial = err instanceof TaskFailure && err.partial ? err.partial.slice(0, MAX_RESULT_CHARS) : null;
-      this.deps.tasks.finish(taskId, "failed", this.iso(), { errorCode: info.code, errorMessage: info.message, ...(partial ? { result: partial } : {}) });
-      this.event(task.rootId, taskId, "failed", info);
-      this.notifyRootFinished(taskId);
+      const partial = err instanceof TaskFailure && err.partial ? renderResult(err.partial, false) : undefined;
+      this.persistResult(task, "failed", partial, info);
     } finally {
       this.replies.delete(taskId);
       this.waits.delete(taskId);
+    }
+  }
+
+  private persistResult(task: TaskRecord, status: "completed" | "failed", rendered?: RenderedResult, error?: { code: string; message: string }): void {
+    try {
+      if (this.deps.tasks.finishWithProvenance(task.id, task.rootId, status, this.iso(), { ...(rendered ? { rendered } : {}), ...(error ? { errorCode: error.code, errorMessage: error.message } : {}) })) this.notifyRootFinished(task.id);
+    } catch {
+      // Never save an unbound legacy completion or rerun model/actions after a persistence fault.
+      try {
+        const saved = this.deps.tasks.getTask(task.id);
+        if (!saved || !["pending", "running"].includes(saved.status)) return;
+        if (this.deps.tasks.finishWithProvenance(task.id, task.rootId, "failed", this.iso(), { errorCode: "result_persistence_failed", errorMessage: "The result could not be saved safely. No action was retried." })) this.notifyRootFinished(task.id);
+      } catch { console.error("Task result persistence unavailable; interrupted-task recovery is required.", task.id); }
     }
   }
 
@@ -367,7 +381,7 @@ export class TaskEngine {
    * If something required is missing, the agent gets ONE more call (counted against the chain's budget) that asks only for it. Still missing:
    * the task FAILS with the reason and keeps its text, so it is never presented as done. The platform's own notes are added in its own words.
    */
-  private async settle(task: TaskRecord, bot: BotRecord, convo: ChatMessage[], text: string, notes: string[]): Promise<string> {
+  private async settle(task: TaskRecord, bot: BotRecord, convo: ChatMessage[], text: string | ResultSegment[], notes: string[]): Promise<ResultSegment[]> {
     let outcome = this.outcome(task);
     if (outcome?.missing) {
       this.event(task.rootId, task.id, "workspace_missing", { missing: outcome.missing.problem });
@@ -377,7 +391,8 @@ export class TaskEngine {
       }
     }
     const all = [...notes, ...(this.waits.get(task.id)?.notes ?? []), ...(outcome?.notes ?? [])];
-    const final = all.length === 0 ? text : `${text}\n\n--- What the platform recorded (not written by the AI) ---\n${all.map((l) => `- ${l}`).join("\n")}`;
+    const final: ResultSegment[] = typeof text === "string" ? [{ origin: "agent", text }] : [...text];
+    if (all.length > 0) final.push({ origin: "platform", text: `\n\n--- What the platform recorded (not written by the AI) ---\n${all.map((l) => `- ${l}`).join("\n")}` });
     if (outcome?.missing) throw new TaskFailure("workspace_not_saved", `Not finished: ${outcome.missing.problem}`, final);
     return final;
   }
@@ -401,7 +416,7 @@ export class TaskEngine {
     return ids;
   }
 
-  private async execute(task: TaskRecord): Promise<string> {
+  private async execute(task: TaskRecord): Promise<ResultSegment[]> {
     const limits = this.limits();
     const bot = this.deps.getBot(task.assigneeBotId);
     this.assertRunnable(bot);
@@ -516,8 +531,13 @@ export class TaskEngine {
       else if (outcome.status === "failed") platform.push(`${name}: FAILED. ${outcome.reason}`);
     }
 
-    const assembled = (note: string): string =>
-      [parsed.text, ...feedback.map((f) => `${f.label}: ${f.text}`), note].filter(Boolean).join("\n\n");
+    const assembled = (note: string): ResultSegment[] => {
+      const blocks: ResultSegment[][] = [];
+      if (parsed.text) blocks.push([{ origin: "agent", text: parsed.text }]);
+      for (const f of feedback) blocks.push([{ origin: "platform", text: `${f.label}: ` }, { origin: "untrusted", text: f.text }]);
+      if (note) blocks.push([{ origin: "platform", text: note }]);
+      return blocks.flatMap((block, i) => i === 0 ? block : [{ origin: "platform" as const, text: "\n\n" }, ...block]);
+    };
 
     // If the call budget is spent, hand back what we have instead of failing.
     if (this.deps.tasks.callsInChain(task.rootId) >= limits.maxLlmCallsPerChain) {

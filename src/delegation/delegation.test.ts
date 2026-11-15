@@ -52,7 +52,7 @@ describe("a task with no delegation", () => {
     const tree = await finished(res.body.task.id);
     expect(tree.task).toMatchObject({ status: "completed", result: "Done: 42", llmCalls: 1, inputTokens: 10, outputTokens: 5, children: [] });
     expect(tree.totals).toEqual({ tasks: 1, llmCalls: 1, inputTokens: 10, outputTokens: 5 });
-    expect(kinds(tree)).toEqual(["created", "started", "completed"]);
+    expect(kinds(tree)).toEqual(["created", "started", "result_provenance", "completed"]);
 
     const sent = t.provider.calls[0]!;
     expect(system(0)).toContain("Manager");
@@ -100,7 +100,7 @@ describe("delegating to a teammate", () => {
       llmCalls: 1,
     });
     expect(tree.totals).toMatchObject({ tasks: 2, llmCalls: 3 });
-    expect(kinds(tree)).toEqual(["created", "started", "delegated", "started", "completed", "completed"]);
+    expect(kinds(tree)).toEqual(["created", "started", "delegated", "started", "result_provenance", "completed", "result_provenance", "completed"]);
 
     // What each model actually saw:
     expect(t.provider.calls).toHaveLength(3);

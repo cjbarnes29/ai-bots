@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Runtime } from "../agent-manager/types.js";
+import { assessProvenance, manifestFor, type RenderedResult } from "./result-provenance.js";
 
 type Row = Record<string, unknown>;
 
@@ -197,6 +198,27 @@ export class TaskRepository {
   }
 
   /** Finishing never overwrites a cancellation. */
+  finishWithProvenance(id: string, rootId: string, status: "completed" | "failed", now: string, detail: { rendered?: RenderedResult; errorCode?: string; errorMessage?: string }): boolean {
+    if (status === "completed" && !detail.rendered) throw new Error("Completion requires a rendered result-origin payload.");
+    const provenance = detail.rendered ? manifestFor(id, rootId, status, detail.rendered) : undefined;
+    if (provenance && detail.rendered && JSON.parse(provenance).version === 1 && assessProvenance({ id, rootId, status, result: detail.rendered.text }, 1, { taskId: id, rootId, detail: provenance }).state !== "known") throw new Error("Invalid rendered result-origin payload.");
+    this.db.exec("BEGIN IMMEDIATE"); // outside catch: a nested BEGIN must not roll back its caller
+    try {
+      const updated = this.db.prepare("UPDATE tasks SET status = ?, result = ?, error_code = ?, error_message = ?, finished_at = ? WHERE id = ? AND root_id = ? AND status IN ('pending','running')")
+        .run(status, detail.rendered?.text ?? null, detail.errorCode ?? null, detail.errorMessage ?? null, now, id, rootId);
+      if (Number(updated.changes) === 1) {
+        if (provenance !== undefined) this.insertEvent(id, rootId, "result_provenance", provenance, now);
+        this.insertEvent(id, rootId, status === "completed" ? "completed" : "failed", JSON.stringify(status === "completed" ? { characters: detail.rendered?.originalLength ?? 0 } : { code: detail.errorCode, message: detail.errorMessage }), now);
+      }
+      this.db.exec("COMMIT");
+      return Number(updated.changes) === 1;
+    } catch (err) {
+      try { this.db.exec("ROLLBACK"); } catch { /* preserve original/uncertain commit failure */ }
+      throw err;
+    }
+  }
+
+  /** Legacy non-result callers; engine completions use finishWithProvenance. */
   finish(
     id: string,
     status: "completed" | "failed",

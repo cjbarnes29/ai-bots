@@ -300,11 +300,14 @@ describe("budgets and limits", () => {
   });
 
   it("has a daily limit on runs and at most two at once", async () => {
-    respond = (_r, kind) => (kind === "plan" ? new Promise((r) => setTimeout(() => r(json({ mode: "direct", answer: "ok" })), 250)) : null);
-    expect((await t.call("POST", "/api/manager/runs", { goal: "a" })).status).toBe(202);
-    expect((await t.call("POST", "/api/manager/runs", { goal: "b" })).status).toBe(202);
-    expect((await t.call("POST", "/api/manager/runs", { goal: "c" })).body.error).toBe("manager_busy");
-    await t.app.manager.idle();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    respond = async (_r, kind) => { if (kind !== "plan") return null; await gate; return json({ mode: "direct", answer: "ok" }); };
+    try {
+      expect((await t.call("POST", "/api/manager/runs", { goal: "a" })).status).toBe(202);
+      expect((await t.call("POST", "/api/manager/runs", { goal: "b" })).status).toBe(202);
+      expect((await t.call("POST", "/api/manager/runs", { goal: "c" })).body.error).toBe("manager_busy");
+    } finally { release(); await t.app.manager.idle(); }
     await t.call("PUT", "/api/manager/settings", { maxRunsPerDay: 2 });
     expect((await t.call("POST", "/api/manager/runs", { goal: "d" })).body.error).toBe("manager_daily_limit");
   });

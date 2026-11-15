@@ -209,6 +209,7 @@ export function createGmailConnector(options: { urls?: GoogleUrls; now?: () => n
       },
       send_message: {
         kind: "write",
+        resultSupport: [{ operation: "send", objects: ["email", "message"] }],
         description: `Send a plain-text email (to: 1 to 5 addresses; subject up to 200 characters; body up to ${MAX_SEND_CHARS})`,
         args: z.strictObject({
           to: z.array(z.string().max(254).regex(EMAIL, "must be an email address")).min(1).max(5),
