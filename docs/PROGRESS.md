@@ -3,6 +3,16 @@
 Read this first. It is the verified checkpoint. Do not re-audit finished work; continue from "Next".
 Update it at the end of every phase.
 
+## Additional owner request: reusable hooks and skills (2026-11-15)
+
+- Saved `docs/HOOKS-AND-SKILLS-REUSE-PLAN.md`, linked from GitHub research, decision board and handover. Inspected existing SkillService/import schema and API-hook foundations; proposed reusable interface patterns, bounded lifecycle observations and seven instruction-pack candidates with an incremental delivery sequence.
+- Documentation only: no hooks installed, skills created/imported/assigned, product changes, external requests or tests. Preserve Claude's active implementation and existing permission/approval boundaries.
+
+## Additional owner request: GitHub systems research (2026-11-15)
+
+- Saved `docs/GITHUB-SYSTEMS-RESEARCH-PLAN.md` and linked it from the decision board and Claude handover: relevant systems, selective source reuse versus adapters/local components, license and compatibility checks, and numbered/clickable next-step choices.
+- Documentation only. No new searches, requests, installs, product changes or tests; earlier research allowance is consumed. Coordinate with Claude's active implementation before further work.
+
 ## Standing rules from the owner (do not break)
 - **Zero spend.** Free-only mode is permanently locked ON. No paid models, paid fallbacks or automatic billing.
 - **Phase 5 (approval system) is now built and tested**, so connectors may be added (Phases 6-8) ONLY behind the
@@ -861,3 +871,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 - Part 1 of `docs/BACKLINKS-RECEIPTS-PLAN.md`: `manager.origin` audit event written with the Manager run in one transaction; verification reports `originLink` agreed/none/conflict for workflow-started Manager steps. Binding stays `unbound` and no Manager evidence is inherited. 15 new cases; full check 2,341 backend + 520 dashboard. No migration/dependency/UI change. Next: Part 3 wording (show "linked" and "read receipt" in the existing panels). Uncommitted.
 
 - **Commit verification note (2026-11-15):** staged-only exports of the receipts and origin commits passed after re-run; the docs-only export failed one real-windows test (different each run) on several attempts, passed alone 25/25 and the live tree passed 2,341/2,341. Known load-sensitive tests; scratch-export cause NOT investigated.
+
+## Receipts and origin wording shown (2026-11-15; board D-114)
+- Part 3: `readReceipts` on the chain-verification response and an "Outside reads recorded" section in the task check; Manager origin wording in the workflow check; D-113 type placement corrected. Full check 2,346 backend + 520+8 = 528 dashboard; browser scripts 42/42, 29/29, 34/34. Plan `docs/BACKLINKS-RECEIPTS-PLAN.md` parts 1-3 all built. Uncommitted. Note: two docs files not written by this session appeared untracked (`docs/GITHUB-SYSTEMS-RESEARCH-PLAN.md`, `docs/HOOKS-AND-SKILLS-REUSE-PLAN.md`); left alone.

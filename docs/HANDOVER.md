@@ -3,8 +3,16 @@
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
-## Resume here: D-110 committed; canvas work closed (2026-11-15)
+## Resume here: D-114 Part 3 built and COMMITTED locally (no push); backlinks/receipts plan parts 1-3 done (2026-11-15)
 
+- **Built and committed (D-114; see `git log`; staged-only exports passed 2,346 backend + 528 dashboard):** `readReceipts` on `/api/tasks/:id/chain-verification` + "Outside reads recorded" in the task check; Manager origin wording in the workflow check; D-113 type fix. Files: src/verification/{service,routes}.ts, web/src/api/verificationHooks.ts, web/src/components/{ResultCheck,WorkflowResultCheck}.tsx, new src/verification/read-receipts-view.test.ts and web/src/readReceiptsPanel.test.tsx, scripts/e2e/modernization-e2e.mjs (one wait), docs. Full check 2,346 backend + 528 dashboard; browser 42/42, 29/29, 34/34.
+- Two untracked docs not written by this session: `docs/GITHUB-SYSTEMS-RESEARCH-PLAN.md`, `docs/HOOKS-AND-SKILLS-REUSE-PLAN.md` (leave them out of commits unless the owner says).
+- Known flake: `src/desktop/real-windows.test.ts` (different test each time in scratch exports; passes alone).
+
+## Earlier resume block (historical)
+
+- **Owner's hooks/skills documentation request (2026-11-15):** `docs/HOOKS-AND-SKILLS-REUSE-PLAN.md` recommends reuse of existing API hooks, bounded lifecycle observations and the existing instruction-only Skill Library. First proposed packs: evidence-aware reporting, project handover and requirements/acceptance criteria. Plan only; no hooks installed, skills imported/assigned, searches or app changes. Coordinate with Claude's active work.
+- **Owner's additional documentation request (2026-11-15):** GitHub systems research direction saved in `docs/GITHUB-SYSTEMS-RESEARCH-PLAN.md`: compare modular source reuse, adapters and small local implementations while preserving the backend. Documentation only; no new search/request budget approved or used. Coordinate with Claude's active work before implementation.
 - **Committed locally (owner approved, no push):** `d3c8410` workflow drawing zoom/fit/pan (option A), `0afabf9` canvas plan + scratch React Flow prototype evidence + docs. Earlier today: `3505a6b`, `f412fdf`, `c354fdf`, `a39be3e`, `a1c3849`, `b639676`. Each verified from a staged-only export (core.autocrlf=false). Last full check: 2,322 backend + 520 dashboard, typechecks, build. Untracked on purpose: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
 - **Owner's working rule (2026-11-15):** prompt ONLY about what to do next, as clickable options; save this handover after every step. Commits still need explicit approval each time.
 - **Latest (D-111 to D-113, COMMITTED locally, no push):** read receipts (D-112) and Manager origin backlink (D-113) built and tested (2,341 backend + 520 dashboard; live tree 2,341/2,341). Commits: receipts, origin backlink, then this docs commit (see `git log`). **Known flake:** `src/desktop/real-windows.test.ts` failed a different single test on several runs in scratch exports of the staged states (never in the live tree, passes alone 25/25, `src/desktop` unchanged); cause in scratch exports not investigated. Not built: Part 3 (show "linked"/"receipt" wording; use receipts in checks). Next choices: Part 3, flake investigation, project item picker, Tier B prep.
