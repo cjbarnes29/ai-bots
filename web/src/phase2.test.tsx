@@ -111,7 +111,7 @@ describe("Dashboard overview boxes", () => {
     Object.assign(api.ext.monitor, { tasks: { running: 2, completed24h: 5, failed24h: 1 } });
     renderApp(api, "/");
     const box = within(await screen.findByRole("region", { name: "Task execution (24 h)" }));
-    expect(await box.findByRole("img", { name: "Tasks in the last 24 hours: 5 finished, 1 failed, 2 running now" })).toBeInTheDocument();
+    expect(await box.findByRole("img", { name: "Tasks created in the last 24 hours, with current running count: 5 finished, 1 failed, 2 running now" })).toBeInTheDocument();
     expect(box.getByText("2 tasks are working right now.")).toBeInTheDocument();
     expect(box.getByRole("link", { name: "All tasks" })).toHaveAttribute("href", "/tasks");
   });

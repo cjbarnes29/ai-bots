@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { QueryStatus } from "../ui/QueryStatus";
 import { ApiError } from "../../api/client";
 import { useActionDecision, useAssistantActions, whereCandidate, type ActionView, type Candidate, type Interpretation, type Suggestion } from "../../api/assistantHooks";
 
@@ -48,7 +49,7 @@ function ActionCard({ id, fallback }: { id: string; fallback: ActionView }) {
   return (
     <div className="space-y-2" aria-label={`Change: ${a.summary}`}>
       <p className="flex flex-wrap items-center gap-2 text-xs">
-        <span className={`rounded-full px-2 py-0.5 font-medium ${LEVEL[a.level]!.tone}`}>{LEVEL[a.level]!.label}</span>
+        <span className={`rounded-full px-2 py-0.5 font-medium ${LEVEL[a.level]!.tone}`}>{a.level === "review" && a.status !== "proposed" ? "Review change" : LEVEL[a.level]!.label}</span>
         <span>Status: {STATUS_WORD[a.status] ?? a.status}</span>
       </p>
       {(a.level === "review" || a.status === "applied") && <Diff a={a} />}
@@ -97,7 +98,7 @@ function Candidates({ items }: { items: Candidate[] }) {
 export function ResultsPanel({ results, onClear }: { results: Result[]; onClear: () => void }) {
   if (results.length === 0) return null;
   return (
-    <section aria-label="Assistant results" className="space-y-2">
+    <section id="assistant-results" tabIndex={-1} aria-label="Assistant results" className="space-y-2 scroll-mt-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">What I found or did</h2>
         <button type="button" className="min-h-11 px-2 text-sm underline" onClick={onClear}>
@@ -171,12 +172,16 @@ function CapabilityLists({ reply }: { reply: Extract<Interpretation, { kind: "ca
 
 const KIND_LABEL: Record<string, string> = { attention: "Needs you", problem: "Problem", improvement: "Improvement", automation: "Automation idea" };
 
-export function SuggestionsPanel({ items, onAsk }: { items: Suggestion[]; onAsk: (text: string) => void }) {
+export function SuggestionsPanel({ items, onAsk, query }: { items: Suggestion[]; onAsk: (text: string) => void; query?: { isError: boolean; isPending: boolean; isFetching: boolean; data: unknown; dataUpdatedAt: number; refetch: () => unknown } }) {
+  const unknown = !!query && (query.isError || (query.isPending && query.data === undefined));
   return (
     <section aria-label="Suggestions" className="card space-y-2">
       <h2 className="text-lg font-semibold">Suggestions</h2>
       <p className="hint text-xs">Worked out from your real projects, tasks, approvals and documents. Nothing here changes anything until you act.</p>
-      {items.length === 0 && <p className="text-sm">Nothing needs attention right now.</p>}
+      {query && <QueryStatus query={query as never} label="suggestions" />}
+      {query?.isError && <button type="button" className="btn-secondary min-h-11" disabled={query.isFetching} onClick={() => void query.refetch()}>Retry suggestions</button>}
+      {items.length === 0 && !unknown && <p className="text-sm">Nothing needs attention right now.</p>}
+      {items.length === 0 && unknown && !query?.isError && <p className="hint text-sm">Checking…</p>}
       <ul className="space-y-2">
         {items.slice(0, 8).map((s) => (
           <li key={s.id} className="rounded-md border border-slate-200 p-2 text-sm dark:border-slate-700">
@@ -207,12 +212,15 @@ export function ChangesPanel() {
   const all = useAssistantActions();
   const decide = useActionDecision();
   const items = (all.data ?? []).filter((a) => a.level !== "restricted").slice(0, 8);
+  const unknown = all.isError || (all.isPending && all.data === undefined);
   const refused = (all.data ?? []).filter((a) => a.status === "refused").length;
   return (
     <section aria-label="Assistant changes" className="card space-y-2">
       <h2 className="text-lg font-semibold">Recent changes</h2>
       <p className="hint text-xs">Everything the assistant changed or proposed, with what it was before. {refused > 0 ? `${refused} request${refused === 1 ? " was" : "s were"} refused because only you may do them.` : ""}</p>
-      {items.length === 0 && <p className="text-sm">No changes yet.</p>}
+      <QueryStatus query={all} label="recent changes" />
+      {all.isError && <button type="button" className="btn-secondary min-h-11" disabled={all.isFetching} onClick={() => void all.refetch()}>Retry recent changes</button>}
+      {items.length === 0 && !unknown && <p className="text-sm">No changes yet.</p>}
       <ul className="space-y-1">
         {items.map((a) => (
           <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">

@@ -5,6 +5,7 @@ import type { ActivityLevel } from "../api/types";
 import { AiOverview } from "../components/AiOverview";
 import { DemoCard } from "../components/DemoCard";
 import { Panel, StackedBar, StatCard, StatusDot, type Tone } from "../components/ui/Stats";
+import { QueryStatus } from "../components/ui/QueryStatus";
 
 const RUN_WORD: Record<string, string> = { queued: "waiting its turn", running: "running", waiting: "waiting for you", completed: "finished", failed: "failed", cancelled: "cancelled", interrupted: "interrupted by a restart" };
 
@@ -58,22 +59,103 @@ export function Dashboard() {
   const wfFailed = recent.filter((r) => r.status === "failed").length;
   const wfWaiting = workflows.data?.waiting.length ?? 0;
 
-  const failed24 = m ? m.tasks.failed24h + m.approvals.failed24h + wfFailed : null;
+  const failed24 = m ? m.tasks.failed24h + m.approvals.failed24h : null;
   const pending = ext?.pendingCount ?? m?.approvals.pending ?? null;
   const gettingStarted = m !== undefined && providers.data !== undefined && (connected.length === 0 || m.bots.total === 0);
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-1">
+    <div className="min-w-0 space-y-8">
+      <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5 space-y-2 dark:border-indigo-900 dark:bg-indigo-950/40 sm:p-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="text-sm text-slate-600 dark:text-slate-400">What your AI workforce is doing right now.</p>
+        <QueryStatus query={monitor} label="the overview" freshness />
       </div>
+      <QueryStatus query={external} label="outside-action status" />
+      <QueryStatus query={workflows} label="recent workflows" />
+      <QueryStatus query={providers} label="AI providers" />
 
-      {monitor.isError && (
-        <p role="alert" className="rounded-md bg-red-100 p-3 text-sm text-red-900 dark:bg-red-950 dark:text-red-200">
-          Could not load the overview. The cards below fill in when the server answers.
-        </p>
-      )}
+      <section aria-labelledby="attention-heading" className="rounded-2xl border border-slate-200 p-4 space-y-3 dark:border-slate-700 sm:p-5">
+        <h2 id="attention-heading" className="text-lg font-semibold">
+          Needs your attention
+        </h2>
+        {!m ? (
+          <p role="status" className="hint">
+            {monitor.isError ? "Attention items are unavailable until the overview loads." : "Loading attention items…"}
+          </p>
+        ) : m.attention.length === 0 ? (
+          <p className="rounded-md bg-slate-100 p-3 text-sm dark:bg-slate-800">{!monitor.isError && external.data && !external.isError && workflows.data && !workflows.isError ? "Everything looks fine in the loaded overview. Nothing needs you right now." : "No attention items in the available overview. Some status information is still loading or unavailable."}</p>
+        ) : (
+          <ul className="space-y-2">
+            {m.attention.map((a) => (
+              <li key={a.text} className={`rounded-md p-3 text-sm font-medium ${LEVEL_STYLE[a.level]}`}>
+                {a.link ? (
+                  <Link to={a.link} className="underline">
+                    {a.text}
+                  </Link>
+                ) : (
+                  a.text
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="numbers-heading" className="space-y-2">
+        <h2 id="numbers-heading" className="text-lg font-semibold">
+          At a glance
+        </h2>
+        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-4">
+          <StatCard title="Agents" to="/agents" value={m ? m.bots.active : dash} hint={m ? `${m.bots.total} in total, ${m.bots.archived} archived` : undefined} />
+          <StatCard title="Tasks in progress" to="/tasks" value={m ? m.tasks.running : dash} hint={m ? `${m.tasks.completed24h} finished, ${m.tasks.failed24h} failed — tasks created in the last 24 h` : undefined} />
+          <StatCard
+            title="Workflows"
+            to="/workflows"
+            value={workflows.data ? `${wfRunning} in progress` : dash}
+            tone={wfWaiting > 0 ? "warn" : "idle"}
+            hint={workflows.data ? `Among latest ${runs.length} runs: ${wfDone} finished, ${wfFailed} failed from those created in the last 24 h${wfWaiting > 0 ? ` · ${wfWaiting} checkpoints waiting for you` : ""}` : undefined}
+          />
+          <StatCard
+            title="Waiting for approval"
+            to="/approvals"
+            value={pending ?? dash}
+            tone={pending ? "warn" : "idle"}
+            hint={m ? `${m.approvals.executed24h} executed, ${m.approvals.denied24h} denied/expired — requests created in the last 24 h` : undefined}
+          />
+          <StatCard title="Failures (24 h)" to="/monitor" value={failed24 ?? dash} tone={failed24 ? "bad" : "idle"} hint="Tasks and outside-action requests created in the last 24 h; sampled workflows shown separately" />
+          {!simple && (
+            <>
+          <StatCard
+            title="AI providers"
+            to="/settings/ai-models"
+            value={providers.data ? `${connected.length} of ${connectable.length} connected` : dash}
+            tone={providers.data && connected.length === 0 ? "warn" : "idle"}
+            hint={
+              providers.data
+                ? connected.length > 0 && lastTest
+                  ? `Last successful test ${new Date(lastTest).toLocaleString()}`
+                  : "Connected only after a test call succeeds"
+                : undefined
+            }
+          />
+          <StatCard
+            title="Integrations"
+            to="/integrations"
+            value={ext ? `${setUp} of ${connectors.length} set up` : dash}
+            hint="Set up means the sign-in or key is saved"
+          />
+          <StatCard
+            title="AI calls today"
+            to="/settings/ai-models"
+            value={m ? m.ai.callsToday : dash}
+            tone={m && m.ai.errorsToday > 0 ? "warn" : "idle"}
+            hint={m ? `${m.ai.tokensToday.toLocaleString()} tokens · ${m.ai.errorsToday} failed` : undefined}
+          />
+            </>
+          )}
+        </div>
+        <p className="hint">Finished means execution ended. It does not confirm the answer's accuracy or that a message was delivered.</p>
+      </section>
 
       {gettingStarted && (
         <section aria-labelledby="start-heading" className="card space-y-3">
@@ -106,88 +188,6 @@ export function Dashboard() {
         </section>
       )}
 
-      <section aria-labelledby="attention-heading" className="space-y-2">
-        <h2 id="attention-heading" className="text-lg font-semibold">
-          Needs your attention
-        </h2>
-        {!m ? (
-          <p role="status" className="hint">
-            Loading…
-          </p>
-        ) : m.attention.length === 0 ? (
-          <p className="rounded-md bg-green-100 p-3 text-sm text-green-900 dark:bg-green-950 dark:text-green-200">Everything looks fine. Nothing needs you right now.</p>
-        ) : (
-          <ul className="space-y-2">
-            {m.attention.map((a) => (
-              <li key={a.text} className={`rounded-md p-3 text-sm font-medium ${LEVEL_STYLE[a.level]}`}>
-                {a.link ? (
-                  <Link to={a.link} className="underline">
-                    {a.text}
-                  </Link>
-                ) : (
-                  a.text
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="numbers-heading" className="space-y-2">
-        <h2 id="numbers-heading" className="text-lg font-semibold">
-          At a glance
-        </h2>
-        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Agents" to="/agents" value={m ? m.bots.active : dash} hint={m ? `${m.bots.total} in total, ${m.bots.archived} archived` : undefined} />
-          <StatCard title="Tasks in progress" to="/tasks" value={m ? m.tasks.running : dash} hint={m ? `${m.tasks.completed24h} finished, ${m.tasks.failed24h} failed (24 h)` : undefined} />
-          <StatCard
-            title="Workflows"
-            to="/workflows"
-            value={workflows.data ? `${wfRunning} running` : dash}
-            tone={wfWaiting > 0 ? "warn" : "idle"}
-            hint={workflows.data ? `${wfDone} finished, ${wfFailed} failed (24 h)${wfWaiting > 0 ? ` · ${wfWaiting} waiting for you` : ""}` : undefined}
-          />
-          <StatCard
-            title="Waiting for approval"
-            to="/approvals"
-            value={pending ?? dash}
-            tone={pending ? "warn" : "idle"}
-            hint={m ? `${m.approvals.executed24h} done, ${m.approvals.denied24h} denied (24 h)` : undefined}
-          />
-          <StatCard title="Failures (24 h)" to="/monitor" value={failed24 ?? dash} tone={failed24 ? "bad" : "idle"} hint="Tasks, outside actions and workflows" />
-          {!simple && (
-            <>
-          <StatCard
-            title="AI providers"
-            to="/settings/ai-models"
-            value={providers.data ? `${connected.length} of ${connectable.length} connected` : dash}
-            tone={providers.data && connected.length === 0 ? "warn" : "idle"}
-            hint={
-              providers.data
-                ? connected.length > 0 && lastTest
-                  ? `Last successful test ${new Date(lastTest).toLocaleString()}`
-                  : "Connected only after a test call succeeds"
-                : undefined
-            }
-          />
-          <StatCard
-            title="Integrations"
-            to="/integrations"
-            value={ext ? `${setUp} of ${connectors.length} set up` : dash}
-            hint="Set up means the sign-in or key is saved"
-          />
-          <StatCard
-            title="AI calls today"
-            to="/settings/ai-models"
-            value={m ? m.ai.callsToday : dash}
-            tone={m && m.ai.errorsToday > 0 ? "warn" : "idle"}
-            hint={m ? `${m.ai.tokensToday.toLocaleString()} tokens · ${m.ai.errorsToday} failed` : undefined}
-          />
-            </>
-          )}
-        </div>
-      </section>
-
       {simple && (
         <p role="note" aria-label="Simple dashboard" className="hint">
           This page shows the essentials at the Simple level.{" "}
@@ -212,8 +212,8 @@ export function Dashboard() {
           <div className="card space-y-2">
             {m ? (
               <StackedBar
-                label="Tasks in the last 24 hours"
-                empty="No task has run in the last 24 hours."
+                label="Tasks created in the last 24 hours, with current running count"
+                empty="No recent task records or currently running tasks."
                 parts={[
                   { label: "finished", value: m.tasks.completed24h, tone: "ok" },
                   { label: "failed", value: m.tasks.failed24h, tone: "bad" },
@@ -221,7 +221,7 @@ export function Dashboard() {
                 ]}
               />
             ) : (
-              <p className="hint">Loading…</p>
+              <p className="hint">{monitor.isError ? "Task overview unavailable." : "Loading…"}</p>
             )}
             {m && m.tasks.running > 0 && (
               <p className="flex items-center gap-2 text-sm">
@@ -242,7 +242,7 @@ export function Dashboard() {
           }
         >
           {!ext ? (
-            <p className="hint">Loading…</p>
+            <p className="hint">{external.isError ? "Connection status unavailable." : "Loading…"}</p>
           ) : connectors.length === 0 ? (
             <p className="hint">No outside service is available.</p>
           ) : (
@@ -315,7 +315,7 @@ export function Dashboard() {
             All workflows
           </Link>
         </div>
-        {workflows.data && runs.length === 0 && <p className="hint">No workflow has run yet.</p>}
+        {workflows.data && !workflows.isError && runs.length === 0 && <p className="hint">No workflow has run yet.</p>}
         <ul className="space-y-1">
           {runs.slice(0, 5).map((run) => {
             const failedBox = run.steps.find((x) => x.status === "failed");
@@ -344,7 +344,8 @@ export function Dashboard() {
             See all activity
           </Link>
         </div>
-        {m && m.activity.length === 0 && <p className="hint">Nothing has happened yet.</p>}
+        {m && !monitor.isError && m.activity.length === 0 && <p className="hint">Nothing has happened yet.</p>}
+        <p className="hint">Latest eight entries from the available activity feed.</p>
         <ul className="space-y-1">
           {(m?.activity ?? []).slice(0, 8).map((a, i) => (
             <li key={`${a.at}-${i}`} className="flex flex-wrap items-start gap-2 text-sm">

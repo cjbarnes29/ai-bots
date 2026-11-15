@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useCancelManagerRun, useManager, useStartManagerRun } from "../api/hooks";
 import type { ManagerRun } from "../api/types";
+import { ManagerResultCheck } from "./ManagerResultCheck";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 const STATUS: Record<string, string> = {
@@ -53,6 +54,7 @@ function RunCard({ run }: { run: ManagerRun }) {
         <div className="space-y-1">
           <p className="text-sm font-semibold">Result</p>
           <p className="whitespace-pre-wrap rounded-md bg-slate-100 p-2 text-sm [overflow-wrap:anywhere] dark:bg-slate-800">{run.result}</p>
+          <ManagerResultCheck runId={run.id} runStatus={run.status} />
         </div>
       )}
       {isLive(run.status) && (

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useProject, useProjectAction, useProjects } from "../api/workHooks";
 import { isHubTab, ProjectHub } from "../components/hub/ProjectHub";
+import { QueryStatus } from "../components/ui/QueryStatus";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 const KINDS = ["conversation", "workflow", "schedule", "task", "note"];
@@ -24,11 +25,14 @@ function Detail({ id, onGone }: { id: string; onGone: () => void }) {
       setInstructions(p.instructions);
     }
   }, [p?.id, p?.updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (one.isLoading) return <p className="hint">Loading…</p>;
-  if (!p || !one.data) return <p role="alert" className="text-red-700 dark:text-red-300">{errorText(one.error) ?? "Project not found."}</p>;
+  if (one.isPending) return <QueryStatus query={one} label="project settings" />;
+  if (!p || !one.data) return <div className="space-y-2"><QueryStatus query={one} label="project settings" /><p role="alert">{errorText(one.error) ?? "Project not found."}</p><button className="btn-secondary" disabled={one.isFetching} onClick={() => void one.refetch()}>Retry project settings</button></div>;
   return (
     <section className="card space-y-3" aria-label={`Project ${p.name}`}>
       <h2 className="text-lg font-semibold">{p.name}</h2>
+      <QueryStatus query={one} label="project settings" freshness />
+      {one.isError && <button className="btn-secondary" disabled={one.isFetching} onClick={() => void one.refetch()}>Retry project settings</button>}
+      {one.isFetching && !one.isPending && <p role="status" className="hint">Refreshing project settings…</p>}
       <label className="block text-sm">
         Name
         <input className="input w-full" aria-label="Project name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
@@ -97,7 +101,7 @@ function Detail({ id, onGone }: { id: string; onGone: () => void }) {
           Delete project
         </button>
       </details>
-      {(act.error || one.error) && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{errorText(act.error ?? one.error)}</p>}
+      {act.error && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{errorText(act.error)}</p>}
     </section>
   );
 }
@@ -119,7 +123,7 @@ export function Projects() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Projects</h1>
-        <p className="hint">Group related conversations, tasks, workflows and schedules, with shared instructions.</p>
+        <p className="hint">Keep conversations, tasks, files and decisions together. Open a project to see what needs you and continue with the AI Assistant.</p>
       </div>
       {selected && (
         <button type="button" className="btn-secondary" onClick={() => setSelected(null)}>
@@ -128,7 +132,7 @@ export function Projects() {
       )}
       {!selected && (
       <form
-        className="flex flex-wrap items-end gap-2"
+        className="card flex flex-wrap items-end gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           act.mutate({ op: "create", name: newName }, { onSuccess: () => setNewName("") });
@@ -152,17 +156,21 @@ export function Projects() {
         </label>
       </div>
       )}
-      <div className={selected ? "" : "grid gap-4 lg:grid-cols-2"}>
+      {!selected && <div className="space-y-2" aria-label="Project list status">
+        <QueryStatus query={list} label="projects" freshness />
+        {list.isFetching && !list.isPending && <p role="status" className="hint">Refreshing projects; the last available list is shown until the check finishes.</p>}
+        {list.isError && <button className="btn-secondary min-h-11" disabled={list.isFetching} onClick={() => void list.refetch()}>Retry projects</button>}
+      </div>}
+      <div>
         {!selected && (
-        <ul className="min-w-0 space-y-2">
-          {list.isLoading && <li className="hint">Loading…</li>}
-          {list.data?.length === 0 && <li className="hint">No projects here.</li>}
+        <ul className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Projects list">
+          {!list.isError && !list.isFetching && list.data?.length === 0 && <li className="card md:col-span-2 xl:col-span-3"><p className="font-medium">{q.trim() ? "No projects match this search." : "No projects here yet."}</p><p className="hint">{q.trim() ? "Try another name or change the archived filter." : "Create a project above to keep related work together."}</p></li>}
           {list.data?.map((p) => (
             <li key={p.id} className={`card ${selected === p.id ? "ring-2 ring-sky-500" : ""}`} aria-label={`Project row ${p.name}`}>
-              <button className="w-full text-left" aria-label={`Open ${p.name}`} onClick={() => setSelected(p.id)}>
-                <span className="font-semibold">{p.name}</span>
-                <span className="hint block">{Object.entries(p.counts).map(([k, n]) => `${n} ${k}`).join(" · ") || "empty"}</span>
-                {p.description && <span className="block truncate text-sm">{p.description}</span>}
+              <button className="min-h-11 w-full space-y-1 text-left [overflow-wrap:anywhere]" aria-label={`Open ${p.name}`} onClick={() => setSelected(p.id)}>
+                <span className="block font-semibold">{p.name}</span>
+                <span className="hint block">Linked items: {Object.entries(p.counts).map(([k, n]) => `${n} ${k}`).join(" · ") || "none yet"}</span>
+                {p.description && <span className="block text-sm">{p.description}</span>}
               </button>
             </li>
           ))}
@@ -170,9 +178,7 @@ export function Projects() {
         )}
         <div className="min-w-0">{selected ? (
             <ProjectHub projectId={selected} tab={tab} onTab={(next) => setSearch({ tab: next }, { replace: true })} settings={<Detail id={selected} onGone={() => setSelected(null)} />} />
-          ) : (
-            <p className="hint">Choose a project to open it.</p>
-          )}</div>
+          ) : null}</div>
       </div>
     </div>
   );

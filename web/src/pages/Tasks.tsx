@@ -185,6 +185,7 @@ function TaskNodeView({ node }: { node: TaskNode }) {
 }
 
 const EVENT_LABELS: Record<string, string> = {
+  result_provenance: "Result record saved",
   created: "Task created",
   started: "Started",
   delegated: "Handed to a teammate",

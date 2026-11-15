@@ -4,6 +4,7 @@ import { useProjectHub, where, type Hub } from "../../api/hubHooks";
 import { useInterfaceLevel } from "../../lib/interfaceLevel";
 import { ProjectWorkspace } from "../ProjectWorkspace";
 import { Tabs } from "../ui/Tabs";
+import { QueryStatus } from "../ui/QueryStatus";
 
 export const HUB_TABS = ["overview", "conversations", "tasks", "agents", "files", "workflows", "decisions", "settings"] as const;
 export type HubTab = (typeof HUB_TABS)[number];
@@ -27,33 +28,35 @@ function Empty({ children }: { children: ReactNode }) {
   return <p className="hint">{children}</p>;
 }
 
-function Overview({ hub }: { hub: Hub }) {
+function Overview({ hub, current }: { hub: Hub; current: boolean }) {
   const p = hub.progress;
   return (
     <div className="space-y-4">
       {hub.project.description && <p>{hub.project.description}</p>}
-      <section aria-label="Progress" className="card space-y-1">
-        <h3 className="font-semibold">Progress</h3>
-        {p.total === 0 ? <Empty>No tasks in this project yet.</Empty> : <p>{p.completed} of {p.total} tasks finished · {p.running} running · {p.pending} waiting · {p.failed} failed</p>}
-      </section>
-      <section aria-label="Needs your attention" className="card space-y-2">
+      <section aria-label="Needs your attention" className="card space-y-2 border-amber-300 dark:border-amber-700">
         <h3 className="font-semibold">Needs your attention</h3>
-        {hub.attention.length === 0 && <Empty>Nothing is waiting for you.</Empty>}
+        <p className="hint">Items returned for this project only. Approval history shows up to 100 latest requests; this is not a global waiting count.</p>
+        {hub.attention.length === 0 && <Empty>{current ? "Nothing is waiting for you." : "No attention items in the last available project view. Refresh to check the current state."}</Empty>}
         <ul className="space-y-1">
           {hub.attention.map((a) => (
             <li key={`${a.kind}:${a.id}`}>
-              <Link className={LINK} to={a.kind === "approval" ? where.approval(a.id) : a.kind === "failed_task" ? where.task(a.id) : a.kind === "decision" ? where.decision(a.id) : where.workflowRun(a.id)}>
+              <Link className={`${LINK} inline-flex min-h-11 items-center`} to={a.kind === "approval" ? where.approval(a.id) : a.kind === "failed_task" ? where.task(a.id) : a.kind === "decision" ? where.decision(a.id) : where.workflowRun(a.id)}>
                 {a.text}
               </Link>
             </li>
           ))}
         </ul>
       </section>
-      <Link className={`${LINK} inline-flex min-h-11 items-center`} to={where.assistant(hub.project.id)}>
+      <Link className="btn-primary inline-flex min-h-11 items-center" to={where.assistant(hub.project.id)}>
         Talk to the AI Assistant about this project
       </Link>
+      <section aria-label="Progress" className="card space-y-1">
+        <h3 className="font-semibold">Task progress</h3>
+        {p.total === 0 ? <Empty>{current ? "No tasks in this project yet." : "The last available project view had no tasks. Refresh to check."}</Empty> : <p>{p.completed} of {p.total} tasks finished · {p.running} running · {p.pending} waiting · {p.failed} failed</p>}
+        <p className="hint">Finished means the task stopped. Open its result check to see what the platform can confirm.</p>
+      </section>
       <p className="hint">
-        {hub.conversations.length} conversations · {hub.agents.length} agents · {hub.workflows.length} workflows · {hub.outputs.length} files made · {hub.decisions.length} decisions
+        In this project view: {hub.conversations.length} conversations · {hub.agents.length} agents · {hub.workflows.length} workflows · {hub.outputs.length} file requests · {hub.decisions.length} decisions
       </p>
     </div>
   );
@@ -116,8 +119,9 @@ function Panel({ hub, tab }: { hub: Hub; tab: HubTab }) {
       return (
         <div className="space-y-4">
           <section aria-label="Generated files" className="space-y-2">
-            <h3 className="font-semibold">Files made by this project's tasks</h3>
-            {hub.outputs.length === 0 && <Empty>No files yet. Files are only made after you approve them.</Empty>}
+            <h3 className="font-semibold">File requests from this project's tasks</h3>
+            <p className="hint">Up to 100 latest file requests. A request does not prove a file exists; open its task result check for current evidence.</p>
+            {hub.outputs.length === 0 && <Empty>No file requests in this project view.</Empty>}
             <ul className="space-y-2">
               {hub.outputs.map((o) => (
                 <li key={o.approvalId} className="card">
@@ -125,8 +129,9 @@ function Panel({ hub, tab }: { hub: Hub; tab: HubTab }) {
                     {o.path ?? `${o.connector}: ${o.action}`}
                   </Link>
                   <p className="hint">
-                    {o.botName} · {o.status} · {when(o.at)}
+                    {o.botName} · {o.status === "pending" ? "Waiting for your approval; file not confirmed" : o.status === "approved" ? "Approved, awaiting execution; file not confirmed" : o.status === "executed" ? "Execution recorded; current file existence not checked here" : `${o.status}; file creation not confirmed`} · {when(o.at)}
                   </p>
+                  {o.taskId && <Link className={`${LINK} inline-flex min-h-11 items-center`} to={where.task(o.taskId)}>Open task result check</Link>}
                 </li>
               ))}
             </ul>
@@ -183,6 +188,7 @@ function Panel({ hub, tab }: { hub: Hub; tab: HubTab }) {
           </section>
           <section aria-label="Approvals" className="space-y-2">
             <h3 className="font-semibold">Approvals</h3>
+            <p className="hint">Up to 100 latest requests from this project's tasks. Use the Approvals page for the full waiting view.</p>
             {hub.approvals.length === 0 && <Empty>No approval requests from this project's tasks.</Empty>}
             <ul className="space-y-2">
               {hub.approvals.map((a) => (
@@ -212,6 +218,10 @@ export function ProjectHub({ projectId, tab, onTab, settings }: { projectId: str
   const badge = (n: number) => (n > 0 ? n : undefined);
   return (
     <section aria-label="Project hub" className="space-y-4">
+      {hub && tab !== "settings" && <div><h2 className="text-xl font-semibold [overflow-wrap:anywhere]">{hub.project.name}</h2>{hub.project.archived && <p className="hint">Archived project</p>}</div>}
+      <QueryStatus query={q} label="project activity" freshness />
+      {q.isFetching && !q.isPending && <p role="status" className="hint">Refreshing project activity; the last available view is shown until the check finishes.</p>}
+      {(q.isError || !q.isPending && !hub) && <button className="btn-secondary min-h-11" disabled={q.isFetching} onClick={() => void q.refetch()}>Retry project activity</button>}
       <Tabs
         label="Project sections"
         value={tab}
@@ -233,7 +243,7 @@ export function ProjectHub({ projectId, tab, onTab, settings }: { projectId: str
         }))}
       />
       <div role="tabpanel" aria-label={LABEL[tab]} className="space-y-3">
-        {tab === "settings" ? settings : q.isLoading ? <p className="hint">Loading…</p> : !hub ? <p role="alert">This project could not be loaded.</p> : tab === "overview" ? <Overview hub={hub} /> : <Panel hub={hub} tab={tab} />}
+        {tab === "settings" ? settings : q.isPending ? null : !hub ? <p role="alert">This project could not be loaded.</p> : tab === "overview" ? <Overview hub={hub} current={!q.isError && !q.isFetching} /> : <Panel hub={hub} tab={tab} />}
       </div>
     </section>
   );

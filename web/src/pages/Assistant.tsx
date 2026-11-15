@@ -7,6 +7,7 @@ import { ApiError } from "../api/client";
 import { useBots, useWorkflows } from "../api/hooks";
 import { useDraftWorkflow, where, type WorkflowDraftResult } from "../api/hubHooks";
 import { useProjects } from "../api/workHooks";
+import { QueryStatus } from "../components/ui/QueryStatus";
 import { ChatTab } from "../components/ChatTab";
 import { summarizeChange } from "../lib/draftDiff";
 
@@ -172,9 +173,15 @@ export function Assistant() {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <section aria-label="Assistant chat" className="min-w-0 space-y-3">
           {bots.isLoading && <p role="status">Loading…</p>}
+          {bots.isError && (
+            <div className="space-y-2">
+              <QueryStatus query={bots} label="your agents" />
+              <button type="button" className="btn-secondary min-h-11" disabled={bots.isFetching} onClick={() => void bots.refetch()}>Retry agents</button>
+            </div>
+          )}
           {!bots.isLoading && usable.length === 0 && (
             <div className="card space-y-2">
-              <p>No agent is ready to chat yet. An agent needs a model and must be switched to Active. You can still ask me to find and open things, or show a summary:</p>
+              <p>{bots.isError ? "I could not check which agents are ready, so I cannot tell whether one is set up. You can still ask me to find and open things, or show a summary:" : "No agent is ready to chat yet. An agent needs a model and must be switched to Active. You can still ask me to find and open things, or show a summary:"}</p>
               <form
                 className="flex flex-wrap items-end gap-2"
                 onSubmit={(e) => {
@@ -192,7 +199,7 @@ export function Assistant() {
                 </button>
               </form>
               <ResultsPanel results={results} onClear={() => keep([])} />
-              <Link className="btn-secondary" to="/agents">
+              <Link className="btn-secondary inline-flex min-h-11 items-center" to="/agents">
                 Open AI Agents
               </Link>
             </div>
@@ -218,7 +225,7 @@ export function Assistant() {
                   </select>
                 </label>
                 <label className="text-sm font-medium">
-                  File new conversations under
+                  New conversations go in
                   <select
                     className="mt-1 block"
                     value={projectId ?? ""}
@@ -233,7 +240,12 @@ export function Assistant() {
                   </select>
                 </label>
               </div>
-              <ResultsPanel results={results} onClear={() => keep([])} />
+              <p className="hint text-xs">This only sets where a NEW conversation is filed. A conversation already open keeps its place.</p>
+              {results.length > 0 && (
+                <button type="button" className="btn-secondary min-h-11" onClick={() => { const el = document.getElementById("assistant-results"); el?.scrollIntoView?.({ block: "start" }); el?.focus(); }}>
+                  Results and review changes ({results.length})
+                </button>
+              )}
               <ChatTab
                 key={bot.id}
                 beforeSend={beforeSend}
@@ -246,13 +258,14 @@ export function Assistant() {
                 initialConversationId={initialConv}
                 onConversation={(id) => write(CONV_KEY, id ? `${bot.id}:${id}` : null)}
               />
+              <ResultsPanel results={results} onClear={() => keep([])} />
             </>
           )}
         </section>
         <div className="min-w-0 space-y-4">
-          <SuggestionsPanel items={suggestions.data ?? []} onAsk={askNow} />
-          <WorkflowPanel prefill={params.get("workflow") ?? ""} />
           <ChangesPanel />
+          <SuggestionsPanel items={suggestions.data ?? []} onAsk={askNow} query={suggestions} />
+          <WorkflowPanel prefill={params.get("workflow") ?? ""} />
         </div>
       </div>
     </div>

@@ -176,7 +176,7 @@ try {
     Conversations: /Draft a welcome|Welcome|bakery/i,
     "Tasks & history": /Write the home page text/,
     Agents: /Writer[\s\S]*Failer|Failer[\s\S]*Writer/,
-    "Files & knowledge": /Files made by this project's tasks/,
+    "Files & knowledge": /File requests from this project's tasks/,
     Workflows: /Opening hours check[\s\S]*failed/i,
     "Decisions & approvals": /Pick the site colours[\s\S]*Create|Pick the site colours/,
     Settings: /Save project/,
@@ -311,7 +311,7 @@ try {
   const agentsListed = await chatRegion.getByLabel("Talk to").locator("option").allInnerTexts();
   check("assistant: lists only agents that are active with a model", agentsListed.includes("Writer") && agentsListed.length === 3, agentsListed.join(","));
   await chatRegion.getByLabel("Talk to").selectOption({ label: "Writer" });
-  await chatRegion.getByLabel("File new conversations under").selectOption({ label: "Bakery website" });
+  await chatRegion.getByLabel("New conversations go in").selectOption({ label: "Bakery website" });
   await chatRegion.getByLabel(/Your message/).fill("Hello from the assistant page");
   await chatRegion.getByLabel(/Your message/).press("Control+Enter");
   const replied = await until(async () => (await chatRegion.innerText()).includes("Done. This is a fictional reply."), 20000);
@@ -333,7 +333,7 @@ try {
   await page.goto(`${base}/projects/${project.id}`);
   await page.getByRole("link", { name: "Talk to the AI Assistant about this project" }).click();
   await page.waitForURL(/\/assistant\?project=/);
-  check("project hub links to the assistant for that project", (await page.getByLabel("File new conversations under").evaluate((e) => e.selectedOptions[0].textContent)) === "Bakery website");
+  check("project hub links to the assistant for that project", (await page.getByLabel("New conversations go in").evaluate((e) => e.selectedOptions[0].textContent)) === "Bakery website");
 
   // workflows through conversation: draft -> open in Workflows (unsaved) -> save -> manage from the assistant
   await page.goto(`${base}/assistant`);

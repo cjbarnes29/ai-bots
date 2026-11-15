@@ -532,6 +532,11 @@ export function useApprovals(pendingOnly: boolean) {
   });
 }
 
+/** Resolve an older deep link through the existing read endpoint, without another approval store. */
+export function useApprovalById(id: string | null) {
+  return useQuery({ queryKey: ["approvals", "by-id", id], queryFn: async () => (await api<{ approval: Approval }>("GET", `/api/approvals/${id}`)).approval, enabled: !!id, retry: false, refetchInterval: WATCH });
+}
+
 function useRefreshApprovals() {
   const qc = useQueryClient();
   return () => Promise.all([qc.invalidateQueries({ queryKey: ["approvals"] }), qc.invalidateQueries({ queryKey: ["external"] }), qc.invalidateQueries({ queryKey: ["audit"] })]);

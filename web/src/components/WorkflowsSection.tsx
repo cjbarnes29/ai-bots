@@ -6,6 +6,7 @@ import type { Bot, WfGraph, WfInfo, WfRun } from "../api/types";
 import { DemoCard } from "./DemoCard";
 import { STARTER, WorkflowEditor } from "./WorkflowEditor";
 import { WorkflowRunMap } from "./WorkflowRunMap";
+import { WorkflowResultCheck } from "./WorkflowResultCheck";
 
 const errorText = (e: unknown): string | null => (e == null ? null : e instanceof ApiError ? e.friendly : "That did not work.");
 export const SIMULATED_MARK = "[SIMULATED RESPONSE";
@@ -160,6 +161,7 @@ function RunRow({ run, graph, open, onToggle, onCancel, onRetry }: { run: WfRun;
           <WorkflowRunMap graph={graph} run={run} />
         </div>
       )}
+      {open && <WorkflowResultCheck runId={run.id} runStatus={run.status} />}
       {open && (
         <ol className="mt-2 space-y-1">
           {run.input && <li className="hint">Started with: {run.input}</li>}

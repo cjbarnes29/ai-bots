@@ -130,8 +130,8 @@ describe("AI Assistant workspace", () => {
     const pid = "11111111-1111-4111-8111-111111111111";
     const project = { id: pid, name: "Website", description: "", instructions: "", archived: false, createdAt: "x", updatedAt: "x", counts: {} };
     setup(`/assistant?project=${pid}`, (u) => (u.startsWith("/api/projects?") ? { projects: [project] } : undefined));
-    expect(await screen.findByLabelText("File new conversations under")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText("File new conversations under")).toHaveDisplayValue("Website"));
+    expect(await screen.findByLabelText("New conversations go in")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("New conversations go in")).toHaveDisplayValue("Website"));
   });
 
   it("drafts a workflow and opens it in Workflows UNSAVED", async () => {

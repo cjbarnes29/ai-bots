@@ -203,11 +203,13 @@ try {
   check("beginner task 6: draft a workflow with the assistant and open it in the editor (the hidden screen explains itself)", await page.getByRole("note", { name: "Hidden screen" }).waitFor({ timeout: 8000 }).then(() => true, () => false) && (await until(async () => (await page.getByRole("textbox").evaluateAll((els) => els.some((e) => e.value === "Thank-you note"))), 8000)));
   check("beginner task 6b: that draft was not saved by opening it", (await call("GET", "/api/workflows")).body.workflows.every((w) => w.name !== "Thank-you note"));
   await onlyMenu("Dashboard");
+  await until(async () => /AI brain/.test(await page.getByRole("note", { name: "Plain-language guide" }).innerText().catch(() => "")), 8000);
   check("beginner task 7: the Dashboard explains itself with a guide that defines 'model'", /AI brain/.test(await page.getByRole("note", { name: "Plain-language guide" }).innerText()));
   await page.screenshot({ path: path.join(SHOTS, "2-beginner-dashboard.png"), fullPage: true });
   await level("Intermediate");
   await onlyMenu("Projects");
   await page.getByRole("button", { name: "Open Bakery website" }).click();
+  await until(async () => (await page.getByRole("tablist", { name: "Project sections" }).getByRole("tab").count()) === 8, 8000);
   check("Intermediate: the same project page lists all eight tabs", (await page.getByRole("tablist", { name: "Project sections" }).getByRole("tab").count()) === 8);
   await level("Simple");
 

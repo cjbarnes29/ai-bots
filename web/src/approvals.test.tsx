@@ -66,7 +66,7 @@ describe("the Approvals page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Yes, do it once" }));
     await waitFor(() => expect(r.status).toBe("executed"));
     expect(api.writes().filter((w) => w.path.endsWith("/approve"))).toHaveLength(1);
-    expect(await screen.findByRole("listitem", { name: /Past request/ })).toHaveTextContent("Done");
+    expect(await screen.findByRole("listitem", { name: /Past request/ })).toHaveTextContent("Executed");
     expect(screen.getByText(/Nothing is waiting for approval/)).toBeInTheDocument();
   });
 
