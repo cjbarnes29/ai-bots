@@ -1,0 +1,153 @@
+{
+  "date": "2026-11-15",
+  "authorization": "Owner approved up to 20 read-only requests: 4 searches and 16 page reads; no downloads/installations/app changes",
+  "used": {
+    "searches": 4,
+    "reads": 16,
+    "total": 20
+  },
+  "remaining": 0,
+  "limits": [
+    "Branch-based file reads; no immutable commit pin obtained",
+    "No package installation, builds, runtime tests or security advisory audit",
+    "Five file reads returned 404 and remain counted"
+  ],
+  "requests": [
+    {
+      "id": "S1",
+      "type": "search",
+      "query": "react hooks library usehooks-ts",
+      "outcome": "completed; three repository results returned"
+    },
+    {
+      "id": "S2",
+      "type": "search",
+      "query": "reusable agent skills anthropics skills",
+      "outcome": "completed; three repository results returned"
+    },
+    {
+      "id": "S3",
+      "type": "search",
+      "query": "agent skills vercel skills",
+      "outcome": "completed; three repository results returned"
+    },
+    {
+      "id": "S4",
+      "type": "search",
+      "query": "claude code hooks examples",
+      "outcome": "completed; three repository results returned"
+    },
+    {
+      "id": "R1",
+      "type": "read",
+      "url": "https://github.com/juliencrn/usehooks-ts/blob/master/README.md",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R2",
+      "type": "read",
+      "url": "https://github.com/vercel-labs/agent-skills/blob/main/README.md",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R3",
+      "type": "read",
+      "url": "https://github.com/anthropics/skills/blob/main/README.md",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R4",
+      "type": "read",
+      "url": "https://github.com/diet103/claude-code-infrastructure-showcase/blob/main/README.md",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R5",
+      "type": "read",
+      "url": "https://github.com/juliencrn/usehooks-ts/blob/master/LICENSE",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R6",
+      "type": "read",
+      "url": "https://github.com/vercel-labs/agent-skills/blob/main/LICENSE",
+      "outcome": "read failed; counted against allowance",
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "R7",
+      "type": "read",
+      "url": "https://github.com/anthropics/skills/blob/main/LICENSE",
+      "outcome": "read failed; counted against allowance",
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "R8",
+      "type": "read",
+      "url": "https://github.com/diet103/claude-code-infrastructure-showcase/blob/main/LICENSE",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R9",
+      "type": "read",
+      "url": "https://github.com/juliencrn/usehooks-ts/blob/master/packages/usehooks-ts/package.json",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R10",
+      "type": "read",
+      "url": "https://github.com/juliencrn/usehooks-ts/blob/master/packages/usehooks-ts/src/useDebounceCallback/useDebounceCallback.ts",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R11",
+      "type": "read",
+      "url": "https://github.com/vercel-labs/agent-skills/blob/main/skills/react-best-practices/SKILL.md",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R12",
+      "type": "read",
+      "url": "https://github.com/anthropics/skills/blob/main/skills/webapp-testing/SKILL.md",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R13",
+      "type": "read",
+      "url": "https://github.com/vercel-labs/agent-skills/blob/main/LICENSE.md",
+      "outcome": "read failed; counted against allowance",
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "R14",
+      "type": "read",
+      "url": "https://github.com/anthropics/skills/blob/main/LICENSE.txt",
+      "outcome": "read failed; counted against allowance",
+      "error": "NOT_FOUND"
+    },
+    {
+      "id": "R15",
+      "type": "read",
+      "url": "https://github.com/anthropics/skills/blob/main/skills/webapp-testing/LICENSE.txt",
+      "outcome": "read succeeded",
+      "error": null
+    },
+    {
+      "id": "R16",
+      "type": "read",
+      "url": "https://github.com/vercel-labs/agent-skills/blob/main/skills/react-best-practices/LICENSE.txt",
+      "outcome": "read failed; counted against allowance",
+      "error": "NOT_FOUND"
+    }
+  ]
+}

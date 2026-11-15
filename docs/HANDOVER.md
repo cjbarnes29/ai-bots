@@ -1,5 +1,19 @@
 # Handover
 
+## Portable Claude Projects kit created (2026-11-15)
+
+Local validation: six scenario-coverage checks, three Markdown files, seven local links, copy-marker/encoding checks and diff whitespace checks passed. One initial validator assumption about prose marker counts was corrected; final standalone-marker check passed. No Claude account/session test or product suite run. Next user action: follow the kit setup in the intended Claude Project and confirm the supplied context is visible; this has not been done automatically.
+
+Owner selected BOTH development guidance and manual research, for Claude desktop/website across multiple projects, then approved implementation of the document-kit plan. Start at `docs/reusable-claude-kit/PROJECT-INSTRUCTIONS.md`; companion files are `PROJECT-CONTEXT-TEMPLATE.md` (portable fields plus dated AI Workforce example) and `RESEARCH-PROMPT.md` (run-specific approval/counting, source/license comparison and proposal/handover). Instructions are original wording informed by the saved research. Nothing is registered, uploaded, imported, assigned or activated; no executable hook or host settings change. Project feature availability and actual model compliance are NOT VERIFIED. Desktop chats without file access must provide handover drafts rather than claiming saved edits. Preserve concurrent Claude work and existing project records. This supersedes the research-only status for the document kit alone, not the unapproved framework-install proposals.
+
+## Superpowers and reusable systems handoff (2026-11-15; research only)
+
+Owner requested a deeper search for Superpowers-style skills reusable later. Read `docs/SUPERPOWERS-AND-REUSABLE-SKILLS.md`; ledger `docs/evidence/superpowers-research-2026-11-15.json`. Used a NEW approved 4 searches + 16 reads (20/20; one 404). Preferred development-method candidate: selected Superpowers debugging/verification/planning skills, inspected at `22f0b463e7a5e579904dd6211a520321035526f7`; startup hook also read, not executed. Spec Kit template is a useful secondary reference; GSD moved from archived old repo to Open GSD; BMAD is a later large-module reference. Four MIT texts read, not a complete dependency audit. Offer draft checklists/templates first; do not install frameworks, copy host settings, enable telemetry/visual companion, commit automatically or launch unrequested workers. Existing permission, supervised-only and request-count rules override upstream defaults. No product changes/tests/installs/activation; preserve current Claude work. This handoff supplements the earlier hook research; it is not implementation approval or a message sent to another session.
+
+## Hooks/skills research handoff (2026-11-15; documentation only)
+
+Owner approved and requested actual GitHub research plus instructions for Claude. **Completed: 4 searches + 16 file reads (20/20, including five 404s)**. Read `docs/HOOKS-SKILLS-GITHUB-PROPOSAL.md`; exact ledger in `docs/evidence/hooks-skills-research-2026-11-15.json`. Best next proposal: small local React review checklist plus three instruction-only drafts through the existing Skill Library design. usehooks-ts is conditional; existing search already debounces. Anthropic testing assumes Python; use the existing JS harness. Showcase host hooks are reference only; do not run installers or add executable hooks. Vercel declares MIT but the full applicable license was not located; copying is on hold. No immutable pins, installs or compatibility tests. No further research allowance remains. This is saved handover, not implementation authorization; coordinate with current Claude work and D-114 rather than restarting finished receipt panels.
+
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
@@ -7,7 +21,7 @@ Updated whenever something changes. Historical details below include older snaps
 
 - **Built and committed (D-114; see `git log`; staged-only exports passed 2,346 backend + 528 dashboard):** `readReceipts` on `/api/tasks/:id/chain-verification` + "Outside reads recorded" in the task check; Manager origin wording in the workflow check; D-113 type fix. Files: src/verification/{service,routes}.ts, web/src/api/verificationHooks.ts, web/src/components/{ResultCheck,WorkflowResultCheck}.tsx, new src/verification/read-receipts-view.test.ts and web/src/readReceiptsPanel.test.tsx, scripts/e2e/modernization-e2e.mjs (one wait), docs. Full check 2,346 backend + 528 dashboard; browser 42/42, 29/29, 34/34.
 - Two untracked docs not written by this session: `docs/GITHUB-SYSTEMS-RESEARCH-PLAN.md`, `docs/HOOKS-AND-SKILLS-REUSE-PLAN.md` (leave them out of commits unless the owner says).
-- Known flake: `src/desktop/real-windows.test.ts` (different test each time in scratch exports; passes alone).
+- Known flake: `src/desktop/real-windows.test.ts`. Investigated (D-115): 6/6 quiet full runs passed (live and scratch export); cause unproven (likely load/focus timing). If exactly one real-windows test fails, re-run the file alone and the full check once on a quiet machine.
 
 ## Earlier resume block (historical)
 

@@ -3,6 +3,24 @@
 Read this first. It is the verified checkpoint. Do not re-audit finished work; continue from "Next".
 Update it at the end of every phase.
 
+## Portable Claude Projects document kit (2026-11-15)
+
+- Implemented the owner's approved three-file plan in `docs/reusable-claude-kit/`: copyable Project instructions with setup/fallback/disable steps; portable context template plus dated AI Workforce example; manual research prompt with request accounting, license/source checks, ranked options and handover behavior.
+- Linked the kit from the existing proposal, decision board and Claude handover. Original wording; no upstream script or skill text copied. No installs/activation, Project account changes, app edits, external requests, model calls or commits. Claude Projects availability/inclusion and actual instruction compliance remain NOT VERIFIED.
+- Local static checks passed for all six planned scenarios (small fix, large feature, uncertain bug, missing context/tools, unavailable browsing/budget, hostile setup/secret instructions), exactly three Markdown files, seven resolving links, unique standalone copy markers and no replacement characters. Initial marker validator incorrectly assumed both documents repeated marker text in their setup prose; corrected to check unique standalone marker lines and reran successfully, without changing the kit. `git diff --check` passed; none of the three new files is ignored. These checks inspect document coverage, not model behavior. No product suite/build was run for this docs-only change.
+
+## Superpowers and comparable reusable skill systems (2026-11-15)
+
+- Completed a separate owner-approved deeper round: 4 GitHub searches + 16 reads (20/20, one failed GSD guide path counted). Saved `docs/SUPERPOWERS-AND-REUSABLE-SKILLS.md` and `docs/evidence/superpowers-research-2026-11-15.json`; linked plans/previous proposal/decision board/Claude handover.
+- Inspected pinned Superpowers debugging/verification/planning skills, startup hook and MIT at `22f0b463e7a5e579904dd6211a520321035526f7`; Spec Kit README/plan/MIT; BMAD README/MIT; archived GSD redirect and successor README/MIT. Ranked project fit, seven later reuse packs, required overrides, adoption choices and pilot acceptance/rollback. Wider internals, host behavior and measured benefit remain unverified.
+- Research/docs only. No upstream scripts run, installs, product changes, skill activation, tests, builds, model calls or commits. New allowance consumed; current Claude implementation preserved.
+
+## Hooks/skills GitHub research and Claude proposal (2026-11-15)
+
+- Completed the owner's newly approved 20-request round: 4 GitHub repository searches + 16 file reads, including five counted 404s. Saved exact ledger and `docs/HOOKS-SKILLS-GITHUB-PROPOSAL.md` with four candidate assessments, existing-system integration points and concrete Claude instructions; linked from plans/decision board/handover.
+- Inspected usehooks-ts source/manifest/MIT, Vercel React skill (declares MIT; full license not located), Anthropic webapp-testing skill/its Apache license, and infrastructure-showcase README/MIT. Recommendations distinguish development aids, runtime text skills and executable hooks; source/runtime compatibility and immutable pins remain unverified.
+- Documentation only: no downloads, installation, execution of upstream instructions, product changes, skill assignments, model calls or commit. No tests run; no further request budget remains. Current Claude work, including D-114, preserved.
+
 ## Additional owner request: reusable hooks and skills (2026-11-15)
 
 - Saved `docs/HOOKS-AND-SKILLS-REUSE-PLAN.md`, linked from GitHub research, decision board and handover. Inspected existing SkillService/import schema and API-hook foundations; proposed reusable interface patterns, bounded lifecycle observations and seven instruction-pack candidates with an incremental delivery sequence.
@@ -874,3 +892,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## Receipts and origin wording shown (2026-11-15; board D-114)
 - Part 3: `readReceipts` on the chain-verification response and an "Outside reads recorded" section in the task check; Manager origin wording in the workflow check; D-113 type placement corrected. Full check 2,346 backend + 520+8 = 528 dashboard; browser scripts 42/42, 29/29, 34/34. Plan `docs/BACKLINKS-RECEIPTS-PLAN.md` parts 1-3 all built. Uncommitted. Note: two docs files not written by this session appeared untracked (`docs/GITHUB-SYSTEMS-RESEARCH-PLAN.md`, `docs/HOOKS-AND-SKILLS-REUSE-PLAN.md`); left alone.
+
+## real-windows flake investigation (2026-11-15; board D-115)
+- Not reproduced: 6 consecutive full backend runs (3 live tree, 3 scratch export) all 2,346/2,346 on a quiet machine. Earlier single failures (7, each a different test) happened during busy periods; the file passes alone. Hypothesis (unproven): real-window focus/timing under load or another session using the desktop. No code, timeout or assertion changed. Uncommitted docs.

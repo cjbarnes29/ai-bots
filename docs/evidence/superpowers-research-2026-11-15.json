@@ -1,0 +1,144 @@
+{
+  "date": "2026-11-15",
+  "scope": "Owner-approved Superpowers and comparable reusable development skill systems",
+  "allowance": {
+    "searches": 4,
+    "reads": 16
+  },
+  "used": {
+    "searches": 4,
+    "reads": 16,
+    "total": 20
+  },
+  "remaining": 0,
+  "superpowersCommit": "22f0b463e7a5e579904dd6211a520321035526f7",
+  "requests": [
+    {
+      "id": "S1",
+      "query": "superpowers in:name user:obra",
+      "type": "search",
+      "success": true
+    },
+    {
+      "id": "S2",
+      "query": "get-shit-done in:name",
+      "type": "search",
+      "success": true
+    },
+    {
+      "id": "S3",
+      "query": "BMAD-METHOD in:name",
+      "type": "search",
+      "success": true
+    },
+    {
+      "id": "S4",
+      "query": "spec-kit in:name org:github",
+      "type": "search",
+      "success": true
+    },
+    {
+      "id": "R1",
+      "type": "read",
+      "url": "https://github.com/obra/superpowers/blob/main/README.md",
+      "success": true
+    },
+    {
+      "id": "R2",
+      "type": "read",
+      "url": "https://github.com/gsd-build/get-shit-done/blob/main/README.md",
+      "success": true
+    },
+    {
+      "id": "R3",
+      "type": "read",
+      "url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/README.md",
+      "success": true
+    },
+    {
+      "id": "R4",
+      "type": "read",
+      "url": "https://github.com/github/spec-kit/blob/main/README.md",
+      "success": true
+    },
+    {
+      "id": "R5",
+      "type": "read",
+      "url": "https://api.github.com/repos/obra/superpowers/branches/main",
+      "success": true
+    },
+    {
+      "id": "R6",
+      "type": "read",
+      "url": "https://github.com/open-gsd/gsd-core/blob/main/README.md",
+      "success": true
+    },
+    {
+      "id": "R7",
+      "type": "read",
+      "url": "https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/LICENSE",
+      "success": true
+    },
+    {
+      "id": "R8",
+      "type": "read",
+      "url": "https://github.com/open-gsd/gsd-core/blob/main/LICENSE",
+      "success": true
+    },
+    {
+      "id": "R9",
+      "type": "read",
+      "url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/main/LICENSE",
+      "success": true
+    },
+    {
+      "id": "R10",
+      "type": "read",
+      "url": "https://github.com/github/spec-kit/blob/main/LICENSE",
+      "success": true
+    },
+    {
+      "id": "R11",
+      "type": "read",
+      "url": "https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/systematic-debugging/SKILL.md",
+      "success": true
+    },
+    {
+      "id": "R12",
+      "type": "read",
+      "url": "https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/verification-before-completion/SKILL.md",
+      "success": true
+    },
+    {
+      "id": "R13",
+      "type": "read",
+      "url": "https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/writing-plans/SKILL.md",
+      "success": true
+    },
+    {
+      "id": "R14",
+      "type": "read",
+      "url": "https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/hooks/session-start",
+      "success": true
+    },
+    {
+      "id": "R15",
+      "type": "read",
+      "url": "https://github.com/open-gsd/gsd-core/blob/main/docs/how-to/onboard-existing-codebase.md",
+      "success": false,
+      "error": "404 NOT_FOUND; counted"
+    },
+    {
+      "id": "R16",
+      "type": "read",
+      "url": "https://github.com/github/spec-kit/blob/main/templates/plan-template.md",
+      "success": true
+    }
+  ],
+  "limits": [
+    "One GSD guide path returned 404",
+    "No installs, scripts, model calls, browser tests or product changes",
+    "Only Superpowers license/three skills/session-start were fetched at an immutable commit",
+    "BMAD comparison is README and license only; GSD successor is README and license only"
+  ]
+}
