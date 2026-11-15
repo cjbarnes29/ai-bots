@@ -29,6 +29,10 @@ export function observeActions(actions: ActionFact[], probe: FileProbe): { check
         else if (p.state === "missing") checks.push({ kind: "file_missing", outcome: "fail", detail: `The action reported creating a file, but it is not there (moved or deleted since?): ${path}` });
         else checks.push({ kind: "file_unchecked", outcome: "note", detail: `The file could not be checked (${p.reason}), so its existence is not confirmed.` });
       }
+    } else if (a.status === "approved" && a.outcomeUnknown) {
+      unknown = true;
+      const said = a.outcomeUnknown.reported === "did_happen" ? " You recorded that it did happen; that is your statement and is not checked by the platform." : a.outcomeUnknown.reported === "did_not_happen" ? " You recorded that it did not happen." : "";
+      checks.push({ kind: "action_outcome_unknown", outcome: "note", detail: `${label} was approved but no outcome was recorded. It may or may not have happened and was not sent again.${said}` });
     } else if (a.status === "failed") checks.push({ kind: "action_failed", outcome: "fail", detail: `${label} failed: ${clip(a.error ?? "no reason recorded", 160)}` });
     else if (a.status === "pending" || a.status === "approved") checks.push({ kind: "action_waiting", outcome: "note", detail: `${label} is still waiting (${a.status}): ${clip(a.summary, 100)}` });
     else checks.push({ kind: "action_denied", outcome: "note", detail: `${label} was ${a.status}, so it did not happen.` });

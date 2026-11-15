@@ -20,7 +20,16 @@ export const GATE_LIMITS = {
   maxStoredResultChars: 2000,
   maxResultForBotChars: 3000,
   maxArgsJsonChars: 5000,
+  /** An approved request with no recorded outcome is listed as "outcome unknown" only after this long (the action itself times out at 30 s). */
+  uncertainAfterMs: 120_000,
+  maxUncertainListed: 50,
 } as const;
+
+export type ReconcileOutcome = "did_happen" | "did_not_happen" | "cannot_tell";
+export interface UncertainApprovalView extends ApprovalView {
+  /** What the owner recorded about what really happened, if anything. It is the owner's statement, never platform confirmation. */
+  reconciliation: { outcome: ReconcileOutcome; at: string } | null;
+}
 
 const PAUSED_KEY = "external_paused";
 
@@ -93,6 +102,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  */
 export class ActionGate {
   private readonly now: () => number;
+  /** Approvals this running process is executing right now. They are never "uncertain" (D-125); a restart empties it. */
+  private readonly inFlight = new Set<string>();
 
   constructor(private readonly deps: GateDeps) {
     this.now = deps.now ?? Date.now;
@@ -297,7 +308,16 @@ export class ActionGate {
       throw new AppError(409, "approval_not_pending", `This request is already ${repo.get(id)?.status}. It cannot be approved now.`);
     }
     audit.record("approval.approved", { id, action: `${existing.connector}.${existing.action}` }, { botId: existing.botId, actor: "owner" });
+    this.inFlight.add(id);
+    try {
+      return await this.runApproved(id, existing);
+    } finally {
+      this.inFlight.delete(id);
+    }
+  }
 
+  private async runApproved(id: string, existing: ApprovalRecord): Promise<ApprovalView> {
+    const { repo, audit, registry } = this.deps;
     const fail = (message: string): ApprovalView => {
       const clean = clip(redactKnownSecrets(message), 500);
       repo.finish(id, "failed", this.iso(), { error: clean });
@@ -326,6 +346,44 @@ export class ActionGate {
     } catch (err) {
       return fail(err instanceof Error ? err.message : "The action failed.");
     }
+  }
+
+  /** What the owner recorded for this request, from the append-only audit log. A later definite answer replaces "cannot tell"; a definite answer is final. */
+  private reconciliationOf(id: string): UncertainApprovalView["reconciliation"] {
+    const e = this.deps.audit.latest(["approval.reconciled"], [`"id":${JSON.stringify(id)}`]);
+    const d = e?.detail;
+    if (!d || d["id"] !== id) return null;
+    const outcome = d["outcome"];
+    if (outcome !== "did_happen" && outcome !== "did_not_happen" && outcome !== "cannot_tell") return null;
+    return { outcome, at: typeof d["at"] === "string" ? d["at"] : "" };
+  }
+
+  /**
+   * Requests whose outcome is unknown (D-125): approved, no recorded result or error, decided more than uncertainAfterMs ago, and not executing in this process.
+   * Read-only. It never resends, retries or changes anything. The request may or may not have happened.
+   */
+  uncertain(): UncertainApprovalView[] {
+    const cutoff = new Date(this.now() - GATE_LIMITS.uncertainAfterMs).toISOString();
+    const rows = this.deps.repo.listApprovedUnfinished(cutoff, GATE_LIMITS.maxUncertainListed + this.inFlight.size);
+    return rows
+      .filter((a) => !this.inFlight.has(a.id))
+      .slice(0, GATE_LIMITS.maxUncertainListed)
+      .map((a) => ({ ...this.view(a), reconciliation: this.reconciliationOf(a.id) }));
+  }
+
+  /**
+   * The owner records what really happened with an uncertain request. One append-only audit event; the request itself is never edited and nothing is resent.
+   * Refused unless the request is currently uncertain, and a definite answer (did / did not happen) cannot be changed.
+   */
+  reconcile(id: string, outcome: ReconcileOutcome, note: string | null): UncertainApprovalView {
+    const found = this.uncertain().find((a) => a.id === id);
+    if (!found) throw new AppError(409, "approval_not_uncertain", "This request is not waiting for an outcome to be recorded.");
+    if (found.reconciliation && found.reconciliation.outcome !== "cannot_tell") {
+      throw new AppError(409, "approval_already_reconciled", "You already recorded what happened with this request. It cannot be changed.");
+    }
+    const at = this.iso();
+    this.deps.audit.record("approval.reconciled", { id, outcome, at, ...(note ? { note: clip(note.trim(), 200) } : {}) }, { botId: found.botId, actor: "owner" });
+    return { ...found, reconciliation: { outcome, at } };
   }
 
   deny(id: string, reason: string | null): ApprovalView {

@@ -44,7 +44,16 @@ export async function registerApprovalRoutes(app: FastifyInstance, gate: ActionG
     return { approvals: gate.list(q.status === "pending", q.limit) };
   });
 
+  /** Approved requests whose outcome was never recorded (D-125). Read-only; the request may or may not have happened and was not resent. */
+  app.get("/api/approvals/uncertain", async () => ({ approvals: gate.uncertain() }));
+
   app.get<{ Params: { id: string } }>("/api/approvals/:id", async (req) => ({ approval: gate.get(parseId(req.params.id)) }));
+
+  /** The owner records what really happened (an owner act: refused from a phone, needs the owner passphrase proof). Writes one audit event; resends nothing. */
+  app.post<{ Params: { id: string } }>("/api/approvals/:id/reconcile", async (req) => {
+    const body = z.strictObject({ outcome: z.enum(["did_happen", "did_not_happen", "cannot_tell"]), note: z.string().max(200).optional() }).parse(req.body ?? {});
+    return { approval: gate.reconcile(parseId(req.params.id), body.outcome, body.note ?? null) };
+  });
 
   app.post<{ Params: { id: string } }>("/api/approvals/:id/approve", async (req) => {
     const approval = await gate.approve(parseId(req.params.id));

@@ -73,6 +73,8 @@ const OWNER_ONLY_ROUTES: RegExp[] = [
   /^\/api\/workflows\/:id$/,
   /^\/api\/workflows\/:id\/(enable|disable|archive|unarchive|duplicate)$/,
   /^\/api\/workflows\/runs\/:id\/steps\/:nodeId\/retry$/,
+  // Recording what really happened with an approved request whose outcome was lost (D-125) is an owner act.
+  /^\/api\/approvals\/:id\/reconcile$/,
   /^\/api\/bots\/:id\/(skills|tools|pc|integrations|memory)/,
   /^\/api\/memory/,
   // Inbox notification preferences (they decide how often bots may write) and hiding a project are owner acts. Reading, pinning, muting and renaming stay open.

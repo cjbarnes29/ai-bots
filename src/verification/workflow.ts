@@ -38,7 +38,7 @@ function managerOriginLink(db: DatabaseSync, managerRunId: string, workflowRunId
 // Workflow checks expose outcomes, not copied model excerpts, action arguments/results, paths or error dumps.
 const SAFE_DETAIL: Record<Check["kind"], string> = {
   result_present: "A completed task has no result text.", provenance_unchecked: "The task's authored result could not be fully checked.",
-  action_executed: "An approved action has a recorded execution.", action_failed: "A recorded action failed.", action_waiting: "An outside action is waiting for approval or execution.",
+  action_executed: "An approved action has a recorded execution.", action_failed: "A recorded action failed.", action_outcome_unknown: "An approved action has no recorded outcome; it may or may not have happened.", action_waiting: "An outside action is waiting for approval or execution.",
   action_denied: "An outside action was denied or expired and did not execute.", action_effect_unknown: "The action's specific effect is unclassified.",
   file_exists: "A reported file exists with the recorded size at check time.", file_missing: "A reported file is missing at check time.",
   file_size_differs: "A reported file's size differs at check time.", file_unchecked: "A reported file could not be checked with current folder access.",

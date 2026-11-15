@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { GATE_LIMITS } from "../approvals/service.js";
 import { combine, verifyTask, type ActionFact, type FileProbe, type TaskFact, type Verification, type VerificationStatus } from "./verify.js";
 import { copyResultSupport } from "./action-support.js";
 import { assessProvenance, type AuthorshipAssessment } from "../delegation/result-provenance.js";
@@ -18,6 +19,8 @@ export interface VerificationDeps {
     /** Exact-task read receipts (hashes only). Optional so older fakes keep working. */
     readReceipts?(taskId: string, limit?: number): { createdAt: string; connector: string; actionName: string; resultChars: number }[];
   };
+  /** Clock for the "approved long ago with no outcome" rule. Defaults to Date.now. */
+  now?: () => number;
   /** Checks a file the platform itself created. Goes through the folder permission gate; "unreadable" is an honest answer, never a pass. */
   probe: FileProbe;
   /** Exact action's source-owned metadata only; never executes or checks readiness/credentials. */
@@ -55,9 +58,22 @@ export class VerificationService {
   }
   private actions(taskId: string): ActionFact[] {
     return this.d.db
-      .prepare("SELECT id, task_id, connector, action, status, result, error, summary FROM approval_requests WHERE task_id = ? ORDER BY created_at")
+      .prepare("SELECT id, task_id, connector, action, status, result, error, summary, decided_at, executed_at FROM approval_requests WHERE task_id = ? ORDER BY created_at")
       .all(taskId)
-      .map((r: Row) => this.actionFact(r));
+      .map((r: Row) => ({ ...this.actionFact(r), ...this.outcomeUnknown(r) }));
+  }
+
+  /**
+   * D-125: an approved request with no result, no error and no execution time, decided longer ago than the gate's margin. Only the task path uses it
+   * (workflow steps handle this case on their own). It adds a note, never evidence; the owner's recorded statement is shown as theirs.
+   */
+  private outcomeUnknown(r: Row): { outcomeUnknown?: NonNullable<ActionFact["outcomeUnknown"]> } {
+    if (String(r["status"]) !== "approved" || r["result"] !== null || r["error"] !== null || r["executed_at"] !== null || typeof r["decided_at"] !== "string") return {};
+    if (Date.parse(r["decided_at"]) > (this.d.now ?? Date.now)() - GATE_LIMITS.uncertainAfterMs) return {};
+    const id = String(r["id"]);
+    const said = this.d.audit.latest(["approval.reconciled"], [`"id":${JSON.stringify(id)}`])?.detail;
+    const outcome = said && said["id"] === id ? said["outcome"] : null;
+    return { outcomeUnknown: { reported: outcome === "did_happen" || outcome === "did_not_happen" || outcome === "cannot_tell" ? outcome : null } };
   }
 
   private actionFact(r: Row): ActionFact {

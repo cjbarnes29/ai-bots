@@ -33,11 +33,16 @@ export interface ActionFact {
   error: string | null;
   summary: string;
   resultSupport?: ResultSupport | undefined;
+  /**
+   * Set only for an approved request with no recorded outcome long after approval (D-125): it may or may not have happened and was NOT resent. `reported` is the
+   * owner's own statement, if any. It never counts as evidence.
+   */
+  outcomeUnknown?: { reported: "did_happen" | "did_not_happen" | "cannot_tell" | null } | undefined;
 }
 export type FileProbe = (absPath: string) => { state: "ok"; size: number } | { state: "missing" } | { state: "unreadable"; reason: string };
 
 export interface Check {
-  kind: "result_present" | "provenance_unchecked" | "action_executed" | "action_failed" | "action_waiting" | "action_denied" | "action_effect_unknown" | "file_exists" | "file_missing" | "file_size_differs" | "file_unchecked" | "claim_supported" | "claim_unsupported" | "claim_unchecked";
+  kind: "result_present" | "provenance_unchecked" | "action_executed" | "action_failed" | "action_waiting" | "action_outcome_unknown" | "action_denied" | "action_effect_unknown" | "file_exists" | "file_missing" | "file_size_differs" | "file_unchecked" | "claim_supported" | "claim_unsupported" | "claim_unchecked";
   /** "pass" = independent evidence, "fail" = contradiction, "note" = information only (never counts as evidence). */
   outcome: "pass" | "fail" | "note";
   detail: string;
@@ -148,11 +153,16 @@ export function verifyTask(task: TaskFact, actions: ActionFact[], probe: FilePro
 
   // What the reply says happened, against what the record shows.
   const executed = actions.filter((a) => a.status === "executed");
-  const waiting = actions.some((a) => a.status === "pending" || a.status === "approved");
+  const waiting = actions.some((a) => a.status === "pending" || (a.status === "approved" && !a.outcomeUnknown));
+  const outcomeUnknown = actions.some((a) => a.outcomeUnknown);
   for (const c of claims) {
     const backed = executed.find(a => c.operation && c.object && support.get(a.id)?.some(r => r.operation === c.operation && r.objects.includes(c.object!)));
     if (backed) checks.push({ kind: "claim_supported", outcome: "pass", detail: `Claim "${c.excerpt}" has action-type support from ${backed.connector}.${backed.action} (${backed.id}); target, content and delivery were not checked.` });
-    else if (executed.length > 0 && (!c.object || executed.some(a => !support.get(a.id)))) {
+    else if (actions.some(a => a.outcomeUnknown && c.operation && c.object && support.get(a.id)?.some(r => r.operation === c.operation && r.objects.includes(c.object!)))) {
+      const maybe = actions.find(a => a.outcomeUnknown && c.operation && c.object && support.get(a.id)?.some(r => r.operation === c.operation && r.objects.includes(c.object!)))!;
+      unknown = true;
+      checks.push({ kind: "claim_unchecked", outcome: "note", detail: `Claim "${c.excerpt}" matches ${maybe.connector}.${maybe.action}, which was approved but has no recorded outcome, so it is neither confirmed nor contradicted.` });
+    } else if (executed.length > 0 && (!c.object || executed.some(a => !support.get(a.id)))) {
       unknown = true;
       checks.push({ kind: "claim_unchecked", outcome: "note", detail: `Claim "${c.excerpt}" could not be matched to a known exact action/object type. Treat it as unverified.` });
     } else checks.push({ kind: "claim_unsupported", outcome: "fail", detail: `The reply says "${c.excerpt}" but no ${c.kind === "send" ? "send" : c.kind === "save" ? "save or create" : c.kind === "publish" ? "publish" : "delete or rename"} action ${waiting ? "has run yet (one is still waiting for your approval)" : "was recorded for this task"} with matching action/object semantics.` });
@@ -169,7 +179,7 @@ export function verifyTask(task: TaskFact, actions: ActionFact[], probe: FilePro
     summary = "An outside action is still waiting for your approval, so nothing is confirmed yet.";
   } else if (unknown) {
     status = "unverified";
-    summary = originUnknown ? "The AI-written result is not fully checkable against saved text origins. Recorded actions are separate evidence; treat the answer as unverified." : "An action was recorded, but its effect or the reply's action/object claim could not be confirmed. Target, content and delivery are not checked.";
+    summary = outcomeUnknown ? "An approved action has no recorded outcome. It may or may not have happened and was not sent again, so nothing is confirmed for it." : originUnknown ? "The AI-written result is not fully checkable against saved text origins. Recorded actions are separate evidence; treat the answer as unverified." : "An action was recorded, but its effect or the reply's action/object claim could not be confirmed. Target, content and delivery are not checked.";
   } else if (evidence > 0) {
     status = "verified";
     summary = `Checked against the platform's own record: ${evidence} piece(s) of evidence confirmed and nothing contradicts the result.`;

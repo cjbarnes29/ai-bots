@@ -87,6 +87,17 @@ export class ApprovalRepository {
     return this.db.prepare(sql).all(limit).map(toApproval);
   }
 
+  /**
+   * Approved but never finished (D-125): no result, no error, no execution time, decided before the cutoff. Oldest first. Read-only. The caller must still
+   * leave out requests that are executing right now in this process.
+   */
+  listApprovedUnfinished(decidedBeforeIso: string, limit: number): ApprovalRecord[] {
+    return this.db
+      .prepare("SELECT * FROM approval_requests WHERE status = 'approved' AND executed_at IS NULL AND result IS NULL AND error IS NULL AND decided_at IS NOT NULL AND decided_at <= ? ORDER BY decided_at, rowid LIMIT ?")
+      .all(decidedBeforeIso, limit)
+      .map(toApproval);
+  }
+
   countPending(botId?: string): number {
     const row =
       botId === undefined

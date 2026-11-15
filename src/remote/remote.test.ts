@@ -367,6 +367,12 @@ describe("decisions from a paired phone (D-063: intentional)", () => {
     }
     // what stays owner-only on a phone is unchanged
     expect((await remote("PUT", "/api/inbox/preferences", { cookie, body: { notify: "none" } })).body.error).toBe("owner_only");
+    // recording what really happened with an approved request whose outcome was lost (D-125) is an owner act: a paired phone is refused, an unpaired one is not let in
+    const reconcile = `/api/approvals/${id}/reconcile`;
+    expect((await remote("POST", reconcile, { cookie, body: { outcome: "did_happen" } })).body.error).toBe("owner_only");
+    expect((await remote("POST", reconcile, { body: { outcome: "did_happen" } })).status).toBe(401);
+    // reading the list stays open
+    expect((await remote("GET", "/api/approvals/uncertain", { cookie })).status).toBe(200);
   });
 });
 
