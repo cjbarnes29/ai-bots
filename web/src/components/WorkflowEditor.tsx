@@ -15,7 +15,7 @@ const ZOOM_MAX = 1.5;
 const ZOOM_STEP = 0.1;
 const clampZoom = (z: number) => Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) * 100) / 100;
 
-const TYPE_LABEL: Record<string, string> = { trigger: "Start", bot_task: "Bot task", manager: "Manager", integration: "Outside action", condition: "If", checkpoint: "Checkpoint", set: "Set text", end: "End" };
+const TYPE_LABEL: Record<string, string> = { trigger: "Start", bot_task: "Bot task", manager: "Manager", integration: "Outside action", condition: "If", checkpoint: "Checkpoint", set: "Set text", check_result: "Check result", end: "End" };
 const TYPE_STYLE: Record<string, string> = {
   trigger: "border-green-500 bg-green-50 dark:bg-green-950/40",
   bot_task: "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40",
@@ -24,6 +24,7 @@ const TYPE_STYLE: Record<string, string> = {
   condition: "border-amber-500 bg-amber-50 dark:bg-amber-950/40",
   checkpoint: "border-rose-500 bg-rose-50 dark:bg-rose-950/40",
   set: "border-sky-500 bg-sky-50 dark:bg-sky-950/40",
+  check_result: "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40",
   end: "border-slate-500 bg-slate-100 dark:bg-slate-800",
 };
 
@@ -49,6 +50,8 @@ function defaults(type: string, bots: Bot[]): Record<string, unknown> {
       return { message: "Continue?" };
     case "set":
       return { value: "{{input}}" };
+    case "check_result":
+      return { target: "" };
     default:
       return {};
   }
@@ -193,7 +196,7 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
       </div>
 
       <div className="flex flex-wrap gap-2" aria-label="Add a box">
-        {(["bot_task", "manager", "integration", "condition", "checkpoint", "set", "end"] as const).map((t) => (
+        {(["bot_task", "manager", "integration", "condition", "checkpoint", "set", "check_result", "end"] as const).map((t) => (
           <button key={t} className="btn-secondary" onClick={() => addNode(t)}>
             Add {TYPE_LABEL[t]}
           </button>
@@ -316,7 +319,7 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
           <>
             <section aria-label="Selected box" className="space-y-2">
               <h4 className="font-semibold">{sel ? `${TYPE_LABEL[sel.type]} box "${sel.id}"` : "Click a box to change it"}</h4>
-              {sel && <NodeForm node={sel} bots={bots} onPatch={(p) => patchNode(sel.id, p)} />}
+              {sel && <NodeForm node={sel} bots={bots} nodes={nodes} onPatch={(p) => patchNode(sel.id, p)} />}
               {sel && sel.type !== "trigger" && (
                 <button className="btn-danger" onClick={() => removeNode(sel.id)}>
                   Remove this box
@@ -372,7 +375,7 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
   );
 }
 
-function NodeForm({ node, bots, onPatch }: { node: WfNode; bots: Bot[]; onPatch: (p: Record<string, unknown>) => void }) {
+function NodeForm({ node, bots, nodes, onPatch }: { node: WfNode; bots: Bot[]; nodes: WfNode[]; onPatch: (p: Record<string, unknown>) => void }) {
   const f = (k: string) => String((node as Record<string, unknown>)[k] ?? "");
   const input = (k: string, label: string, extra: { area?: boolean; max?: number } = {}) => (
     <label className="block text-sm">
@@ -449,6 +452,22 @@ function NodeForm({ node, bots, onPatch }: { node: WfNode; bots: Bot[]; onPatch:
       )}
       {node.type === "checkpoint" && input("message", "What to show you before it continues", { area: true, max: 500 })}
       {node.type === "set" && input("value", "Text to produce", { area: true })}
+      {node.type === "check_result" && (
+        <>
+          <label className="block text-sm">
+            <span className="label">Which Bot task to check</span>
+            <select aria-label="Bot task to check" value={f("target")} onChange={(e) => onPatch({ target: e.target.value })}>
+              <option value="">Choose a Bot task…</option>
+              {nodes.filter((n) => n.type === "bot_task").map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.label || n.id}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="hint">Reads the app's own record of that task and outputs one word: verified, unverified, waiting, contradicted or not_applicable. It changes nothing and contacts nothing. Put it after the Bot task, then use an If box to branch (for example: is exactly verified).</p>
+        </>
+      )}
     </div>
   );
 }
