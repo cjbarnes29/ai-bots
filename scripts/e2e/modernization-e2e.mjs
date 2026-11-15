@@ -137,6 +137,56 @@ try {
   await ed.getByLabel("Action", { exact: true }).selectOption("write_file");
   check("M6: the editor says a write waits for approval", /stops here until you approve this on the Approvals page/.test(await ed.getByRole("note").innerText()));
   await page.screenshot({ path: path.join(SHOTS, "4-outside-action-editor.png"), fullPage: true });
+
+  // ===== Z: workflow drawing zoom, fit and pan (D-110), in a real browser
+  if (await ed.getByRole("button", { name: "Show as a drawing" }).count()) await ed.getByRole("button", { name: "Show as a drawing" }).click();
+  const drawing = ed.getByLabel("Canvas", { exact: true }), scroller = ed.getByLabel("Workflow drawing, scrollable");
+  await drawing.waitFor({ timeout: 8000 });
+  const pct = async () => parseInt(await ed.getByRole("status", { name: "Zoom level" }).innerText(), 10);
+  const scale = async () => Number(/scale\(([\d.]+)\)/.exec(await drawing.getAttribute("style") ?? "")?.[1] ?? NaN);
+  check("Z1: the drawing starts at 100% actual size", (await pct()) === 100 && (await scale()) === 1);
+  await ed.getByRole("button", { name: "Zoom in" }).click();
+  check("Z2: Zoom in shows 110% and really scales the drawing", (await pct()) === 110 && Math.abs((await scale()) - 1.1) < 0.001, `${await pct()}% scale ${await scale()}`);
+  await ed.getByRole("button", { name: "Actual size" }).click();
+  for (let i = 0; i < 2; i++) await ed.getByRole("button", { name: "Zoom out" }).click();
+  check("Z3: Zoom out twice shows 80%", (await pct()) === 80 && Math.abs((await scale()) - 0.8) < 0.001);
+  const boxPos = async (id) => await ed.getByRole("group", { name: `Box ${id}`, exact: true }).evaluate((e) => ({ left: parseFloat(e.style.left), top: parseFloat(e.style.top) }));
+  const handle = ed.getByRole("button", { name: "Move box start", exact: true });
+  await handle.scrollIntoViewIfNeeded();
+  const before = await boxPos("start"), hb = await handle.boundingBox();
+  await page.mouse.move(hb.x + 10, hb.y + 8); await page.mouse.down(); await page.mouse.move(hb.x + 10 + 80, hb.y + 8 + 40, { steps: 8 }); await page.mouse.up();
+  const after = await boxPos("start");
+  check("Z4: dragging a box at 80% moves it by the screen distance divided by the zoom (100 and 50 in drawing units), not by the screen distance", Math.abs(after.left - before.left - 100) <= 2 && Math.abs(after.top - before.top - 50) <= 2, JSON.stringify({ before, after }));
+  await ed.getByRole("button", { name: "Fit to window" }).click();
+  const fitted = await pct();
+  check("Z5: Fit to window picks a zoom inside 60% to 150%", fitted >= 60 && fitted <= 150, `${fitted}%`);
+  await ed.getByRole("button", { name: "Actual size" }).click();
+  for (let i = 0; i < 5; i++) await ed.getByRole("button", { name: "Zoom in" }).click();
+  check("Z6: Zoom in is capped at 150%", (await pct()) === 150 && (await ed.getByRole("button", { name: "Zoom in" }).isDisabled()));
+  const spot = await scroller.evaluate((el, inner) => {
+    const r = el.getBoundingClientRect();
+    for (let y = r.bottom - 14; y > r.top + 10; y -= 24) for (let x = r.right - 24; x > r.left + 10; x -= 40) {
+      const hit = document.elementFromPoint(x, y);
+      if (hit && hit.getAttribute("aria-label") === inner) return { x, y };
+    }
+    return null;
+  }, "Canvas");
+  check("Z7: an empty part of the drawing exists to pan from", !!spot, JSON.stringify(spot));
+  if (spot) {
+    const s0 = await scroller.evaluate((el) => ({ l: el.scrollLeft, t: el.scrollTop }));
+    await page.mouse.move(spot.x, spot.y); await page.mouse.down(); await page.mouse.move(spot.x - 120, spot.y - 60, { steps: 8 }); await page.mouse.up();
+    const s1 = await scroller.evaluate((el) => ({ l: el.scrollLeft, t: el.scrollTop }));
+    check("Z8: dragging the empty background pans the drawing with the mouse", s1.l > s0.l || s1.t > s0.t, JSON.stringify({ s0, s1 }));
+    const boxesAfterPan = await boxPos("start");
+    check("Z9: panning moves the view only; no box position changed", boxesAfterPan.left === after.left && boxesAfterPan.top === after.top);
+  }
+  await scroller.focus();
+  const k0 = await scroller.evaluate((el) => el.scrollLeft);
+  await page.keyboard.press("ArrowRight"); await page.keyboard.press("ArrowRight");
+  check("Z10: the drawing is keyboard-focusable and the arrow keys scroll it", (await scroller.evaluate((el) => el.scrollLeft)) >= k0, `from ${k0}`);
+  const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  check("Z11: zooming the drawing does not make the page scroll sideways", over <= 0, String(over));
+  await page.screenshot({ path: path.join(SHOTS, "5-workflow-zoomed.png"), fullPage: true });
   await ed.getByRole("button", { name: "Close" }).click();
 
   const started = await call("POST", `/api/workflows/${wfId}/run`, { input: "world" });

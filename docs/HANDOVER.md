@@ -17,7 +17,13 @@ Owner approved and requested actual GitHub research plus instructions for Claude
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
-## Resume here: D-117 project item picker committed (no push) (2026-11-15)
+## Resume here: D-118 real-browser zoom check done and committed (no push) (2026-11-15)
+
+- **Done and committed (D-118; see git log):** `scripts/e2e/modernization-e2e.mjs` gained checks Z1-Z11; 45/45 passed twice (real Edge, fake services). Docs updated (board, progress, canvas plan). No product code changed. Still not observed: phone/touch, screen reader, owner feedback.
+- Not mine and untracked: `docs/reusable-claude-kit/`, `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+- Open next choices: commit the zoom check, Tier B prep (owner-run), Gemini/Google setup (owner), pilot B (scratch Superpowers audit; needs an exact read count), point CLAUDE.md at `docs/dev-aids/`.
+
+## Earlier resume block (historical)
 
 - **Built and committed (D-117; see git log):** `web/src/pages/Projects.tsx` (picker for Link item; raw id kept under "Enter an id instead") and new `web/src/projectItemPicker.test.tsx` (10 cases). Full check 2,346 backend + 538 dashboard; hub browser 113/113. Limits: tasks are the newest 50; bot-scoped notes not offered; no real-device check.
 - Not mine and untracked: `docs/reusable-claude-kit/`, `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.

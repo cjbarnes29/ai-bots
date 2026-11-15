@@ -901,3 +901,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## Project item picker (2026-11-15; board D-117)
 - Settings > Link item now offers real conversations/workflows/schedules/tasks/shared notes by name (linked ones left out; failed reads show Retry; raw id box kept under "Enter an id instead"). `web/src/pages/Projects.tsx` + `web/src/projectItemPicker.test.tsx` (10). Full check 2,346 backend + 538 dashboard; hub browser 113/113. Uncommitted.
+
+## Real-browser zoom check (2026-11-15; board D-118)
+- `scripts/e2e/modernization-e2e.mjs` gained Z1-Z11 (zoom, 80% drag scaling, fit, cap, mouse pan, keyboard scroll, no sideways page scroll). 45/45 passed twice in headless Edge against fake services. Script faults found and fixed first (lost regex backslashes; off-screen handle). Not observed: phone/touch, screen reader, owner feedback. Uncommitted.
