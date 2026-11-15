@@ -904,3 +904,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## Real-browser zoom check (2026-11-15; board D-118)
 - `scripts/e2e/modernization-e2e.mjs` gained Z1-Z11 (zoom, 80% drag scaling, fit, cap, mouse pan, keyboard scroll, no sideways page scroll). 45/45 passed twice in headless Edge against fake services. Script faults found and fixed first (lost regex backslashes; off-screen handle). Not observed: phone/touch, screen reader, owner feedback. Uncommitted.
+
+## Tier B owner checklist prepared (2026-11-15; board D-119)
+- `docs/OWNER-TIER-B-CHECKLIST.md`: owner-run Guardian checks (lock, idle, STOP) and the read-only elevated firewall audit, with a report template. Nothing was run by Claude. NV-8 and NV-10 stay NOT RUN until the owner shares real results. Uncommitted.
