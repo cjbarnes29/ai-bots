@@ -910,3 +910,6 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## Gemini owner checklist prepared (2026-11-15; board D-120)
 - `docs/OWNER-GEMINI-SETUP.md`: owner steps, rules, proposed 2-request approval, reporting and unknowns. No outside request, no key seen; Google's current limits not checked. NV-3 stays NOT VERIFIED. Uncommitted.
+
+## CLAUDE.md pointer to the development aids (2026-11-15; board D-121)
+- One bullet added to `CLAUDE.md` section 3 (owner approved the exact wording). The reusable Claude kit was committed as-is (`7c1b971`). No rule changed.

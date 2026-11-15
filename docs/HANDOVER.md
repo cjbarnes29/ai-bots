@@ -17,7 +17,14 @@ Owner approved and requested actual GitHub research plus instructions for Claude
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
-## Resume here: D-120 Gemini owner checklist prepared and committed (no push) (2026-11-15)
+## Resume here: D-121 CLAUDE.md points at docs/dev-aids (committed, no push); kit 7c1b971 (2026-11-15)
+
+- **Done (D-121):** one bullet in `CLAUDE.md` section 3 names `docs/dev-aids/` (owner approved the exact wording). Read `docs/dev-aids/` for debugging, completion-evidence and plan-template guidance.
+- **Waiting on the owner:** Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10); Gemini key and request-count approval (`docs/OWNER-GEMINI-SETUP.md`, NV-3). Do not record either as done until real results arrive.
+- Still untracked and not mine: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+- Open next choices: pilot B (scratch Superpowers audit; needs an exact read count) or other open items in `TASKS.md`. The backlinks and receipts plan is complete.
+
+## Earlier resume block (historical)
 
 - **Prepared and committed (D-120; see git log):** `docs/OWNER-GEMINI-SETUP.md`. The owner creates a free no-billing key and pastes it ONLY into the Integrations Center Gemini wizard, then says "Gemini connected". Claude must get the owner's approval of the exact count (proposed 2 Google requests) before any real request, must never see or log the key, and has not checked Google's current limits. NV-3 stays NOT VERIFIED until one real reply is recorded.
 - Owner-run and still waiting: Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10).

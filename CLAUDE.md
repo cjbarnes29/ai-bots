@@ -17,6 +17,7 @@ A personal AI workforce: agents, a Manager, workflows, integrations behind an ap
 - Never rewrite files with PowerShell `Get-Content`/`Set-Content` (it corrupts characters). Use the editing tools.
 - Dashboard layout: the navigation (AI Assistant first; D-077) lives in ONE list, `web/src/components/shell/nav.ts` (sidebar, phone bar, tabs and breadcrumbs all read it); redesign record `docs/REDESIGN-PLAN.md` (D-075). New pages must be added there, keep one h1, 44 px touch targets and the reduced-motion rule. Browser checks: `scripts/e2e/redesign-e2e.mjs` and `scripts/e2e/hub-e2e.mjs` (project hub, search, AI Assistant, workflow drafting). The main chat is the `/assistant` page, never a panel or hover; an AI draft (bot, workflow) is never saved by code.
 - Windows machine. Bash and PowerShell are both available; there is no FFmpeg and no real Python.
+- Development aids (documentation only, not host skills or hooks): `docs/dev-aids/` has a root-cause debugging checklist, an evidence-before-completion checklist and a small plan template. Use them as method guides; they never override this file, the decision board or the owner's restrictions.
 
 ## 4. Git rules
 - Do not commit without the owner's explicit approval. Before EACH commit show: `git status`, the changed files, the test results, the proposed commit message and the exact commands, then wait.
