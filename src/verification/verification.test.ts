@@ -20,6 +20,11 @@ describe("claims: only things outside the chat, only the agent's own words", () 
   it("ignores plans, negations, questions and abstract 'created'", () => {
     for (const t of ["Nothing has been sent yet.", "I did not send the email.", "I will send it once you approve.", "Should I send it?", "I created a plan with three steps.", "If the file was saved, tell me.", "I cannot send emails.", "It has not been sent."]) expect(findClaims(t), t).toEqual([]);
   });
+  it("does not mistake a handoff for approval or review for an external send", () => {
+    expect(findClaims("The spreadsheet has been sent for the owner's approval.")).toEqual([]);
+    expect(findClaims("The document was sent for review.")).toEqual([]);
+    expect(findClaims("The email has been sent to Sam.").map((c) => c.kind)).toEqual(["send"]);
+  });
   it("is linear on hostile text", () => {
     const t0 = Date.now();
     findClaims("I have ".repeat(5000) + "sent");
@@ -46,6 +51,11 @@ describe("verifying one task against the platform's record", () => {
     const v = verifyTask(task({ result: "I have sent the message to Sam." }), [action()], noFiles);
     expect(v.status).toBe("verified");
     expect(v.checks.map((c) => c.kind)).toEqual(["action_executed", "claim_supported"]);
+  });
+  it("a file sent to the owner for approval is not reported as an external send", () => {
+    const v = verifyTask(task({ result: "The spreadsheet has been sent for the owner's approval." }), [action({ connector: "documents", action: "create_spreadsheet", result: "Created C:\\work\\prices.csv (10 bytes).", summary: "Create prices.csv" })], () => ({ state: "ok", size: 10 }));
+    expect(v.status).toBe("verified");
+    expect(v.checks.some((c) => c.kind === "claim_unsupported")).toBe(false);
   });
   it("a claim with no recorded action is contradicted, and says so", () => {
     const v = verifyTask(task({ result: "I have sent the email to Sam." }), [], noFiles);

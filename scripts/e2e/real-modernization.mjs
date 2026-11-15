@@ -1,4 +1,4 @@
-// REAL-PROVIDER VALIDATION OF THE MODERNIZATION WORK (board P-49, docs/PROVIDER-VALIDATION-PLAN.md). PREPARED, SYNTAX-CHECKED ONLY, NEVER RUN.
+// REAL-PROVIDER VALIDATION OF THE MODERNIZATION WORK (board P-49, docs/PROVIDER-VALIDATION-PLAN.md). Run 2026-11-07; reruns need fresh owner approval.
 // It refuses to run until the owner has approved the exact request count:
 //   AWP_APPROVED_PROVIDER_REQUESTS=16 AWP_USE_COPY_OF_REAL_DB=1 node --import tsx scripts/e2e/real-modernization.mjs
 // Free Groq only, on a scratch COPY of the database (the real database is only READ with VACUUM INTO, like `npm run backup`). The platform enforces the count:
@@ -156,7 +156,8 @@ try {
     const post = await call("POST", `/api/groups/${grp.id}/messages`, { content: "@Real Reviewer please say hello to the team in one sentence." });
     check("R6: the mention started the named agent only", (post.body?.started ?? []).length === 1 && post.body.started[0].botName === "Real Reviewer", JSON.stringify(post.body?.started));
     const msgs = await until(async () => { const m = (await call("GET", `/api/groups/${grp.id}/messages`)).body?.messages ?? []; return m.length >= 2 ? m : null; }, 120000);
-    check("R6: the agent's real reply is in the group and the other agent stayed silent", !!msgs && msgs.filter((m) => m.authorKind === "bot" || m.botId).length >= 1, `${msgs?.length} messages`);
+    const botMessages = (msgs ?? []).filter((m) => m.senderKind === "bot");
+    check("R6: the agent's real reply is in the group and the other agent stayed silent", botMessages.some((m) => m.senderName === "Real Reviewer") && botMessages.every((m) => m.senderName === "Real Reviewer"), JSON.stringify(botMessages.map((m) => ({ senderKind: m.senderKind, senderName: m.senderName, kind: m.kind }))));
     return { messages: msgs?.length };
   });
 

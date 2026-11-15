@@ -1,0 +1,133 @@
+{
+  "startedAt": "2026-11-07T10:13:56.790Z",
+  "budget": 16,
+  "steps": {
+    "R1 text task": {
+      "requests": 2,
+      "status": "unverified"
+    },
+    "R2 claim without action": {
+      "requests": 1,
+      "status": "unverified",
+      "claimed": false
+    },
+    "R3 file task": {
+      "requests": 2,
+      "status": "contradicted"
+    },
+    "R4 workflow": {
+      "requests": 2,
+      "status": "completed"
+    },
+    "R5 manager": {
+      "requests": 1,
+      "status": "completed",
+      "calls": 1
+    },
+    "R6 group": {
+      "requests": 1,
+      "messages": 2
+    }
+  },
+  "notes": {},
+  "usedBefore": 12,
+  "requestsUsed": 9,
+  "finishedAt": "2026-11-07T10:16:09.572Z",
+  "checks": [
+    {
+      "name": "scratch copy of the app started",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Groq daily cap on the copy = today's use + 16 (platform-enforced)",
+      "ok": true,
+      "detail": "cap=28 start=12"
+    },
+    {
+      "name": "R0: the registry lists a verified real model (from the earlier real runs)",
+      "ok": true,
+      "detail": "Verified: tested and used for real."
+    },
+    {
+      "name": "R0: nothing in the registry claims an unverified provider is verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "R0: the Manager refuses an impossible task before using any request",
+      "ok": true,
+      "detail": "This cannot be done as asked: Buying or paying for things, Deploying or publishing software are not available, and nothi"
+    },
+    {
+      "name": "R0: no request was used by the registry or the checker",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "R1: a real text answer is 'unverified' (not confirmed)",
+      "ok": true,
+      "detail": "unverified: 1 of 1 step(s) have nothing the platform can check; only 0 is confirmed."
+    },
+    {
+      "name": "R2: whatever the model said, the platform's verdict is never 'verified' (no email action exists)",
+      "ok": true,
+      "detail": "unverified: 1 of 1 step(s) have nothing the platform can check; only 0 is confirmed."
+    },
+    {
+      "name": "R3: the real model asked for approval (nothing written yet)",
+      "ok": true,
+      "detail": "Create the CSV file price-list.csv (1 sheet(s), 3 rows)"
+    },
+    {
+      "name": "R3: after the owner's approval the action ran and the file exists",
+      "ok": true,
+      "detail": "executed"
+    },
+    {
+      "name": "R3: the platform confirms it (executed action + file with the reported size)",
+      "ok": false,
+      "detail": "contradicted: Do not rely on this result: 1 check(s) failed. The reply says \"** and **Coffee 6** has been sent for the owner’s approval. It is still pending and has **not\" but no send action was recorded for this task."
+    },
+    {
+      "name": "R4: the run waits at the outside-action box (nothing written yet)",
+      "ok": true,
+      "detail": "waiting [[\"start\",\"completed\"],[\"say\",\"completed\"],[\"save\",\"waiting\"],[\"end\",\"pending\"]]"
+    },
+    {
+      "name": "R4: after approval the workflow completes and the file has the real model's sentence",
+      "ok": true,
+      "detail": "completed"
+    },
+    {
+      "name": "R5: the Manager accepts a possible goal and returns the assessment",
+      "ok": true,
+      "detail": "202 fully"
+    },
+    {
+      "name": "R5: the Manager run finished",
+      "ok": true,
+      "detail": "completed "
+    },
+    {
+      "name": "R6: the mention started the named agent only",
+      "ok": true,
+      "detail": "[{\"botName\":\"Real Reviewer\",\"botId\":\"42300565-6856-4b02-9ce0-ea94b7280896\",\"taskId\":\"1771e59a-e016-41fe-b36a-04d85f5c4deb\"}]"
+    },
+    {
+      "name": "R6: the agent's real reply is in the group and the other agent stayed silent",
+      "ok": false,
+      "detail": "2 messages"
+    },
+    {
+      "name": "budget respected: 9 real requests used (ceiling 16)",
+      "ok": true,
+      "detail": "used 9"
+    },
+    {
+      "name": "R7: the Assistant's capability answer needs no provider request",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

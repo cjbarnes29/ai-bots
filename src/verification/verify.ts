@@ -60,6 +60,8 @@ const BACKING: Record<ClaimKind, string[]> = {
 const CLAIM = /\b(?:(?:i|we)(?:'ve|\s+have)?\s+(?:just\s+|already\s+|successfully\s+)?(sent|emailed|messaged|saved|created|wrote|published|posted|uploaded|deleted|renamed|scheduled|submitted|booked)|(?:has|have|was|were|is|are)\s+(?:now\s+|been\s+|successfully\s+)*(sent|emailed|saved|created|published|posted|uploaded|deleted|submitted))\b/gi;
 const OBJECT = /\b(file|files|document|documents|spreadsheet|excel|word|pdf|csv|report|e-?mail|emails|message|messages|post|presentation|slides|draft|folder|page|issue|event|invite|invitation|note|workbook|sheet)\b/i;
 const NEGATION = /(?:\bnot\b|n't\b|\bnever\b|\bunable\b|\bcannot\b|\bno\b|\bnothing\b|\bwill\b|\bwould\b|\bcould\b|\bshould\b|\bcan\b|\bto\b|\bif\b|\bonce\b)\s*(?:\w+\s+){0,2}$/i;
+// Describing an item as sent for review/approval reports a handoff to the owner, not an external send.
+const REVIEW_HANDOFF = /^\s+for\s+(?:(?:the\s+)?owner['’]s\s+)?(?:approval|review)\b/i;
 
 export interface Claim {
   verb: string;
@@ -79,6 +81,7 @@ export function findClaims(text: string): Claim[] {
     const before = t.slice(Math.max(0, m.index - 30), m.index);
     if (NEGATION.test(before)) continue;
     const after = t.slice(m.index + m[0].length, m.index + m[0].length + 90);
+    if (kind === "send" && REVIEW_HANDOFF.test(after)) continue;
     // "sent" is always outside the chat; the rest need a thing that lives outside it ("saved the report", not "created a plan").
     if (kind !== "send" && !OBJECT.test(after) && !OBJECT.test(t.slice(Math.max(0, m.index - 40), m.index))) continue;
     out.push({ verb, kind, excerpt: clip(t.slice(Math.max(0, m.index - 20), m.index + m[0].length + 60).replace(/\s+/g, " ").trim(), 140) });

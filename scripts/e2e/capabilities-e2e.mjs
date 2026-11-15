@@ -97,7 +97,7 @@ try {
   // filter
   await page.getByLabel(/^Show/).selectOption("needs_setup");
   check("the state filter hides everything else", (await card("Atlas").count()) === 0 && (await card("Sleeper").count()) === 1);
-  await card("Sleeper").getByText("Details").click();
+  if (!(await card("Sleeper").getByText("What needs you").isVisible())) await card("Sleeper").locator("details.card > summary").click();
   check("details say what needs the owner", await card("Sleeper").getByText("What needs you").isVisible());
   await page.getByLabel(/^Show/).selectOption("all");
 
@@ -152,8 +152,8 @@ try {
       check(`${w}px: every group is closed at first`, (await p.locator("section[aria-label] > details[open]").count()) === 0);
       await p.getByRole("region", { name: "Agents" }).getByText("Agents", { exact: true }).click();
       const agentRow = p.getByRole("listitem", { name: "Atlas", exact: true });
-      check(`${w}px: an entry shows its name and state in one row while closed`, /Working/.test(await agentRow.locator("summary").innerText()));
-      await agentRow.locator("summary").click();
+      check(`${w}px: an entry shows its name and state in one row while closed`, /Working/.test(await agentRow.locator("details.card > summary").innerText()));
+      await agentRow.locator("details.card > summary").click();
       check(`${w}px: tapping an entry opens the six evidence levels`, (await agentRow.getByRole("list", { name: /Evidence levels/ }).getByRole("listitem").count()) === 6);
       await p.getByRole("button", { name: "Expand all" }).click();
       const open = await p.locator("details.card[open]").count();
