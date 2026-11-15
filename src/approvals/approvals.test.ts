@@ -574,6 +574,63 @@ describe("the gate on its own", () => {
     expect(audit.list(5)[0]).toMatchObject({ kind: "external.read", detail: { ok: false } });
   });
 
+  describe("read receipts (D-111)", () => {
+    const read = (gate: ActionGate, taskId: string | null, args: Record<string, unknown> = {}) => gate.request("bot1", taskId, { connector: "telegram", action: "read_messages", args });
+
+    it("a successful read records which task read what, with hashes only", async () => {
+      const { gate, audit } = make({ readEnabled: true });
+      tg.behaviour.readText = "Sam says: private words 12345";
+      await read(gate, "task-1", {});
+      const [r] = audit.readReceipts("task-1");
+      expect(r).toMatchObject({ connector: "telegram", actionName: "read_messages", botId: "bot1" });
+      expect(r!.argsHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(r!.resultHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(r!.resultChars).toBe("Sam says: private words 12345".length);
+      const raw = JSON.stringify(audit.list(5).find((e) => e.kind === "external.read"));
+      expect(raw).not.toContain("private words");
+    });
+    it("stores no secret and no content; arguments are hashed", async () => {
+      const { gate, audit } = make({ readEnabled: true });
+      tg.behaviour.readText = `key ${LEAKY_KEY}`;
+      await read(gate, "task-2", {});
+      expect(JSON.stringify(audit.list(10))).not.toContain(LEAKY_KEY);
+    });
+    it("different tasks never share receipts, and a prefix of an id does not match", async () => {
+      const { gate, audit } = make({ readEnabled: true });
+      await read(gate, "t1");
+      await read(gate, "t10");
+      expect(audit.readReceipts("t1")).toHaveLength(1);
+      expect(audit.readReceipts("t10")).toHaveLength(1);
+      expect(audit.readReceipts("t")).toHaveLength(0);
+      expect(audit.readReceipts("")).toHaveLength(0);
+    });
+    it("failed, denied and task-less reads are not receipts", async () => {
+      const failing = make({ readEnabled: true });
+      tg.connector.actions["read_messages"]!.execute = async () => {
+        throw new Error("down");
+      };
+      await read(failing.gate, "task-f");
+      expect(failing.audit.readReceipts("task-f")).toHaveLength(0);
+      const denied = make({ readEnabled: false });
+      await read(denied.gate, "task-d");
+      expect(denied.audit.readReceipts("task-d")).toHaveLength(0);
+      const plain = make({ readEnabled: true });
+      await read(plain.gate, null);
+      expect(plain.audit.readReceipts("null")).toHaveLength(0);
+    });
+    it("an older read event without a task id is never returned", () => {
+      const { audit } = make({ readEnabled: true });
+      audit.record("external.read", { action: "telegram.read_messages", summary: "old", ok: true }, { botId: "bot1", actor: "bot" });
+      audit.record("external.read", { action: "telegram.read_messages", summary: "forged", ok: true, taskId: "task-x" }, { botId: "bot1", actor: "bot" }); // missing hashes: incomplete, ignored
+      expect(audit.readReceipts("task-x")).toHaveLength(0);
+    });
+    it("the read result and the daily read cap behave as before", async () => {
+      const { gate } = make({ readEnabled: true });
+      tg.behaviour.readText = "same text";
+      expect(await read(gate, "task-9")).toMatchObject({ status: "done", text: "same text" });
+    });
+  });
+
   it("clips very long results before they reach the bot", async () => {
     const { gate } = make({ readEnabled: true });
     tg.behaviour.readText = "y".repeat(10_000);

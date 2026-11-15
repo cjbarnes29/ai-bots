@@ -61,6 +61,30 @@ export class AuditLog {
     };
   }
 
+  /**
+   * Read receipts for ONE task (D-111): successful outside reads whose recorded task id matches EXACTLY. Events written before receipts existed carry no task id
+   * and are never returned. Read-only; returns hashes and counts only (never arguments or content).
+   */
+  readReceipts(taskId: string, limit = 50): { id: number; createdAt: string; botId: string | null; connector: string; actionName: string; argsHash: string; resultChars: number; resultHash: string }[] {
+    if (!taskId) return [];
+    const like = `%"taskId":${JSON.stringify(taskId).replace(/[!%_]/g, (c) => `!${c}`)}%`;
+    const out: ReturnType<AuditLog["readReceipts"]> = [];
+    for (const r of this.db.prepare("SELECT * FROM audit_events WHERE kind = 'external.read' AND detail LIKE ? ESCAPE '!' ORDER BY id DESC LIMIT ?").all(like, Math.max(1, Math.min(limit, 200)) * 4)) {
+      let d: Record<string, unknown>;
+      try {
+        d = JSON.parse(String(r["detail"])) as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+      if (d["taskId"] !== taskId || d["ok"] !== true) continue;
+      const { connector, actionName, argsHash, resultHash, resultChars } = d;
+      if (typeof connector !== "string" || typeof actionName !== "string" || typeof argsHash !== "string" || typeof resultHash !== "string" || typeof resultChars !== "number") continue;
+      out.push({ id: Number(r["id"]), createdAt: String(r["created_at"]), botId: r["bot_id"] === null ? null : String(r["bot_id"]), connector, actionName, argsHash, resultChars, resultHash });
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
+
   /** Newest events whose kind starts with a prefix (for example "access."). */
   listPrefix(prefix: string, limit: number): AuditEvent[] {
     return this.db

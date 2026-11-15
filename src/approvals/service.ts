@@ -197,11 +197,13 @@ export class ActionGate {
       }
       try {
         const text = await withTimeout(spec.execute(parsed.data, { secret: (n) => this.deps.vault.resolve(n), botId, taskId }), spec.timeoutMs ?? GATE_LIMITS.executeTimeoutMs);
-        audit.record("external.read", { action: label, summary, ok: true }, { botId, actor: "bot" });
-        return { status: "done", text: clip(redactKnownSecrets(text), GATE_LIMITS.maxResultForBotChars) };
+        const returned = clip(redactKnownSecrets(text), GATE_LIMITS.maxResultForBotChars);
+        // Durable receipt (D-111 part 2): WHICH task read WHAT, with hashes only. Never the arguments or the text itself. Fields stay after "ok" so existing substring lookups still match.
+        audit.record("external.read", { action: label, summary, ok: true, taskId, connector: req.connector, actionName: req.action, argsHash: sha256(argsJson), resultChars: returned.length, resultHash: sha256(returned) }, { botId, actor: "bot" });
+        return { status: "done", text: returned };
       } catch (err) {
         const reason = clip(redactKnownSecrets(err instanceof Error ? err.message : "The action failed."), 300);
-        audit.record("external.read", { action: label, summary, ok: false, error: reason }, { botId, actor: "bot" });
+        audit.record("external.read", { action: label, summary, ok: false, error: reason, taskId }, { botId, actor: "bot" });
         return { status: "failed", reason };
       }
     }
