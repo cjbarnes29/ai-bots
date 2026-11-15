@@ -21,6 +21,7 @@ Updated whenever something changes. Historical details below include older snaps
 
 - **Built and committed (D-126; see git log):** uncertain-approval detection, owner-only `approval.reconciled` recording, "Outcome unknown" section, task-check wording. Files: src/approvals/{service,repository,routes}.ts, src/remote/access.ts, src/verification/{verify,service,action-observations,workflow}.ts, web/src/api/hooks.ts, web/src/pages/Approvals.tsx, new tests (src/approvals/uncertain.test.ts, src/verification/outcome-unknown.test.ts, web/src/uncertainApprovals.test.tsx, case in src/remote/remote.test.ts) and scripts/e2e/uncertain-approvals-e2e.mjs; docs and TASKS.md. Full check 2,369 backend + 545 dashboard; browser 16/16. **No migration.** Not verified: real crash drill, passphrase dialog with a Guardian, your real database.
 - **Waiting on the owner:** Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10); Gemini key and request-count approval (`docs/OWNER-GEMINI-SETUP.md`, NV-3).
+- **Also waiting on the owner (2026-11-16):** the real-installation backup drill, `docs/OWNER-BACKUP-DRILL-CHECKLIST.md` (new, uncommitted, not run; real recovery NOT VERIFIED).
 - **Superpowers/GitHub research allowance is exhausted (10/10 used).**
 - Still untracked and not mine: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
 
