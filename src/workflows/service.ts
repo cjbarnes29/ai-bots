@@ -527,7 +527,7 @@ export class WorkflowService {
           throw new AppError(502, "action_refused", out.reason);
         }
         case "manager": {
-          const run = this.d.manager.start(renderTemplate(node.goal, scope), {}, "workflow");
+          const run = this.d.manager.start(renderTemplate(node.goal, scope), {}, "workflow", { origin: { kind: "workflow", workflowRunId: runId, nodeId: node.id } });
           this.setStep(runId, node.id, { ref_kind: "manager", ref_id: run.id });
           return done(await this.awaitManager(runId, run.id));
         }

@@ -22,7 +22,7 @@ export interface ManagerVerificationView {
   coverageComplete: boolean;
   finalSummary: { status: "unverified"; summary: string };
   supporting: Omit<VerificationView, "tasks">;
-  steps: { id: string; status: string; binding: "valid" | "none" | "missing" | "invalid" | "limit"; reason: string; taskId?: string; duplicateOf?: string }[];
+  steps: { id: string; status: string; binding: "valid" | "none" | "missing" | "invalid" | "limit"; originLink?: "agreed" | "none" | "conflict"; reason: string; taskId?: string; duplicateOf?: string }[];
   chains: { taskId: string; verification: VerificationView }[];
 }
 

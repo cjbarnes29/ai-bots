@@ -246,7 +246,7 @@ export class ManagerService {
       .run(this.iso());
   }
 
-  start(goal: string, budget: Partial<ManagerSettings["defaultBudget"]> = {}, requestedBy = "owner", options: { proceedAnyway?: boolean } = {}): RunView {
+  start(goal: string, budget: Partial<ManagerSettings["defaultBudget"]> = {}, requestedBy = "owner", options: { proceedAnyway?: boolean; origin?: { kind: "workflow"; workflowRunId: string; nodeId: string } } = {}): RunView {
     const s = this.settings();
     if (!s.enabled) throw new AppError(409, "manager_off", "The Manager is switched off in Settings.");
     const text = goal.trim();
@@ -264,9 +264,19 @@ export class ManagerService {
       maxSteps: Math.min(budget.maxSteps ?? s.defaultBudget.maxSteps, MANAGER_CEILINGS.maxSteps),
     };
     const id = randomUUID();
-    this.d.db
-      .prepare("INSERT INTO manager_runs (id, goal, status, budget_calls, budget_tokens, budget_steps, requested_by, created_at) VALUES (?, ?, 'planning', ?, ?, ?, ?, ?)")
-      .run(id, text, merged.maxModelCalls, merged.maxTokens, merged.maxSteps, requestedBy, this.iso());
+    // D-111 part 1: the origin record is written in the SAME transaction as the run, so a run started by a workflow box can never exist without it.
+    const own = !this.d.db.isTransaction;
+    if (own) this.d.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.d.db
+        .prepare("INSERT INTO manager_runs (id, goal, status, budget_calls, budget_tokens, budget_steps, requested_by, created_at) VALUES (?, ?, 'planning', ?, ?, ?, ?, ?)")
+        .run(id, text, merged.maxModelCalls, merged.maxTokens, merged.maxSteps, requestedBy, this.iso());
+      if (options.origin) this.d.audit.record("manager.origin", { managerRunId: id, originKind: options.origin.kind, workflowRunId: options.origin.workflowRunId, nodeId: options.origin.nodeId }, { actor: requestedBy });
+      if (own) this.d.db.exec("COMMIT");
+    } catch (error) {
+      if (own && this.d.db.isTransaction) this.d.db.exec("ROLLBACK");
+      throw error;
+    }
     this.d.audit.record("manager.run_started", { id, budget: merged, ...(options.proceedAnyway === true ? { proceedAnyway: true } : {}) }, { actor: requestedBy });
     const p = this.execute(id, requestedBy, options.proceedAnyway === true).finally(() => this.running.delete(id));
     this.running.set(id, p);

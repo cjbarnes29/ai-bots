@@ -131,6 +131,52 @@ describe("workflow evidence from synthetic host records only", () => {
     expect(svc.verifyWorkflow(RUN)).toMatchObject({ supporting: { status: "unverified", evidence: 0 }, sources: [] });
     expect(svc.verifyWorkflow(RUN)?.steps[1]?.binding).toBe(by === "workflow" ? "unbound" : "invalid");
   });
+  describe("Manager origin backlink (D-111)", () => {
+    const origin = (db: DatabaseSync, over: Record<string, unknown> = {}) => db.prepare("INSERT INTO audit_events(created_at,created_ms,kind,actor,bot_id,detail) VALUES ('t',0,'manager.origin','workflow',NULL,?)").run(JSON.stringify(over));
+    const managerRun = (db: DatabaseSync, by = "workflow") => { const id = randomUUID(); db.prepare("INSERT INTO manager_runs(id,goal,status,mode,result,budget_calls,budget_tokens,budget_steps,requested_by,created_at) VALUES (?,'PRIVATE_GOAL','completed','direct','PRIVATE_OUTPUT',12,40000,6,?,'t')").run(id, by); link(db, "manager", "manager", id); return id; };
+    const step1 = () => svc.verifyWorkflow(RUN)?.steps[1];
+    it("agrees only when exactly one origin names this Manager run, this workflow run and this box", () => {
+      seed(db, drawing(manager)); const id = managerRun(db);
+      origin(db, { managerRunId: id, originKind: "workflow", workflowRunId: RUN, nodeId: "manager" });
+      expect(step1()).toMatchObject({ originLink: "agreed", binding: "unbound", sourceKind: "manager" });
+      expect(svc.verifyWorkflow(RUN)).toMatchObject({ supporting: { evidence: 0 }, sources: [], coverageComplete: false });
+    });
+    it("agreement never inherits the Manager's evidence or output", () => {
+      seed(db, drawing(manager)); const id = managerRun(db);
+      origin(db, { managerRunId: id, originKind: "workflow", workflowRunId: RUN, nodeId: "manager" });
+      const text = JSON.stringify(svc.verifyWorkflow(RUN));
+      expect(text).not.toContain("PRIVATE_OUTPUT"); expect(text).not.toContain("PRIVATE_GOAL");
+    });
+    it("no origin record means none (older runs stay unlinked)", () => {
+      seed(db, drawing(manager)); managerRun(db);
+      expect(step1()).toMatchObject({ originLink: "none", binding: "unbound" });
+    });
+    it.each([
+      ["another workflow run", { workflowRunId: OTHER, nodeId: "manager" }],
+      ["another box", { workflowRunId: RUN, nodeId: "elsewhere" }],
+      ["a different origin kind", { originKind: "owner", workflowRunId: RUN, nodeId: "manager" }],
+    ])("an origin naming %s is a conflict", (_n, over) => {
+      seed(db, drawing(manager)); const id = managerRun(db);
+      const base: Record<string, unknown> = { managerRunId: id, originKind: "workflow", workflowRunId: RUN, nodeId: "manager" };
+      origin(db, { ...base, ...over });
+      expect(step1()).toMatchObject({ originLink: "conflict", binding: "unbound" });
+    });
+    it("a duplicated origin is a conflict even if both name this box", () => {
+      seed(db, drawing(manager)); const id = managerRun(db);
+      for (let i = 0; i < 2; i++) origin(db, { managerRunId: id, originKind: "workflow", workflowRunId: RUN, nodeId: "manager" });
+      expect(step1()?.originLink).toBe("conflict");
+    });
+    it("an origin for a different Manager run does not link this one", () => {
+      seed(db, drawing(manager)); managerRun(db);
+      origin(db, { managerRunId: randomUUID(), originKind: "workflow", workflowRunId: RUN, nodeId: "manager" });
+      expect(step1()?.originLink).toBe("none");
+    });
+    it("an owner-started Manager run is still invalid for a workflow box, even with a forged origin", () => {
+      seed(db, drawing(manager)); const id = managerRun(db, "owner");
+      origin(db, { managerRunId: id, originKind: "workflow", workflowRunId: RUN, nodeId: "manager" });
+      expect(step1()).toMatchObject({ binding: "invalid" }); expect(step1()?.originLink).toBeUndefined();
+    });
+  });
   it("makes missing Manager records explicit", () => { seed(db, drawing(manager)); link(db, "manager", "manager", OTHER); expect(svc.verifyWorkflow(RUN)?.steps[1]?.binding).toBe("missing"); });
   it("keeps structural-only runs neutral and checkpoints separate from outside approvals", () => {
     seed(db, drawing({ id: "hold", type: "checkpoint", message: "PRIVATE_PROMPT", x: 100, y: 0 }));

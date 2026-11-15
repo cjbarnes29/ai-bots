@@ -224,6 +224,16 @@ describe("running", () => {
     expect(step(run, "keep").output).toBe("Got: The answer is 42");
   });
 
+  it("a Manager box records which workflow run and box started the Manager run, and the step links to the same run (D-111)", async () => {
+    t.provider.script.push({ ...OK_RESULT, text: '{"mode":"direct","answer":"42"}' });
+    const w = await make({ nodes: [start(), node("ask", "manager", { goal: "What is {{input}}?" })], edges: [edge("start", "ask")] });
+    const run = await runIt(w.id, "life");
+    const origins = ((await t.call("GET", "/api/audit?limit=200")).body.events as any[]).filter((e) => e.kind === "manager.origin");
+    expect(origins).toHaveLength(1);
+    expect(origins[0].detail).toMatchObject({ originKind: "workflow", workflowRunId: run.id, nodeId: "ask" });
+    expect(step(run, "ask").refId).toBe(origins[0].detail.managerRunId);
+  });
+
   it("a bot box can be retried automatically (when allowed) but never after it asked for an outside action", async () => {
     let n = 0;
     respond = (_r, bot) => (bot === "Alpha" ? (++n === 1 ? new LlmError("bad_request", "first try fails") : text("second try works")) : null);

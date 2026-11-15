@@ -74,6 +74,23 @@ const calls = (kind: string) => seen.filter((s) => s.kind === kind).length;
 const plan = (steps: any[]) => json({ mode: "plan", steps });
 const step = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: `Step ${id}`, specialist: null, instruction: `Do ${id}`, dependsOn: [], ...extra });
 
+describe("origin record (D-111)", () => {
+  const origins = async () => ((await t.call("GET", "/api/audit?limit=200")).body.events as any[]).filter((e) => e.kind === "manager.origin").map((e) => e.detail);
+  it("a run started by a workflow box writes exactly one origin record with it", async () => {
+    const run = t.app.manager.start("Do the thing", {}, "workflow", { origin: { kind: "workflow", workflowRunId: "wr-1", nodeId: "box-1" } });
+    await t.app.manager.idle();
+    expect(await origins()).toEqual([{ managerRunId: run.id, originKind: "workflow", workflowRunId: "wr-1", nodeId: "box-1" }]);
+  });
+  it("an owner-started run writes none", async () => {
+    await start("Do the thing");
+    expect(await origins()).toEqual([]);
+  });
+  it("a refused start (empty goal) leaves no run and no origin", async () => {
+    expect(() => t.app.manager.start("   ", {}, "workflow", { origin: { kind: "workflow", workflowRunId: "wr-1", nodeId: "box-1" } })).toThrow();
+    expect(await origins()).toEqual([]);
+  });
+});
+
 describe("simple requests", () => {
   it("a request the Manager can answer itself takes ONE model call, no steps and no review", async () => {
     respond = (_r, kind) => (kind === "plan" ? json({ mode: "direct", answer: "Paris." }) : null);

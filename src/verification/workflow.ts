@@ -20,9 +20,19 @@ export interface WorkflowVerification {
   completion: { total: number; pending: number; running: number; waiting: number; completed: number; failed: number; skipped: number };
   outputAssessment: { status: "unverified"; summary: string };
   supporting: Verification;
-  steps: { nodeId: string; type: string; label: string; status: string; binding: "structural" | "valid" | "unbound" | "missing" | "invalid" | "ambiguous" | "unchecked" | "uncertain" | "limit"; reason: string; sourceKind?: "task" | "approval" | "manager"; sourceId?: string }[];
+  steps: { nodeId: string; type: string; label: string; status: string; binding: "structural" | "valid" | "unbound" | "missing" | "invalid" | "ambiguous" | "unchecked" | "uncertain" | "limit"; originLink?: "agreed" | "none" | "conflict"; reason: string; sourceKind?: "task" | "approval" | "manager"; sourceId?: string }[];
   sources: { kind: "task" | "approval"; id: string; verification: Verification }[];
   unlinkedAttempts: { total: number; ids: string[]; truncated: boolean };
+}
+
+/** Both directions must agree: exactly ONE manager.origin event names this Manager run, this workflow run and this box. No event = "none"; anything else = "conflict". Read-only. */
+function managerOriginLink(db: DatabaseSync, managerRunId: string, workflowRunId: string, nodeId: string): "agreed" | "none" | "conflict" {
+  const like = `%"managerRunId":${JSON.stringify(managerRunId)}%`;
+  const rows = db.prepare("SELECT detail FROM audit_events WHERE kind='manager.origin' AND detail LIKE ? LIMIT 3").all(like);
+  const matches = rows.flatMap((r) => { try { const d = JSON.parse(String(r["detail"])) as Record<string, unknown>; return d["managerRunId"] === managerRunId ? [d] : []; } catch { return []; } });
+  if (matches.length === 0) return "none";
+  const d = matches[0]!;
+  return matches.length === 1 && d["originKind"] === "workflow" && d["workflowRunId"] === workflowRunId && d["nodeId"] === nodeId ? "agreed" : "conflict";
 }
 
 // Workflow checks expose outcomes, not copied model excerpts, action arguments/results, paths or error dumps.
@@ -108,7 +118,12 @@ export function checkWorkflow<T>(db: DatabaseSync, id: string, readChain: (id: s
             }
           } else if (node.type === "manager" && row["ref_kind"] === "manager" && ref) {
             const manager = db.prepare("SELECT id,requested_by FROM manager_runs WHERE id=?").get(ref);
-            if (manager?.["requested_by"] === "workflow") { step.binding = "unbound"; step.sourceKind = "manager"; step.sourceId = ref; step.reason = "This Manager record has no exact workflow-run/node backlink. No helper evidence was inherited."; }
+            if (manager?.["requested_by"] === "workflow") {
+              step.binding = "unbound"; step.sourceKind = "manager"; step.sourceId = ref;
+              step.originLink = managerOriginLink(db, ref, id, node.id);
+              // Even when both directions agree this only proves WHICH box started the run. Its helper evidence and final output are not inherited.
+              step.reason = step.originLink === "agreed" ? "The Manager run's origin record names this workflow run and box, and the box's link names the run (agreed both ways). Helper evidence and final output are still not inherited or checked here." : step.originLink === "conflict" ? "The Manager run's origin records disagree with this box (missing, duplicated or naming another run or box). No helper evidence was inherited." : "This Manager record has no exact workflow-run/node backlink (started before origin records existed, or not recorded). No helper evidence was inherited.";
+            }
             else { step.binding = manager ? "invalid" : "missing"; step.reason = "The Manager reference is missing or does not identify a workflow start."; }
             uncertain = true;
           } else if (row["ref_id"] === null && row["ref_kind"] === null) {
