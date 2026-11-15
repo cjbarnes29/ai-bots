@@ -542,6 +542,26 @@ function useRefreshApprovals() {
   return () => Promise.all([qc.invalidateQueries({ queryKey: ["approvals"] }), qc.invalidateQueries({ queryKey: ["external"] }), qc.invalidateQueries({ queryKey: ["audit"] })]);
 }
 
+/** D-125: an approved request that never recorded an outcome. It may or may not have happened and was NOT resent. */
+export type ReconcileOutcome = "did_happen" | "did_not_happen" | "cannot_tell";
+export type UncertainApproval = Approval & { reconciliation: { outcome: ReconcileOutcome; at: string } | null };
+
+export function useUncertainApprovals() {
+  return useQuery({
+    queryKey: ["approvals", "uncertain"],
+    queryFn: async () => (await api<{ approvals: UncertainApproval[] }>("GET", "/api/approvals/uncertain")).approvals,
+    refetchInterval: WATCH,
+  });
+}
+
+export function useReconcileApproval() {
+  const refresh = useRefreshApprovals();
+  return useMutation({
+    mutationFn: async (input: { id: string; outcome: ReconcileOutcome }) => (await api<{ approval: UncertainApproval }>("POST", `/api/approvals/${input.id}/reconcile`, { outcome: input.outcome })).approval,
+    onSettled: refresh,
+  });
+}
+
 export function useApprove() {
   const refresh = useRefreshApprovals();
   return useMutation({

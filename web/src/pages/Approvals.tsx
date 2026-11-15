@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ApiError } from "../api/client";
-import { useApprovals, useApprovalById, useApprove, useSecurityLog, useDeny, useExternalStatus, useSetExternalPaused } from "../api/hooks";
+import { useApprovals, useApprovalById, useApprove, useSecurityLog, useDeny, useExternalStatus, useSetExternalPaused, useUncertainApprovals, useReconcileApproval, type UncertainApproval } from "../api/hooks";
 import type { Approval, ApprovalStatus } from "../api/types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ContextLinks } from "../components/hub/ContextLinks";
@@ -105,6 +105,47 @@ function PendingCard({ a, focused = false }: { a: Approval; focused?: boolean })
   );
 }
 
+const RECORDED_TEXT = { did_happen: "You recorded: it did happen.", did_not_happen: "You recorded: it did not happen.", cannot_tell: "You recorded: you cannot tell." } as const;
+
+/** An approved request whose result was never recorded (the app stopped or lost it). It may or may not have happened; it was NOT sent again. */
+function UncertainCard({ a }: { a: UncertainApproval }) {
+  const reconcile = useReconcileApproval();
+  const final = a.reconciliation !== null && a.reconciliation.outcome !== "cannot_tell";
+  return (
+    <li id={`approval-${a.id}`} className="card min-w-0 space-y-3 border-l-4 border-l-sky-400 [overflow-wrap:anywhere]" aria-label={`Outcome unknown: ${a.summary}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{a.summary}</p>
+          <p className="hint">
+            {a.botName} · {a.connectorLabel}: {a.action} · you approved it {when(a.decidedAt)}
+          </p>
+        </div>
+        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-900 dark:bg-sky-950 dark:text-sky-200">Outcome unknown</span>
+      </div>
+      <p className="text-sm">The app stopped or lost the result before it was recorded. This may or may not have happened. <strong>It was not sent again.</strong> Check the outside service (for example your chat or the file) before doing anything.</p>
+      <ExactContent args={a.args} />
+      {a.reconciliation && <p role="status" className="rounded-md bg-slate-100 p-2 text-sm dark:bg-slate-800">{RECORDED_TEXT[a.reconciliation.outcome]} This is your statement; it is not checked by the platform.</p>}
+      {errorText(reconcile.error) && <p role="alert" className="rounded-md bg-red-100 p-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{errorText(reconcile.error)}</p>}
+      {!final && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Record what happened">
+          <button className="btn-secondary min-h-11" disabled={reconcile.isPending} onClick={() => reconcile.mutate({ id: a.id, outcome: "did_happen" })}>
+            It did happen
+          </button>
+          <button className="btn-secondary min-h-11" disabled={reconcile.isPending} onClick={() => reconcile.mutate({ id: a.id, outcome: "did_not_happen" })}>
+            It did not happen
+          </button>
+          {a.reconciliation === null && (
+            <button className="btn-secondary min-h-11" disabled={reconcile.isPending} onClick={() => reconcile.mutate({ id: a.id, outcome: "cannot_tell" })}>
+              I cannot tell
+            </button>
+          )}
+        </div>
+      )}
+      <p className="hint">Recording this changes nothing outside and sends nothing. It only saves what you found out, in the permanent record.</p>
+    </li>
+  );
+}
+
 function HistoryRow({ a, focused = false }: { a: Approval; focused?: boolean }) {
   return (
     <li id={`approval-${a.id}`} className={`card min-w-0 space-y-2 [overflow-wrap:anywhere] ${focused ? "ring-2 ring-indigo-500" : ""}`} aria-label={`Past request: ${a.summary}`}>
@@ -117,6 +158,7 @@ function HistoryRow({ a, focused = false }: { a: Approval; focused?: boolean }) 
         {a.botName} · {a.connectorLabel}: {a.action} · asked {when(a.createdAt)}
         {a.decidedAt ? ` · decided ${when(a.decidedAt)}` : ""}
       </p>
+      {a.status === "approved" && !a.result && !a.error && <p className="hint">Approved, but no outcome has been recorded for it. If it stays like this it appears under "Outcome unknown".</p>}
       {a.result && <p className="text-sm">Result: {a.result}</p>}
       {a.error && <p className="text-sm text-red-700 dark:text-red-300">Reason: {a.error}</p>}
     </li>
@@ -128,6 +170,7 @@ export function Approvals() {
   const pending = useApprovals(true);
   const all = useApprovals(false);
   const audit = useSecurityLog(30);
+  const uncertain = useUncertainApprovals();
   const setPaused = useSetExternalPaused();
   const paused = status.data?.paused;
   const [params] = useSearchParams();
@@ -183,6 +226,17 @@ export function Approvals() {
         {pending.data && total !== undefined && total > pending.data.length && <p role="note" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">Showing {pending.data.length} latest requests; {total} waiting in total. Older requests are outside this loaded list.</p>}
         {pending.data && !pending.isError && waiting.length === 0 && <p className="hint">{total === 0 && !status.isError ? "Nothing is waiting for approval." : "No requests in this loaded batch; the total may differ or be unavailable."}</p>}
         <ul className="space-y-4">{waiting.map(a => <PendingCard key={a.id} a={a} focused={a.id === focusId} />)}</ul>
+      </section>
+
+      <section className="space-y-3" aria-labelledby="uncertain-heading">
+        <h2 id="uncertain-heading" className="text-lg font-semibold">
+          Outcome unknown {uncertain.data && uncertain.data.length > 0 ? `(${uncertain.data.length})` : ""}
+        </h2>
+        <p className="hint">Requests you approved whose result was never recorded, for example because the app stopped. They are never sent again automatically.</p>
+        <QueryStatus query={uncertain} label="requests with an unknown outcome" />
+        {uncertain.isError && <button className="btn-secondary min-h-11" disabled={uncertain.isFetching} onClick={() => void uncertain.refetch()}>Retry the unknown-outcome list</button>}
+        {uncertain.data && !uncertain.isError && uncertain.data.length === 0 && <p className="hint">No approved request is missing its outcome.</p>}
+        <ul className="space-y-4">{uncertain.data?.map(a => <UncertainCard key={a.id} a={a} />)}</ul>
       </section>
 
       <details className="card min-w-0 space-y-3 [overflow-wrap:anywhere]">
