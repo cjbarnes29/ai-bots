@@ -1,0 +1,48 @@
+# Workflow result checks (D-101)
+
+2026-11-15, Asia/Dubai. Owner selected “1 — Implement the saved plan” after D-100. **Implemented, final full check passed and saved locally; UNCOMMITTED.** No migration, dependency, owner database/vault access, real provider/outside-service call or permission change.
+
+## Delivered behavior
+
+`GET /api/workflows/runs/:id/verification` validates UUIDs, uses existing read access and returns 404 `workflow_run_not_found` for a missing run. The response separates saved run/version/lifecycle counts, coverage, always-unverified output assessment, scoped supporting evidence, step bindings/reasons, distinct source IDs and bounded unlinked task attempts. Checking makes no record/audit writes, model/service/action calls or workflow ticks.
+
+The checker uses the run's saved graph/version, never today's editable drawing. A short SAVEPOINT snapshot captures graph/steps, task/provenance/action facts and exact approval bindings; file observations occur afterward through the existing FolderGate-backed probe. It composes with a caller transaction. Graphs are bounded to 2 MiB UTF-8 before materializing, validated against schema/graph rules (25 nodes/60 edges/no cycles); at most 25 rows, 375 task members and 25 direct approvals are included. Missing/extra/bad records or limits cannot silently become confirmed.
+
+Bot links require UUID/root/null parent, saved-node assignee and exact user-origin workflow-run ID. Repeated roots count once but remain ambiguous at node scope. Missing/foreign links supply no evidence. Earlier root attempts no longer referenced by a box remain visible as unlinked counts/IDs (at most 25), cap confirmation and are not imported as successful evidence.
+
+Approval linkage uses the shared D-088 read-only validator: saved integration node, matching bot/connector/action, null task association, JSON/hash integrity and globally unique workflow reference. The extraction preserves existing resolution/cold-start behavior. No weaker verifier-specific binding rule, synthetic task ID, null task reassignment or permission bypass was added.
+
+Recorded action/file observations are shared with the existing task checker. Executed/classified action evidence is separate from target/content/delivery proof. New workflow aggregation is conservative for empty outcomes, unknown effects and currently unreadable reported files. Pending/approved waits, failed evidence contradicts, denied/expired is unverified/not executed. An approved action on a failed step without a recorded outcome is explicitly uncertain, never another approval prompt or resend. Uncertain integration markers remain uncertain.
+
+Managers started by workflows only record requested_by=workflow; an exact originating run/node backlink is absent. Those references stay unbound and inherit **zero** evidence; no timestamp/forward-link guess or historical repair. Completed outside reads without a durable receipt remain unverified. Structural boxes/checkpoint decisions supply no outside-effect evidence; a waiting checkpoint is a separate owner decision. Skipped executable branches are explicit and cap supporting confirmation without inventing a contradiction. Non-completed runs/steps/chains retain their ceiling; independent contradictions/waiting remain stronger.
+
+The entire workflow output is always explicitly unverified. Source evidence summaries/checks are reduced to fixed outcome descriptions rather than copied claims, action arguments/results, prompts, paths or error dumps. Stable IDs remain available for the owner's existing record views. This is not truth/quality review or proof of every recipient, artifact, number, content or delivery.
+
+## Panel
+
+An expanded existing workflow run contains a collapsed “Workflow result check.” Opening fetches, and only an open panel polls every 10 seconds. The panel separates output/recorded evidence, counts, skipped/unbound/uncertain limits, saved version and check time. Valid tasks link to task details and valid approvals to exact Approvals focus. Unbound Managers do not get proof links. Refresh hides stale confirmation; failure says Check unavailable; read-only retry recovers. No new page/menu or changes to existing checkpoint/approval/retry/cancel controls. The pre-existing run map's current-graph behavior was deliberately not changed; this check independently uses the saved snapshot.
+
+## Files and validation
+
+- `src/workflows/approval-binding.ts` (new) and WorkflowService's existing wrapper: shared D-088 validator; no executor behavior changes.
+- `src/verification/action-observations.ts` (new) and verify.ts: pure observation extraction; existing task semantics retained.
+- `src/verification/workflow.ts` (new), service/routes: bounded snapshot, projection and endpoint; existing task/Manager checking reused.
+- WorkflowResultCheck (new), verification hooks and WorkflowsSection: on-demand panel/response type. No execution-control change.
+- New synthetic tests: `src/verification/workflow-verification.test.ts`, `web/src/workflow-verification.test.tsx`; new scratch-only browser script `scripts/e2e/workflow-verification-e2e.mjs` and `docs/evidence/workflow-verification/` screenshots/results.
+- Existing `src/manager/manager.test.ts`: replace a 250 ms fake-provider completion window with an explicit release barrier for the existing concurrency/daily-limit case. All accepted/busy/daily-limit assertions retained; finally releases and drains the fake runs. No Manager production limit changed.
+
+Initial targeted backend runs passed 135/135 (atomic-linkage/restart/action/Manager regression) and 120/120 (new workflow plus existing task/chain/provenance cases, before the additional task-file ceiling case). New workflow file initially passed 63 cases; one additional inherited unreadable-file test was added before the full check. Dashboard targeted tests passed 19/19 (new panel plus existing workflow/integration cases). Typechecks/dashboard build passed; a new fixture drawing's unknown-node typing was corrected after its initial typecheck failure, with no runtime rule change.
+
+First full attempt: backend 2,322/2,322 passed; dashboard 483 passed/1 failed because an existing schedule-creation test exceeded 5 seconds. That test passed unchanged in isolation (one run, 29 other cases skipped). A repeat full attempt had 2,321 backend pass/1 failure and two follow-on “database is not open” rejections: the existing Manager concurrency test's 250 ms timing race allowed fake replies to finish before the third request checked the two-run ceiling, then failed before its normal drain/cleanup. The explicit fake-provider barrier and finally-drain above fix synchronization/cleanup without weakening any assertion; targeted Manager/workflow suites passed 91/91 afterward. These two attempts are failures retained as history; the subsequent full retry passed below.
+
+**Final npm run check: PASSED**, exit 0. Backend **2,322 tests/106 files**, dashboard **484 tests/52 files**, both typechecks and dashboard production build. Includes **64 new backend + 12 new dashboard cases**; no unhandled errors in the successful run. The unchanged schedule test passed in the final full run; the Manager barrier retained every limit assertion. Existing DEP0190/large-bundle warnings remain; main JS 1,012.00 kB (gzip 269.66 kB). No separate backend build or real provider run. Only documentation changed after the successful full check.
+
+**Synthetic browser: 42/42 passed.** Includes on-demand fetch, keyboard disclosure, honest action/task/waiting/invalid/unbound Manager/skipped/uncertain states, exact links, retained cancel control, phone/desktop geometry at 360/390/768/1440, 44 px new targets, dark/reduced motion, 200% text, refresh failure/recovery and zero model/connector/mutation/outside-browser calls. Scratch DB is removed, no owner browser/window used. Focused phone/desktop screenshots visually reviewed. Browser evidence matches the final application code/build; the later change was to an existing synthetic Manager test only. Whitespace checks passed and new source/test/evidence paths are not ignored.
+
+## Preservation, rollback and remaining limits
+
+All work remains unstaged/uncommitted with earlier D-085 to D-100 changes preserved. Frozen P-49 staged verifier blobs remain verify.ts `4a0b918a79e2f68ed4a629b21246c494cf197c7d`, verification.test.ts `7f003fcb877831c1601e4fd1e7486e3c738b3a96`. This slice changes verify.ts only in the working tree by extracting observations; do not stage/unstage/reset shared files. Approval immutability and all gates/retry/Guardian rules remain intact. No migration/backfill/live startup is needed.
+
+Source-only rollback would remove D-101 endpoint/panel/projection and put the shared helper bodies back in their immediate preceding callers, preserving all earlier result-origin/action/chain/restart/linkage work. Do not restore whole shared files from HEAD/index or perform destructive Git operations. Rollback has not been performed.
+
+Not supplied: exact workflow→Manager backlinks, durable read receipts, node-specific bot attempt history repair, independent workflow/Manager final-output proof, exact target/content/count/real delivery, truth/quality/language coverage, same-user tamper protection, real crash/power-loss recovery, distributed workers or Guardian Tier B/unattended operation. Real phone/screen reader and Guardian-browser pairing remain NOT VERIFIED. Fake evidence does not promote real integration/capability verification. Claude resume state must point to this report and actual final checks, with no automatic next implementation/commit.

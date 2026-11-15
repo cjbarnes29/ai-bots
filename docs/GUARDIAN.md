@@ -3,7 +3,13 @@
 Specification, setup, recovery and honest limits. Decisions behind it: `docs/DECISION-BOARD.md` (D-023, D-028 to D-040).
 Everything here is **Tier A**. **Tier B is NOT BUILT** (section 9).
 
+**D-098 result-storage recovery follow-up (2026-11-15):** atomic result/origin/lifecycle persistence is synthetic-tested; a storage fault never replays model calls or outside actions. A bounded failure-record attempt does not resume the Guardian or grant an approval. Missing/invalid origins leave confirmation unknown. No Guardian command, permission, supervised-operation rule or Tier B status changed. Evidence and remaining power-loss/notification limits: `REPLY-PROVENANCE.md`.
+
 ## 1. What it is, in one paragraph
+
+D-101 adds a read-only workflow evidence projection/panel and shared existing approval/action observation helpers (`WORKFLOW-RESULT-CHECKS.md`). It never ticks/resolves/approves/retries or starts an action/Manager/model, and changes no Guardian/proof/permission boundary. Uncertain cold-start outcomes remain uncertain, not resend opportunities. Supervised-only/Tier B and real presence/isolation limits remain unchanged; synthetic checks are not new real Guardian evidence.
+
+D-099 adds only a read-only Manager evidence projection and owner-visible panel (`MANAGER-RESULT-CHECKS.md`). It never starts/retries/resumes a run or model/action, changes no Guardian command/proof/permission, and leaves supervised-only/Tier B limits intact. Helper confirmation is separate from the unverified final summary; invalid links and incomplete coverage grant nothing. Full/fake/browser checks are recorded in the report; no new real Guardian presence or isolation evidence.
 A separate small program (`src/guardian/`) that sits beside the app and can say "stop" without asking the Manager or any agent. It has its own
 port, its own files and its own log. While it is not in the **RUN** state, the app starts no task, no retry, no schedule and no approved outside
 action, and tasks that are already running stop at their next safe point. It pauses by itself when your Windows session is locked or when you
@@ -71,6 +77,8 @@ What the app does when held (`src/delegation/engine.ts`, `src/automation/service
 | Interactive chat in the Chat tab | **not gated** (it needs you at the keyboard; limitation L-6) |
 
 ## 6. Owner proof (blocker A, S-13)
+
+Execution-assessment follow-up (D-086, 2026-11-15): task capability assessment adds an asynchronous wait before context/model work. Task cancellation and Guardian hold are checked again after that wait. It cannot resume the Guardian, grant permissions or approve outside actions; a best-effort readiness override bypasses none of these checks. Internal Manager starts also receive readiness assessment; the Manager gains no tools. Fake-provider coverage and unchanged Guardian-suite results: `EXECUTION-ASSESSMENT.md`.
 **The problem (confirmed in the code):** on this PC any request with Host `127.0.0.1` and the header `x-awp-client: dashboard` is treated as the
 owner (`src/remote/access.ts`). A script run through the PC agent can send exactly that. A test (`src/guardian-integration.test.ts`) shows it:
 without a Guardian such a request approves an approval and the outside action runs.
@@ -141,8 +149,17 @@ Required by D-030 and the blockers in `docs/SECURITY-AUDIT.md`. Nothing below is
 The desktop engine (`docs/DESKTOP-ENGINE.md`) checks `held()` before every step, during every wait, and again immediately before a file dialog's Save/Open click: PAUSE, STOP, LOCK or an unreachable Guardian stop it at the next safe point and the remaining steps are not run. The Windows host and every program the engine started are descendants of the app, so a Guardian STOP that ends the Manager's descendants ends them too (unsaved work in a program the engine started can be lost; plans end with `close_window` or `release`). The Guardian still takes no paths, programs or commands; it cannot resume or reconfigure the engine. Tested: real-Windows "stops at the next step boundary when the Guardian pauses" and mocked equivalents.
 
 ## 10. Recovery
+
+D-096 presentation follow-up: approval confirmation retains its existing owner-proof/server route. Its focus trap yields when another modal (such as the owner-proof form) owns focus; cancel/Escape/busy policy remains. Fake/component and scratch-browser evidence: `DASHBOARD-APPROVALS.md`. No new live Guardian verification, permission or resume path.
+
+D-093 action-type checks are read-only metadata interpretation and cannot approve, execute, retry or resume anything. Unknown effects remain unverified, and task/chain result labels do not replace Guardian supervision. Evidence/remaining trusted-text limits: `EXACT-ACTION-MATCHING.md`.
+
+Result checks remain informational and cannot resume/approve/retry anything. D-091 prevents an incomplete task chain from appearing wholly confirmed; it does not grant access or replace Guardian supervision. Evidence and remaining verifier limits: `CHAIN-COMPLETENESS.md`.
 | Situation | What to do |
 |---|---|
+| Restore a database backup (D-089) | Keep automation held; validate a fresh quarantined candidate, matching vault key and application relationships before proposing live replacement. Do not automatically resume, approve or resend actions after restoring old state. Synthetic-only rehearsal and future review procedure: `BACKUP-RESTORE-REHEARSAL.md`; actual owner recovery NOT RUN. |
+| Workflow reconnects to an approval after restart (D-088) | A pending linked request stays waiting. A linked approval with no recorded outcome at cold start fails uncertain and is not resent; inspect its history/outside effects. Reconnection cannot approve, resume the Guardian or grant a permission. Transaction/fake-service evidence and limitations: `ATOMIC-APPROVAL-LINKAGE.md`. |
+| Workflow says an outside action's outcome is uncertain after restart | It is held as a failed step and cannot be replayed by retrying it or an earlier box (D-085). Inspect the approval history and outside effects before deciding what to do next. Existing requests are not approved or cancelled automatically. This does not replace Guardian checks or provide unattended operation. |
 | Forgot the passphrase | Stop the Guardian (Ctrl+C). Delete `data/guardian/passphrase.json`. Run `npm run guardian:passphrase`. (Tier A: anyone with file access can do this, which is exactly the Tier A limit. In Tier B this needs administrator rights.) |
 | Guardian crashed / not responding | The app holds everything (fails closed). Start it again (`npm run guardian`); it comes up PAUSED; resume with the passphrase. To run without it: remove `GUARDIAN_URL` and restart the app (you then lose the protections). |
 | Banner says "Paused" and you are at the PC | Open the Guardian page and press Resume (it pauses at lock, after 15 minutes idle, and after every restart) |

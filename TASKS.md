@@ -1,7 +1,78 @@
 # Tasks
 
 Honest status. `[x]` = built AND tested as described. `[~]` = built, partly tested or not tested on the real thing. `[ ]` = not built. `[owner]` = only the owner can do it.
+
+## Modular modernization: workflow restart safety (2026-11-15, D-085)
+- [x] Conservative recovery of uncertain outside-action steps and full-descendant retry protection; 16 new in-memory tests and targeted workflow suites 70/70. Details and full-check status: `docs/WORKFLOW-RESTART-SAFETY.md`.
+- [ ] Durable correlation/reconciliation of orphaned approvals and uncertain remote effects; no exactly-once remote guarantee.
+- [x] Shared task-entry assessment implemented and fake-tested under D-086; evidence/recovery and modular UI phases remain pending.
+- [~] No browser/live-provider crash drill for this fix; the development server's incidental reloads and read-only live checks are documented in the safety report. No commit or dependency installation.
 Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-CONTROL.md`, `docs/TIER-B-PLAN.md`, `docs/SECURITY-AUDIT.md`, `docs/HANDOVER.md`.
+
+## Shared execution assessment (2026-11-15, D-086, uncommitted)
+- [x] Shared capability assessment before task execution (including delegated children) and internal Manager planning; preserve ordinary text fallback and scope best-effort choices to their exact root/run.
+- [x] 18 new fake-provider tests plus existing regression checks; exact full-check status and sandbox/concurrency-test findings: `docs/EXECUTION-ASSESSMENT.md`.
+- [ ] Real-provider validation, durable approval correlation, broader evidence/recovery and modular UI integration remain separate work.
+
+## Atomic workflow approval linkage (2026-11-15, D-088, uncommitted)
+- [x] Existing-table transactional approval/link/audit creation, validated reconnection and cold-start uncertainty handling; gate, owner decision and D-085 retry protections preserved. Exact fake-service checks/full-check outcome: `docs/ATOMIC-APPROVAL-LINKAGE.md`.
+- [ ] Real crash/power-loss or real-service verification, legacy orphan reconciliation, multiple workers and exactly-once remote effects are not supplied by this change.
+- [x] Synthetic backup/restore rehearsal under D-089: nine new cases, 12/12 targeted backup tests; integrity, relationships, search, approval identity, synthetic vault/key and negative candidates. Procedure/results: `docs/BACKUP-RESTORE-REHEARSAL.md`.
+- [ ] Actual owner recovery, broader result verification and modular UI work remain. No live DB/vault opened or copied for D-089.
+
+## Result-verification assessment (2026-11-15, D-090, planning only)
+- [x] Local evidence map, three synthetic pure-function reproductions and ordered small-patch/test plan: `docs/RESULT-VERIFICATION-PLAN.md`. Existing staged verifier work preserved.
+- [ ] Chain completeness ceiling; exact action matching; trusted authored-text boundary; Manager/workflow read-only projections. No implementation or new test suite from this assessment.
+
+## Chain completeness implementation (2026-11-15, D-091)
+- [x] Chain lifecycle counts/details and confirmation ceiling; preserve stronger verdicts and staged verifier files. Four incomplete states, evidence/agent-count/audit/API regressions: 14 new tests, targeted verification 42/42. Full-check evidence: `docs/CHAIN-COMPLETENESS.md`.
+- [ ] Exact action matching, trusted authored-text provenance and Manager/workflow projections remain separate work. No real-model/browser/live-data run.
+
+## Exact action matching specification (2026-11-15, D-092, planning only)
+- [x] Source action matrix, exact metadata/matcher/verdict contract and fake-test plan saved in `docs/EXACT-ACTION-MATCHING-PLAN.md`; staged work preserved.
+- [ ] Implement exact action matching under a separate owner selection; no target/content/receipt or provenance claim from this plan.
+
+## Exact action matching implementation (2026-11-15, D-093)
+- [x] Source-owned exact action/object support, task receipt ownership, unknown-effect ceiling and fake-service regression coverage. Staged P-49 blobs preserved, approved new edits separate in working diff. Evidence/full-check result: `docs/EXACT-ACTION-MATCHING.md`.
+- [ ] Trusted authored-text provenance (RV-3), exact targets/content/remote receipts and Manager/workflow aggregate checks remain separate work.
+
+## Backend checkpoint review (2026-11-15, D-094, review only)
+- [x] Completed reliability/evidence map, remaining gaps and concrete conditions for a limited Dashboard/Approvals redesign: `docs/BACKEND-CHECKPOINT.md`.
+- [ ] First visual slice specification/implementation and trusted reply provenance remain next choices; review changes no application code or verification status.
+
+## Dashboard/Approvals specification (2026-11-15, D-095, planning only)
+- [x] Exact layout/data/file/phone-accessibility/rollback and fake acceptance plan saved in `docs/DASHBOARD-APPROVALS-PLAN.md`.
+- [ ] Implement/test the two-page slice after owner selection; no new UI/browser verification from this specification. RV-3/aggregate limits retained.
+
+## Dashboard/Approvals implementation (2026-11-15, D-096)
+- [x] Two-page presentation/query-state/focused-ID slice and shared modal accessibility; existing decision rules retained. New component and synthetic browser evidence/full-check result: `docs/DASHBOARD-APPROVALS.md`.
+- [ ] Real phone/screen reader/Guardian-browser pairing, trusted authored provenance and Manager/workflow result projections remain separate work; no commit included.
+
+## Reliable reply checking and resume handover (2026-11-15, D-097, planning only)
+- [x] Saved source-informed segment/manifest/atomic-write/decoder/truncation/failure-test plan in `docs/REPLY-PROVENANCE-PLAN.md`; current owner scope and next step saved at the top of `docs/HANDOVER.md` for Claude/later sessions.
+- [ ] Owner implementation choice, then fake codec/transaction/engine/verification regressions and full checks. RV-3 is NOT fixed by the plan. No app change/new test run/commit.
+
+## Reliable saved reply origins (2026-11-15, D-098, uncommitted)
+- [x] Implemented labelled results, atomic existing-table persistence and strict one-task/chain origin checks; no marker fallback/backfill. Failure tests 46/46; full 2,220 backend + 461 dashboard/typechecks/build and fake modernization browser 34/34. Evidence/resume state: `docs/REPLY-PROVENANCE.md`, `docs/HANDOVER.md`.
+- [ ] Independent Manager/workflow final-result projections, semantic/target/receipt proof and operational isolation/recovery remain separate work. No commit implied.
+
+## Manager evidence checks and panel (2026-11-15, D-099, uncommitted)
+- [x] Read-only Manager check, bound/deduplicated/bounded task-chain evidence and on-demand panel. Final summary always separately unverified; existing controls/gates retained. New cases 38 backend + 11 dashboard; full 2,258 + 472/typechecks/build and synthetic browser 29/29 passed. Evidence and Claude resume state: `docs/MANAGER-RESULT-CHECKS.md`, `docs/HANDOVER.md`.
+- [ ] Workflow-wide result projection, independent final-summary proof, exact targets/content/delivery/quality and operational isolation/recovery remain separate work. No commit implied.
+
+## Workflow result-check plan (2026-11-15, D-100, planning only)
+- [x] Saved existing-records verification/panel plan, source binding limits, exact failure/browser/full-check acceptance and Claude resume state: `docs/WORKFLOW-RESULT-CHECKS-PLAN.md`.
+- [ ] Implement only after owner selection; workflow Manager backlinks/read receipts and independent output proof remain separate work. No application change/new test run/commit from this plan.
+
+## Workflow result checks and panel (2026-11-15, D-101, uncommitted)
+- [x] Existing-records projection/panel, shared D-088 approval binding/action observations, bounded task/approval evidence and conservative uncertainty. Final full check: 2,322 backend + 484 dashboard/typechecks/build; new 76 cases and synthetic browser 42/42 passed. Earlier test failures/corrections and Claude resume state saved in `docs/WORKFLOW-RESULT-CHECKS.md`, `docs/HANDOVER.md`. No commit included.
+- [ ] Exact workflow→Manager backlinks, durable read receipts, independent output/target/content/delivery proof and operational isolation/recovery remain separate work. No commit implied.
+
+## Ordered daily-use and Projects/Assistant plans (2026-11-15, D-102/D-103)
+- [x] First plan saved: `docs/DAILY-USE-WALKTHROUGH-PLAN.md`; then second plan: `docs/PROJECTS-ASSISTANT-REDESIGN-PLAN.md`. Source-informed scope, scenarios, evidence, local-component design, tests and rollback; Claude resume updated.
+- [x] D-104 executed the selected fresh scratch/fake walkthrough and saved actual findings: 60 passes/3 automated findings, 10 scenarios; 19 targeted UI tests passed. Report: `docs/DAILY-USE-WALKTHROUGH.md`. No real-user/provider proof.
+- [x] D-103 refined from those observations, with two additional visual copy/layout observations; current Claude handover saved.
+- [ ] Implement separately selected Projects then Assistant slices; resolve the recorded findings. UI NOT IMPLEMENTED. No commit implied.
 
 ## Done and committed
 - [x] Stages 1-9: routing, Manager, tools and skills, PC agent, documents, workflows, integrations, memory, shell and Settings (see `docs/PROGRESS.md`)

@@ -1,0 +1,63 @@
+{
+  "syntheticOnly": true,
+  "attempt": "1794738781236",
+  "scenarios": [
+    {
+      "id": "1-find-project",
+      "status": "observed"
+    }
+  ],
+  "results": [
+    {
+      "scenario": "1-find-project",
+      "name": "correct project opens with one h1",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "1-find-project",
+      "name": "Simple project retains five sections",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "1-find-project",
+      "name": "ambiguous lookup asks which project",
+      "status": "pass",
+      "detail": ""
+    }
+  ],
+  "issues": [],
+  "fatal": {
+    "scenario": "2-attachment",
+    "message": "TimeoutError: locator.click: Timeout 12000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: 'Assistant chat' }).getByRole('button', { name: 'Start a new conversation' })\u001b[22m\n"
+  },
+  "fakeCalls": [
+    {
+      "index": 1,
+      "kind": "registry-connectivity"
+    },
+    {
+      "index": 2,
+      "kind": "registry-json"
+    },
+    {
+      "index": 3,
+      "kind": "registry-identity"
+    }
+  ],
+  "blockedOrigins": [],
+  "seeded": [
+    "projects/helper/folder grant",
+    "prior failed task (not executed)"
+  ],
+  "ids": {
+    "bot": "916b85c3-a246-4ca6-92a9-a471f2bba581",
+    "project": "e37ec5f0-1749-46fc-a193-269a10180bb7",
+    "otherProject": "326b9a11-66f5-47cf-bcad-e1ab3704e46e",
+    "folder": "53ae9bf1-9354-410a-b933-1cefb495277b",
+    "failed": "fb07f10e-5536-451f-a12f-54e4fddfa7e0"
+  },
+  "scratchRemoved": true,
+  "productChanges": false
+}

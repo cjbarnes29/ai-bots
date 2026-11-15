@@ -1,0 +1,124 @@
+{
+  "syntheticOnly": true,
+  "results": [
+    {
+      "name": "no historical run checks before opening",
+      "ok": true
+    },
+    {
+      "name": "native disclosure opens from keyboard",
+      "ok": true
+    },
+    {
+      "name": "final summary stays explicitly unverified",
+      "ok": true
+    },
+    {
+      "name": "only opened run was checked",
+      "ok": true
+    },
+    {
+      "name": "valid helper task link exists",
+      "ok": true
+    },
+    {
+      "name": "waiting evidence is honest",
+      "ok": true
+    },
+    {
+      "name": "missing evidence is honest",
+      "ok": true
+    },
+    {
+      "name": "direct evidence is honest",
+      "ok": true
+    },
+    {
+      "name": "missing reference offers no evidence link",
+      "ok": true
+    },
+    {
+      "name": "direct answer has no helper evidence",
+      "ok": true
+    },
+    {
+      "name": "360px one page heading",
+      "ok": true
+    },
+    {
+      "name": "360px no page overflow",
+      "ok": true
+    },
+    {
+      "name": "360px 44px disclosure and refresh targets",
+      "ok": true
+    },
+    {
+      "name": "390px one page heading",
+      "ok": true
+    },
+    {
+      "name": "390px no page overflow",
+      "ok": true
+    },
+    {
+      "name": "390px 44px disclosure and refresh targets",
+      "ok": true
+    },
+    {
+      "name": "768px one page heading",
+      "ok": true
+    },
+    {
+      "name": "768px no page overflow",
+      "ok": true
+    },
+    {
+      "name": "768px 44px disclosure and refresh targets",
+      "ok": true
+    },
+    {
+      "name": "1440px one page heading",
+      "ok": true
+    },
+    {
+      "name": "1440px no page overflow",
+      "ok": true
+    },
+    {
+      "name": "1440px 44px disclosure and refresh targets",
+      "ok": true
+    },
+    {
+      "name": "dark/reduced-motion no overflow",
+      "ok": true
+    },
+    {
+      "name": "failed refresh removes cached confirmation",
+      "ok": true
+    },
+    {
+      "name": "read-only retry recovers",
+      "ok": true
+    },
+    {
+      "name": "200% text scale no overflow",
+      "ok": true
+    },
+    {
+      "name": "no mutation, model or connector work",
+      "ok": true
+    },
+    {
+      "name": "no browser errors",
+      "ok": true
+    },
+    {
+      "name": "no outside requests",
+      "ok": true
+    }
+  ],
+  "errors": [],
+  "external": [],
+  "scratchRemoved": true
+}

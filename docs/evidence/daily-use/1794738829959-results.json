@@ -1,0 +1,416 @@
+{
+  "syntheticOnly": true,
+  "attempt": "1794738829959",
+  "scenarios": [
+    {
+      "id": "1-find-project",
+      "status": "observed"
+    },
+    {
+      "id": "2-attachment",
+      "status": "observed"
+    },
+    {
+      "id": "3-draft-and-context",
+      "status": "observed"
+    },
+    {
+      "id": "4-safe-and-review",
+      "status": "observed"
+    },
+    {
+      "id": "5-restricted",
+      "status": "observed"
+    },
+    {
+      "id": "6-project-task-file",
+      "status": "observed"
+    },
+    {
+      "id": "7-result-checks",
+      "status": "observed"
+    },
+    {
+      "id": "8-explain-and-draft",
+      "status": "observed"
+    },
+    {
+      "id": "9-controlled-restart",
+      "status": "observed"
+    }
+  ],
+  "results": [
+    {
+      "scenario": "1-find-project",
+      "name": "correct project opens with one h1",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "1-find-project",
+      "name": "Simple project retains five sections",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "1-find-project",
+      "name": "ambiguous lookup asks which project",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "2-attachment",
+      "name": "attachment answer cites the scripted source",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "2-attachment",
+      "name": "temporary attachment is absent from Knowledge Center",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "2-attachment",
+      "name": "new conversation belongs to the chosen project",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "3-draft-and-context",
+      "name": "unsent draft survives navigation",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "3-draft-and-context",
+      "name": "level switch keeps the draft",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "3-draft-and-context",
+      "name": "project selection does not reassign an existing conversation",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "3-draft-and-context",
+      "name": "existing conversation context is distinguishable",
+      "status": "pass",
+      "detail": "Talk to\nDemo Writer\nFile new conversations under\nNo project\nDemo Launch\nDemo Launch Backup\nWhat I found or did\nClear\n\nYou asked: “show my projects”\n\nI found 2 projects. Which one do you mean?\n\nI understood: project. To send this to the model instead, start the message with “ask:”.\n\nOpen Demo Launch Backup\nproject · Separate fictional project.\nOpen Demo Launch\nproject · Fictional launch project.\nRelated:\nProject: Demo Launch\nAgent: Demo Writer\n\nTest chat. Demo Writer only replies when you send a message. It has no tools and can't take any action"
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "safe rename uses saved server state",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "safe rename is undoable",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review draft does not change stored description",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review has before and after",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review Reject uses owner control",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review draft does not change stored description",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review has before and after",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "4-safe-and-review",
+      "name": "review Apply this change uses owner control",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "5-restricted",
+      "name": "restricted request refused: delete the project \"Demo Launch\"",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "5-restricted",
+      "name": "restricted request refused: approve the pending approval",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "5-restricted",
+      "name": "restricted request refused: publish the website",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "5-restricted",
+      "name": "restricted requests caused no project deletion or file effect",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "project task completes with a saved result",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "first file request waits without creating a file",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "denied request never created the CSV",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "project task completes with a saved result",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "exactly one approved scratch file exists",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "6-project-task-file",
+      "name": "project shared result entries are saved",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "task shows action/file evidence separately",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "Manager final summary stays unverified",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "weak workflow Manager link supplies zero inherited evidence",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "scratch folder grant identity is available",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "7-result-checks",
+      "name": "revoked file access is reported as unchecked",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "8-explain-and-draft",
+      "name": "failure explanation links recorded seeded task",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "8-explain-and-draft",
+      "name": "draft is not automatically saved",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "8-explain-and-draft",
+      "name": "opening draft still does not save it",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "9-controlled-restart",
+      "name": "scratch restart does not call a model or create task/approval duplicates",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "9-controlled-restart",
+      "name": "shared entries persist on scratch reopen",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "9-controlled-restart",
+      "name": "conversation still belongs to its original project",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "9-controlled-restart",
+      "name": "temporary attachment remains absent from Knowledge Center",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "project list failure has explicit error state",
+      "status": "finding",
+      "detail": "Skip to the page content\nAI\nWorkforce Studio\nSearch\n\nGLOBAL ASSISTANT\n\nAI Assistant\n\nINBOX\n\nDashboard\n\nPROJECTS\n\nProjects\n\nACTIVITY\n\nDecisions & approvals\nCollapse\nGuardian not set up. Owner actions on this PC are not protected against scripts, and nothing pauses when you step away. See docs/GUARDIAN.md.\n\nBots can only ask to use outside services (Gmail, Telegram, browser): anything that sends or changes something waits for your approval. Only free models can be used.\n\nGot it\nInterface level\nSimple\nIntermediate\nAdvanced\n\nJust the essentials: tell the AI Assistant what you want, keep track of your projects, and approve what needs you. Nothing is removed: every screen is still reachable by search or by asking the assistant.\n\nProjects\nProjects\nAI Assistant\nApprovals\nTasks (item)\nWorkflow Studio\nHome\n/\nProjects\n\nWhat is this? A project keeps everything about one piece of work in one place: its chats, tasks, files and decisions. Open a project to see what needs you.\n\nProjects\n\nGroup related conversations, tasks, workflows and schedules, with shared instructions.\n\nNew project name\nCreate project\n Show archived\n\nChoose a project to open it."
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "project hub failure has explicit error state",
+      "status": "pass",
+      "detail": "Skip to the page content\nAI\nWorkforce Studio\nSearch\n\nGLOBAL ASSISTANT\n\nAI Assistant\n\nINBOX\n\nDashboard\n\nPROJECTS\n\nProjects\n\nACTIVITY\n\nDecisions & approvals\nCollapse\nGuardian not set up. Owner actions on this PC are not protected against scripts, and nothing pauses when you step away. See docs/GUARDIAN.md.\n\nBots can only ask to use outside services (Gmail, Telegram, browser): anything that sends or changes something waits for your approval. Only free models can be used.\n\nGot it\nInterface level\nSimple\nIntermediate\nAdvanced\n\nJust the essentials: tell the AI Assistant what you want, keep track of your projects, and approve what needs you. Nothing is removed: every screen is still reachable by search or by asking the assistant.\n\nProjects\nProjects\nAI Assistant\nApprovals\nTasks (item)\nWorkflow Studio\nHome\n/\nProjects\n\nWhat is this? A project keeps everything about one piece of work in one place: its chats, tasks, files and decisions. Open a project to see what needs you.\n\nProjects\n\nGroup related conversations, tasks, workflows and schedules, with shared instructions.\n\n← All projects\nOverview\nConversations\nTasks & history\nFiles & knowledge\nDecisions & approvals\n\nThis project could not be loaded."
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "helper list failure has explicit error state",
+      "status": "finding",
+      "detail": "ve not changed anything. You can do it yourself here:\n\nOpen Projects\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: done\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nUndo\nOpen the project\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: rejected\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nOpen the project\nOpen AI Agents\nSuggestions\n\nWorked out from your real projects, tasks, approvals and documents. Nothing here changes anything until you act.\n\nProblem1 task failed in the last 24 hours, for example \"Synthetic prior task\".\n\nLook at it\nDo it with the assistant\n\nImprovementThe Knowledge Center has no documents yet. Upload some and ask me questions about them.\n\nLook at it\nWorkflows\n\nDescribe a process in plain words. The assistant drafts it as a workflow; you open it in Workflows, read it and save it. Nothing is saved or run for you.\n\nWhat should the workflow do?\nDraft a workflow\nYour workflows\nOpen Demo Manager flow in Workflows\nRecent changes\n\nEverything the assistant changed or proposed, with what it was before. 3 requests were refused because only you may do them.\n\nNew description for the project \"Demo Launch\". (done)\nUndo\nNew description for the project \"Demo Launch\". (rejected)\nRenamed the project \"Demo Launch\" to \"Demo Launch Updated\". (undone)"
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "suggestions failure has explicit error state",
+      "status": "finding",
+      "detail": "asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: done\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nUndo\nOpen the project\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: rejected\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nOpen the project\n\nTest chat. Demo Writer only replies when you send a message. It has no tools and can't take any action.\n\nConversation\nNew conversation\nStart a new conversation\n\nLoading messages…\n\nYour message\nAttach files\nUse the Knowledge Center\nWhere files are kept\n\n0 / 8,000 characters\n\nSend\nSuggestions\n\nWorked out from your real projects, tasks, approvals and documents. Nothing here changes anything until you act.\n\nNothing needs attention right now.\n\nWorkflows\n\nDescribe a process in plain words. The assistant drafts it as a workflow; you open it in Workflows, read it and save it. Nothing is saved or run for you.\n\nWhat should the workflow do?\nDraft a workflow\nYour workflows\nOpen Demo Manager flow in Workflows\nRecent changes\n\nEverything the assistant changed or proposed, with what it was before. 3 requests were refused because only you may do them.\n\nNew description for the project \"Demo Launch\". (done)\nUndo\nNew description for the project \"Demo Launch\". (rejected)\nRenamed the project \"Demo Launch\" to \"Demo Launch Updated\". (undone)"
+    },
+    {
+      "scenario": "10-failures-and-phone",
+      "name": "1440px layout has one h1 and no page overflow",
+      "status": "pass",
+      "detail": ""
+    }
+  ],
+  "issues": [
+    {
+      "id": "DU-READ-PROJECTS",
+      "severity": "S2",
+      "name": "project list failure has explicit error state",
+      "detail": "Skip to the page content\nAI\nWorkforce Studio\nSearch\n\nGLOBAL ASSISTANT\n\nAI Assistant\n\nINBOX\n\nDashboard\n\nPROJECTS\n\nProjects\n\nACTIVITY\n\nDecisions & approvals\nCollapse\nGuardian not set up. Owner actions on this PC are not protected against scripts, and nothing pauses when you step away. See docs/GUARDIAN.md.\n\nBots can only ask to use outside services (Gmail, Telegram, browser): anything that sends or changes something waits for your approval. Only free models can be used.\n\nGot it\nInterface level\nSimple\nIntermediate\nAdvanced\n\nJust the essentials: tell the AI Assistant what you want, keep track of your projects, and approve what needs you. Nothing is removed: every screen is still reachable by search or by asking the assistant.\n\nProjects\nProjects\nAI Assistant\nApprovals\nTasks (item)\nWorkflow Studio\nHome\n/\nProjects\n\nWhat is this? A project keeps everything about one piece of work in one place: its chats, tasks, files and decisions. Open a project to see what needs you.\n\nProjects\n\nGroup related conversations, tasks, workflows and schedules, with shared instructions.\n\nNew project name\nCreate project\n Show archived\n\nChoose a project to open it."
+    },
+    {
+      "id": "DU-READ-HELPERS",
+      "severity": "S2",
+      "name": "helper list failure has explicit error state",
+      "detail": "ve not changed anything. You can do it yourself here:\n\nOpen Projects\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: done\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nUndo\nOpen the project\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: rejected\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nOpen the project\nOpen AI Agents\nSuggestions\n\nWorked out from your real projects, tasks, approvals and documents. Nothing here changes anything until you act.\n\nProblem1 task failed in the last 24 hours, for example \"Synthetic prior task\".\n\nLook at it\nDo it with the assistant\n\nImprovementThe Knowledge Center has no documents yet. Upload some and ask me questions about them.\n\nLook at it\nWorkflows\n\nDescribe a process in plain words. The assistant drafts it as a workflow; you open it in Workflows, read it and save it. Nothing is saved or run for you.\n\nWhat should the workflow do?\nDraft a workflow\nYour workflows\nOpen Demo Manager flow in Workflows\nRecent changes\n\nEverything the assistant changed or proposed, with what it was before. 3 requests were refused because only you may do them.\n\nNew description for the project \"Demo Launch\". (done)\nUndo\nNew description for the project \"Demo Launch\". (rejected)\nRenamed the project \"Demo Launch\" to \"Demo Launch Updated\". (undone)"
+    },
+    {
+      "id": "DU-READ-SUGGESTIONS",
+      "severity": "S2",
+      "name": "suggestions failure has explicit error state",
+      "detail": "asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: done\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nUndo\nOpen the project\n\nYou asked: “draft a description for project \"Demo Launch\"”\n\nNew description for the project \"Demo Launch\". I have only proposed this: nothing has changed yet. Review it and confirm to apply it.\n\nNeeds your review\nStatus: rejected\n\nBefore (description)\n\nFictional launch project.\n\nAfter (description)\n\nDemo Launch collects fictional launch notes and checklist tasks.\n\nOpen the project\n\nTest chat. Demo Writer only replies when you send a message. It has no tools and can't take any action.\n\nConversation\nNew conversation\nStart a new conversation\n\nLoading messages…\n\nYour message\nAttach files\nUse the Knowledge Center\nWhere files are kept\n\n0 / 8,000 characters\n\nSend\nSuggestions\n\nWorked out from your real projects, tasks, approvals and documents. Nothing here changes anything until you act.\n\nNothing needs attention right now.\n\nWorkflows\n\nDescribe a process in plain words. The assistant drafts it as a workflow; you open it in Workflows, read it and save it. Nothing is saved or run for you.\n\nWhat should the workflow do?\nDraft a workflow\nYour workflows\nOpen Demo Manager flow in Workflows\nRecent changes\n\nEverything the assistant changed or proposed, with what it was before. 3 requests were refused because only you may do them.\n\nNew description for the project \"Demo Launch\". (done)\nUndo\nNew description for the project \"Demo Launch\". (rejected)\nRenamed the project \"Demo Launch\" to \"Demo Launch Updated\". (undone)"
+    }
+  ],
+  "fatal": {
+    "scenario": "10-failures-and-phone",
+    "message": "TimeoutError: locator.waitFor: Timeout 12000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: 'Assistant chat' }).getByText('Fictional chat reply DEMO-ONLY-73.', { exact: true }).last() to be visible\u001b[22m\n"
+  },
+  "fakeCalls": [
+    {
+      "index": 1,
+      "kind": "registry-connectivity"
+    },
+    {
+      "index": 2,
+      "kind": "registry-json"
+    },
+    {
+      "index": 3,
+      "kind": "registry-identity"
+    },
+    {
+      "index": 4,
+      "kind": "attachment-answer"
+    },
+    {
+      "index": 5,
+      "kind": "description-review"
+    },
+    {
+      "index": 6,
+      "kind": "description-review"
+    },
+    {
+      "index": 7,
+      "kind": "task-file-deny"
+    },
+    {
+      "index": 8,
+      "kind": "task-file-deny"
+    },
+    {
+      "index": 9,
+      "kind": "task-file-approve"
+    },
+    {
+      "index": 10,
+      "kind": "task-file-approve"
+    },
+    {
+      "index": 11,
+      "kind": "manager-direct"
+    },
+    {
+      "index": 12,
+      "kind": "manager-direct"
+    },
+    {
+      "index": 13,
+      "kind": "workflow-draft"
+    },
+    {
+      "index": 14,
+      "kind": "attachment-answer"
+    }
+  ],
+  "blockedOrigins": [],
+  "seeded": [
+    "projects/helper/folder grant",
+    "prior failed task (not executed)"
+  ],
+  "ids": {
+    "bot": "c2dd507b-84f6-469a-b251-1b0f272040e5",
+    "project": "d808fbe7-a73c-457d-86e7-b06504ad5543",
+    "otherProject": "14caf0a3-2136-4f5a-a2cf-d33f8b381b3a",
+    "folder": "fea106b3-a936-4d88-9206-cb7bf0878702",
+    "failed": "05a5fc4e-c60c-4b44-8c52-22f22d3030cb",
+    "conversation": "64663470-5dfa-4d9c-b83c-8ce0b88f6f5a",
+    "deniedTask": "0d0eacd0-d39c-4c95-ae4a-e47eeced2dfd",
+    "fileTask": "835043a2-a50d-4450-a657-fa3c26693eb1",
+    "approval": "9326c2f5-e3bf-464f-816c-bbc34d4fcfaf",
+    "manager": "d7792a65-824b-4e7e-ab7e-13ab65b04ceb",
+    "workflow": "96bbd415-9eae-413d-a7d1-4238a25fa226"
+  },
+  "scratchRemoved": true,
+  "productChanges": false
+}

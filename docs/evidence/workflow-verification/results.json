@@ -1,0 +1,176 @@
+{
+  "syntheticOnly": true,
+  "results": [
+    {
+      "name": "no workflow evidence requests before opening a run",
+      "ok": true
+    },
+    {
+      "name": "expanding a run alone makes no evidence request",
+      "ok": true
+    },
+    {
+      "name": "keyboard opens native result disclosure",
+      "ok": true
+    },
+    {
+      "name": "workflow output remains independently unverified",
+      "ok": true
+    },
+    {
+      "name": "only the selected check was fetched",
+      "ok": true
+    },
+    {
+      "name": "valid approval link focuses the exact record",
+      "ok": true
+    },
+    {
+      "name": "saved version and lifecycle are distinct",
+      "ok": true
+    },
+    {
+      "name": "waiting scoped state displayed",
+      "ok": true
+    },
+    {
+      "name": "waiting output still unverified",
+      "ok": true
+    },
+    {
+      "name": "waiting run's cancel control preserved",
+      "ok": true
+    },
+    {
+      "name": "invalid scoped state displayed",
+      "ok": true
+    },
+    {
+      "name": "invalid output still unverified",
+      "ok": true
+    },
+    {
+      "name": "invalid approval has no proof link",
+      "ok": true
+    },
+    {
+      "name": "manager scoped state displayed",
+      "ok": true
+    },
+    {
+      "name": "manager output still unverified",
+      "ok": true
+    },
+    {
+      "name": "Manager's weak link inherits no evidence",
+      "ok": true
+    },
+    {
+      "name": "skipped scoped state displayed",
+      "ok": true
+    },
+    {
+      "name": "skipped output still unverified",
+      "ok": true
+    },
+    {
+      "name": "uncertain scoped state displayed",
+      "ok": true
+    },
+    {
+      "name": "uncertain output still unverified",
+      "ok": true
+    },
+    {
+      "name": "task scoped state displayed",
+      "ok": true
+    },
+    {
+      "name": "task output still unverified",
+      "ok": true
+    },
+    {
+      "name": "valid task evidence link exists",
+      "ok": true
+    },
+    {
+      "name": "360px one page heading",
+      "ok": true
+    },
+    {
+      "name": "360px no page overflow",
+      "ok": true
+    },
+    {
+      "name": "360px new interactive targets at least 44px",
+      "ok": true
+    },
+    {
+      "name": "390px one page heading",
+      "ok": true
+    },
+    {
+      "name": "390px no page overflow",
+      "ok": true
+    },
+    {
+      "name": "390px new interactive targets at least 44px",
+      "ok": true
+    },
+    {
+      "name": "768px one page heading",
+      "ok": true
+    },
+    {
+      "name": "768px no page overflow",
+      "ok": true
+    },
+    {
+      "name": "768px new interactive targets at least 44px",
+      "ok": true
+    },
+    {
+      "name": "1440px one page heading",
+      "ok": true
+    },
+    {
+      "name": "1440px no page overflow",
+      "ok": true
+    },
+    {
+      "name": "1440px new interactive targets at least 44px",
+      "ok": true
+    },
+    {
+      "name": "dark/reduced-motion no overflow",
+      "ok": true
+    },
+    {
+      "name": "failed refresh removes cached confirmation",
+      "ok": true
+    },
+    {
+      "name": "read-only refresh recovers",
+      "ok": true
+    },
+    {
+      "name": "200% text scale no page overflow",
+      "ok": true
+    },
+    {
+      "name": "checking made no mutation, model or connector calls",
+      "ok": true
+    },
+    {
+      "name": "no browser errors",
+      "ok": true
+    },
+    {
+      "name": "no outside browser requests",
+      "ok": true
+    }
+  ],
+  "errors": [],
+  "external": [],
+  "scratchRemoved": true
+}

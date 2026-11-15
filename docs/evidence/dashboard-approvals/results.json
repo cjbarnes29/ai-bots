@@ -1,0 +1,268 @@
+{
+  "syntheticOnly": true,
+  "results": [
+    {
+      "name": "/ 360px one h1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/ 360px no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 360px one h1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 360px no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 360px footer in viewport",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 360px 44px buttons",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 360px focus stays inside",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 360px focus returns",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/ 390px one h1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/ 390px no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 390px one h1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 390px no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 390px footer in viewport",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 390px 44px buttons",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 390px focus stays inside",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 390px focus returns",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/ 768px one h1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/ 768px no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 768px one h1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 768px no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 768px footer in viewport",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 768px 44px buttons",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 768px focus stays inside",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 768px focus returns",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/ 1024px one h1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/ 1024px no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 1024px one h1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 1024px no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 1024px footer in viewport",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 1024px 44px buttons",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 1024px focus stays inside",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 1024px focus returns",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/ 1440px one h1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/ 1440px no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 1440px one h1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 1440px no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 1440px footer in viewport",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 1440px 44px buttons",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 1440px focus stays inside",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dialog 1440px focus returns",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "opening/cancelling made no mutation or fake effect",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "older focused ID shown once",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "capped list disclosed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "confirmed request executes one fake effect",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "simple keeps outside-action pause control",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "intermediate keeps outside-action pause control",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "advanced keeps outside-action pause control",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dark/reduced-motion no overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/ 200% text scale no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "/approvals 200% text scale no page overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no browser errors",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no outside browser requests",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "errors": [],
+  "external": [],
+  "scratchRemoved": true
+}

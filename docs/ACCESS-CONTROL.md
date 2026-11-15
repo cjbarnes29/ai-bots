@@ -4,6 +4,8 @@ Specification, enforcement map, limits and verification record for decisions D-0
 Code: `src/access/` (backend), `web/src/components/access/` and `web/src/pages/Access.tsx` (dashboard, menu entry **Access**).
 Last updated: 2026-11-04. Status words used here: **implemented** = code exists; **tested** = automated tests pass; **verified** = shown on the real thing with evidence. Where something is only implemented or tested, it says so.
 
+2026-11-15 follow-up (D-093): PC/document ActionSpec definitions gained result-type declarations for independent task checking only. File/secret/application permissions, execute/authorize code and the verification FolderGate probe are unchanged. Unknown effects never grant access. Fake-service regression/full-check evidence and remaining result limits: `EXACT-ACTION-MATCHING.md`; this supplies no new real access-control verification.
+
 ## 1. The two questions are independent
 | Question | System | Default | Stored as |
 |---|---|---|---|
