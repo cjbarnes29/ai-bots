@@ -10,6 +10,10 @@ const NODE_W = 176;
 const NODE_H = 78;
 const CANVAS_W = 1100;
 const CANVAS_H = 520;
+const ZOOM_MIN = 0.6;
+const ZOOM_MAX = 1.5;
+const ZOOM_STEP = 0.1;
+const clampZoom = (z: number) => Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) * 100) / 100;
 
 const TYPE_LABEL: Record<string, string> = { trigger: "Start", bot_task: "Bot task", manager: "Manager", integration: "Outside action", condition: "If", checkpoint: "Checkpoint", set: "Set text", end: "End" };
 const TYPE_STYLE: Record<string, string> = {
@@ -74,6 +78,12 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
   const [problems, setProblems] = useState<{ node?: string; message: string }[]>([]);
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
   const canvas = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  zoomRef.current = zoom;
+  // The drawing grows to hold boxes placed far out (an AI draft or a long workflow), never smaller than the standard size.
+  const cw = Math.max(CANVAS_W, ...nodes.map((n) => n.x + NODE_W + 40));
+  const ch = Math.max(CANVAS_H, ...nodes.map((n) => n.y + NODE_H + 40));
   const validate = useValidateWorkflow();
   const create = useCreateWorkflow();
   const update = useUpdateWorkflow();
@@ -115,12 +125,13 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
 
   // ---- dragging a box ----
   const startDrag = (e: React.PointerEvent, n: WfNode) => {
-    drag.current = { id: n.id, dx: e.clientX - n.x, dy: e.clientY - n.y };
+    const z = zoomRef.current;
+    drag.current = { id: n.id, dx: e.clientX - n.x * z, dy: e.clientY - n.y * z };
     setSelected(n.id);
     const move = (ev: PointerEvent) => {
       const d = drag.current;
       if (!d) return;
-      patchNode(d.id, { x: Math.round(Math.max(0, Math.min(CANVAS_W - NODE_W, ev.clientX - d.dx))), y: Math.round(Math.max(0, Math.min(CANVAS_H - NODE_H, ev.clientY - d.dy))) });
+      patchNode(d.id, { x: Math.round(Math.max(0, Math.min(cw - NODE_W, (ev.clientX - d.dx) / z))), y: Math.round(Math.max(0, Math.min(ch - NODE_H, (ev.clientY - d.dy) / z))) });
     };
     const up = () => {
       drag.current = null;
@@ -139,6 +150,28 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
   const saving = create.isPending || update.isPending;
   const saveError = errorText(create.error ?? update.error);
   const badNodes = new Set(problems.map((p) => p.node).filter(Boolean));
+  const fit = () => {
+    const el = canvas.current;
+    if (!el) return;
+    setZoom(clampZoom(Math.min(el.clientWidth / cw, el.clientHeight / ch)));
+    el.scrollTo?.({ left: 0, top: 0 });
+  };
+  // Drag the empty background with a mouse to move around the drawing. Touch keeps the browser's own scrolling; the keyboard scrolls the focused drawing.
+  const startPan = (e: React.PointerEvent) => {
+    const el = canvas.current;
+    if (!el || e.pointerType !== "mouse" || e.target !== e.currentTarget) return;
+    const start = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop };
+    const move = (ev: PointerEvent) => {
+      el.scrollLeft = start.left - (ev.clientX - start.x);
+      el.scrollTop = start.top - (ev.clientY - start.y);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const center = (id: string) => {
     const n = nodes.find((x) => x.id === id);
     return n ? { x: n.x, y: n.y } : { x: 0, y: 0 };
@@ -191,9 +224,29 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
           mode === "list" ? (
             <StepList nodes={nodes} edges={edges} selected={selected} connectFrom={connectFrom} badNodes={badNodes} onSelect={setSelected} onArrowFrom={setConnectFrom} onArrowTo={connectTo} />
           ) : (
-          <div ref={canvas} className="relative overflow-auto rounded-md border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900" style={{ height: 360 }}>
-            <div className="relative" style={{ width: CANVAS_W, height: CANVAS_H }} aria-label="Canvas">
-              <svg width={CANVAS_W} height={CANVAS_H} className="pointer-events-none absolute inset-0" aria-hidden="true">
+          <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Zoom the drawing">
+            <button type="button" className="btn-secondary min-h-11" aria-label="Zoom out" disabled={zoom <= ZOOM_MIN} onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))}>
+              −
+            </button>
+            <span className="min-w-12 text-center text-sm" role="status" aria-label="Zoom level">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button type="button" className="btn-secondary min-h-11" aria-label="Zoom in" disabled={zoom >= ZOOM_MAX} onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))}>
+              +
+            </button>
+            <button type="button" className="btn-secondary min-h-11" onClick={fit}>
+              Fit to window
+            </button>
+            <button type="button" className="btn-secondary min-h-11" disabled={zoom === 1} onClick={() => setZoom(1)}>
+              Actual size
+            </button>
+            <span className="hint !mt-0 text-xs">Zoom only changes how it looks; box positions are saved at actual size. Drag the empty background to move around.</span>
+          </div>
+          <div ref={canvas} tabIndex={0} aria-label="Workflow drawing, scrollable" className="relative overflow-auto rounded-md border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900" style={{ height: 360 }}>
+            <div style={{ width: cw * zoom, height: ch * zoom }}>
+            <div className="relative" onPointerDown={startPan} style={{ width: cw, height: ch, transform: `scale(${zoom})`, transformOrigin: "top left" }} aria-label="Canvas">
+              <svg width={cw} height={ch} className="pointer-events-none absolute inset-0" aria-hidden="true">
                 <defs>
                   <marker id="wf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
                     <path d="M0,0 L10,5 L0,10 z" fill="#64748b" />
@@ -208,11 +261,14 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
                   const y2 = b.y + NODE_H / 2;
                   return (
                     <g key={e.id}>
-                      <path d={`M${x1},${y1} C${x1 + 60},${y1} ${x2 - 60},${y2} ${x2},${y2}`} fill="none" stroke={e.when === "true" ? "#16a34a" : e.when === "false" ? "#dc2626" : "#64748b"} strokeWidth="2" markerEnd="url(#wf-arrow)" />
+                      <path d={`M${x1},${y1} C${x1 + 60},${y1} ${x2 - 60},${y2} ${x2},${y2}`} fill="none" stroke={e.when === "true" ? "#16a34a" : e.when === "false" ? "#dc2626" : "#64748b"} strokeWidth={selected === e.from || selected === e.to ? 3 : 2} markerEnd="url(#wf-arrow)" />
                       {e.when !== "always" && (
-                        <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 6} textAnchor="middle" fontSize="12" fill="#334155">
-                          {e.when}
-                        </text>
+                        <g>
+                          <rect x={(x1 + x2) / 2 - 18} y={(y1 + y2) / 2 - 20} width="36" height="18" rx="4" fill="#ffffff" fillOpacity="0.9" stroke={e.when === "true" ? "#16a34a" : "#dc2626"} />
+                          <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 7} textAnchor="middle" fontSize="12" fill="#334155">
+                            {e.when}
+                          </text>
+                        </g>
                       )}
                     </g>
                   );
@@ -251,6 +307,8 @@ export function WorkflowEditor({ workflowId, initialName, initial, bots, onClose
                 </div>
               ))}
             </div>
+            </div>
+          </div>
           </div>
           )
         }
