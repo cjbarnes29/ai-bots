@@ -919,3 +919,12 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## Pilot B audit run (2026-11-15; board D-123)
 - Owner approved 10 outside reads; 10/10 used and succeeded (1 tree + 9 files at the pinned commit). Audit: `docs/SUPERPOWERS-PILOT-B-AUDIT.md`. Recommendation: do not install; keep the local aids. Nothing installed or run; allowance exhausted. Method limit: summaries by a model except five verbatim files. Uncommitted.
+
+## TASKS.md status refresh (2026-11-15; board D-124)
+- New "Status refresh" section at the top of `TASKS.md` marks finished items done (with decision ids), lists the real open items, and ticks the item-picker line. History sections kept. Docs only.
+
+## Orphaned approvals plan (2026-11-15; board D-125)
+- `docs/ORPHANED-APPROVALS-PLAN.md`: detect uncertain approvals, show them plainly, let the owner record what happened via append-only `approval.reconciled` events; no migration; nothing resent. Plan only; owner approval of the build order and 2-minute margin pending. Uncommitted.
+
+## Orphaned approvals built (2026-11-15; board D-126)
+- Plan `docs/ORPHANED-APPROVALS-PLAN.md` Parts 1-4 built with no migration: detection + owner-only recording via append-only `approval.reconciled` events, "Outcome unknown" on the Approvals page, task-check wording. Full check 2,369 backend + 545 dashboard; browser 16/16. Nothing is ever resent. Not verified: real crash drill, passphrase dialog with a Guardian, your real database. Uncommitted, with the TASKS refresh and the plan.

@@ -2,6 +2,30 @@
 
 Honest status. `[x]` = built AND tested as described. `[~]` = built, partly tested or not tested on the real thing. `[ ]` = not built. `[owner]` = only the owner can do it.
 
+## Status refresh (2026-11-15, D-124): read this section first
+The dated sections below are history and some say "uncommitted" or list work as open that is now done. This section is the current truth. Evidence: `docs/DECISION-BOARD.md`, `docs/PROGRESS.md`, `docs/HANDOVER.md`.
+
+**Commits.** The work these sections call "uncommitted" (restart safety, execution assessment, atomic approval linkage, backup rehearsal, result verification, reply provenance, Dashboard/Approvals, Manager and workflow checks; D-085 to D-101) was committed locally on 2026-11-15 in `3505a6b`, `f412fdf`, `c354fdf`, `a39be3e`; later work is in the commits listed by `git log`. Nothing is pushed. Untracked on purpose: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+
+**Done since the D-102 section (each with fake or scratch evidence only; full check last: 2,346 backend + 538 dashboard, typechecks, build):**
+- [x] Projects slice and Assistant slice (read-failure states, neutral review label, chat before history), helper-switch draft test (D-105, D-106). Daily-use walkthrough re-run: 63 passed, 0 findings (D-107). The old line "Implement separately selected Projects then Assistant slices" is DONE.
+- [x] Workflow canvas: plan, scratch React Flow prototype (not added to the repo), option A zoom/fit/pan with a real-browser check, 45/45 (D-108, D-109, D-110, D-118).
+- [x] Exact backlinks and read receipts: read receipts (D-112), Manager origin backlink (D-113), wording in the panels (D-114). The old "Exact workflow→Manager backlinks, durable read receipts" lines are DONE as scoped (origin and receipt records exist and are shown; they do NOT prove outputs, targets or content).
+- [x] Exact action matching (D-093), trusted reply origins (D-098), Manager and workflow checks (D-099, D-101): the old "remain separate work" lines for these are DONE as scoped.
+- [x] Projects item picker (D-117): the line "Projects: item picker instead of raw ids" below is DONE (the reassign-duty part stays open).
+- [x] Development aids `docs/dev-aids/`, pointer in `CLAUDE.md`, reusable Claude kit (D-116, D-121); Superpowers audit 10/10 reads, recommendation do not install (D-122, D-123).
+- [x] Owner checklists prepared: Tier B Guardian checks and firewall audit (D-119), Gemini setup (D-120). Prepared only; nothing run.
+
+**Still open (real):**
+- [owner] Run the three Guardian checks and the elevated firewall audit (`docs/OWNER-TIER-B-CHECKLIST.md`; NV-8, NV-10 NOT RUN). Tier B build/install, dedicated account, VM and unattended operation stay NOT BUILT / NOT ALLOWED.
+- [owner] Create the free Gemini key, connect it in the wizard and approve the request count (`docs/OWNER-GEMINI-SETUP.md`; NV-3 NOT VERIFIED). Google client (NV-4), P-42, P-39 as listed below.
+- [x] Uncertain (approved, no outcome) approvals: detection, owner-recorded statement and plain wording built, no migration (D-126). Older workflow approvals are listed the same way but never tied to a step by guessing.
+- [ ] Real crash/power-loss drills and exactly-once remote effects (not provided; an outside service cannot be made exactly-once).
+- [ ] Independent proof of Manager and workflow FINAL output, exact targets, content, count and delivery; same-user tamper protection; owner recovery drill (NV-42/NV-43).
+- [ ] Real phone, screen reader and real-device checks for the new screens; real owner usability feedback (NV-44, NV-45).
+- [ ] Tier B Guardian bundle code, new workflow nodes (approval/quality/parallel/merge), avatars, per-agent folder grants, group `model_ref` use, mobile group chat, YouTube Studio, UI roadmap phases, desktop app control, Gmail drafts.
+- [~] Known load-sensitive tests: `src/desktop/real-windows.test.ts` (and rarely `src/llm/model-switching.test.ts`, the pc runner test) failed once in some full runs, never reproduced on a quiet machine (D-115); cause unproven.
+
 ## Modular modernization: workflow restart safety (2026-11-15, D-085)
 - [x] Conservative recovery of uncertain outside-action steps and full-descendant retry protection; 16 new in-memory tests and targeted workflow suites 70/70. Details and full-check status: `docs/WORKFLOW-RESTART-SAFETY.md`.
 - [ ] Durable correlation/reconciliation of orphaned approvals and uncertain remote effects; no exactly-once remote guarantee.
@@ -135,7 +159,8 @@ Decisions: `docs/DECISION-BOARD.md`. Details: `docs/GUARDIAN.md`, `docs/ACCESS-C
 - [x] Demo mode works under enforced verification; routing/failover e2e 40/40 and demo e2e 16/16 (fake services)
 - [~] Known flaky dashboard test: `web/src/ai.test.tsx` OpenClaw chat test under default parallelism (passes alone / `--maxWorkers=4`)
 - [x] Decisions UI: own options, edit wording as versions, assignees and duties at approval, agreement panel, Manager loop, execution record
-- [ ] Projects: item picker instead of raw ids; reassigning an already assigned decision duty (assignments are immutable by database rule)
+- [x] Projects: item picker instead of raw ids (D-117, 2026-11-15)
+- [ ] Reassigning an already assigned decision duty (assignments are immutable by database rule)
 
 ## Security plan (D-040)
 - [owner] 0. Tier A manual checks: lock, 15-minute idle, STOP during a task (`docs/GUARDIAN.md` section 11)

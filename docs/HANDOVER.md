@@ -17,7 +17,29 @@ Owner approved and requested actual GitHub research plus instructions for Claude
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
-## Resume here: D-123 Pilot B audit DONE and committed (no push) (2026-11-15)
+## Resume here: D-126 orphaned approvals BUILT and committed (no push) (2026-11-15)
+
+- **Built and committed (D-126; see git log):** uncertain-approval detection, owner-only `approval.reconciled` recording, "Outcome unknown" section, task-check wording. Files: src/approvals/{service,repository,routes}.ts, src/remote/access.ts, src/verification/{verify,service,action-observations,workflow}.ts, web/src/api/hooks.ts, web/src/pages/Approvals.tsx, new tests (src/approvals/uncertain.test.ts, src/verification/outcome-unknown.test.ts, web/src/uncertainApprovals.test.tsx, case in src/remote/remote.test.ts) and scripts/e2e/uncertain-approvals-e2e.mjs; docs and TASKS.md. Full check 2,369 backend + 545 dashboard; browser 16/16. **No migration.** Not verified: real crash drill, passphrase dialog with a Guardian, your real database.
+- **Waiting on the owner:** Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10); Gemini key and request-count approval (`docs/OWNER-GEMINI-SETUP.md`, NV-3).
+- **Superpowers/GitHub research allowance is exhausted (10/10 used).**
+- Still untracked and not mine: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+
+## Earlier resume block (historical)
+
+- **Saved, UNCOMMITTED:** `docs/ORPHANED-APPROVALS-PLAN.md` (D-125; plan only; no migration; owner approval of the build order and the proposed 2-minute margin pending) and the `TASKS.md` status refresh (D-124).
+- **Waiting on the owner:** Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10); Gemini key and request-count approval (`docs/OWNER-GEMINI-SETUP.md`, NV-3).
+- **Superpowers/GitHub research allowance is exhausted (10/10 used):** no further requests without a new approved count.
+- Still untracked and not mine: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+
+## Earlier resume block (historical)
+
+- **Done, UNCOMMITTED (D-124):** `TASKS.md` now starts with a dated "Status refresh" section: what is done (with decision ids) and what is genuinely open. Read it instead of the older dated sections, which are kept as history.
+- **Waiting on the owner:** Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10); Gemini key and request-count approval (`docs/OWNER-GEMINI-SETUP.md`, NV-3).
+- **Superpowers/GitHub research allowance is exhausted (10/10 used):** no further requests without a new approved count.
+- Still untracked and not mine: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+- Open plan items I can do without the owner: orphaned-approval reconciliation plan, Tier B Guardian bundle plan, new workflow nodes plan, independent final-output proof plan.
+
+## Earlier resume block (historical)
 
 - **Done and committed (D-123; see git log):** owner approved 10 reads; 10/10 used (all OK). `docs/SUPERPOWERS-PILOT-B-AUDIT.md` holds the ledger and findings; recommendation: do not install Superpowers, keep `docs/dev-aids/`. **The allowance is exhausted: make no further Superpowers/GitHub requests without a new approved count.** Unread: delegation/worktree skills and others. A scratch trial is NOT proposed.
 - **Waiting on the owner:** Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10); Gemini key and request-count approval (`docs/OWNER-GEMINI-SETUP.md`, NV-3).
