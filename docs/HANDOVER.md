@@ -17,7 +17,19 @@ Owner approved and requested actual GitHub research plus instructions for Claude
 A plain statement of where the AI Workforce stands. **It is not finished.** The completion criteria set by the owner are listed with their real state.
 Updated whenever something changes. Historical details below include older snapshots; current checkpoint: 2026-11-15.
 
-## Resume here: D-121 CLAUDE.md points at docs/dev-aids (committed, no push); kit 7c1b971 (2026-11-15)
+## Resume here: D-123 Pilot B audit DONE and committed (no push) (2026-11-15)
+
+- **Done and committed (D-123; see git log):** owner approved 10 reads; 10/10 used (all OK). `docs/SUPERPOWERS-PILOT-B-AUDIT.md` holds the ledger and findings; recommendation: do not install Superpowers, keep `docs/dev-aids/`. **The allowance is exhausted: make no further Superpowers/GitHub requests without a new approved count.** Unread: delegation/worktree skills and others. A scratch trial is NOT proposed.
+- **Waiting on the owner:** Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10); Gemini key and request-count approval (`docs/OWNER-GEMINI-SETUP.md`, NV-3).
+- Still untracked and not mine: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+
+## Earlier resume block (historical)
+
+- **Prepared, UNCOMMITTED (D-122):** `docs/SUPERPOWERS-PILOT-B-PLAN.md`. Proposed ceiling 10 outside reads (1 tree + up to 9 files) at pinned commit `22f0b463e7a5e579904dd6211a520321035526f7`; **not approved, no request made.** Do not fetch anything until the owner approves the exact count. Scratch trial is out of scope.
+- **Waiting on the owner:** Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10); Gemini key and request-count approval (`docs/OWNER-GEMINI-SETUP.md`, NV-3).
+- Still untracked and not mine: `.codex-remote-attachments/`, `.commit-review/`, `AGENTS.md`.
+
+## Earlier resume block (historical)
 
 - **Done (D-121):** one bullet in `CLAUDE.md` section 3 names `docs/dev-aids/` (owner approved the exact wording). Read `docs/dev-aids/` for debugging, completion-evidence and plan-template guidance.
 - **Waiting on the owner:** Tier B checks (`docs/OWNER-TIER-B-CHECKLIST.md`, NV-8/NV-10); Gemini key and request-count approval (`docs/OWNER-GEMINI-SETUP.md`, NV-3). Do not record either as done until real results arrive.

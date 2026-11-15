@@ -913,3 +913,9 @@ Owner actions: Tier A manual checks (NV-8), the elevated firewall audit (NV-10/P
 
 ## CLAUDE.md pointer to the development aids (2026-11-15; board D-121)
 - One bullet added to `CLAUDE.md` section 3 (owner approved the exact wording). The reusable Claude kit was committed as-is (`7c1b971`). No rule changed.
+
+## Pilot B audit plan (2026-11-15; board D-122)
+- `docs/SUPERPOWERS-PILOT-B-PLAN.md`: read-only audit plan, proposed ceiling of 10 reads (1 tree + up to 9 files) at the pinned commit; NOT approved, nothing fetched. Scratch trial out of scope. Uncommitted.
+
+## Pilot B audit run (2026-11-15; board D-123)
+- Owner approved 10 outside reads; 10/10 used and succeeded (1 tree + 9 files at the pinned commit). Audit: `docs/SUPERPOWERS-PILOT-B-AUDIT.md`. Recommendation: do not install; keep the local aids. Nothing installed or run; allowance exhausted. Method limit: summaries by a model except five verbatim files. Uncommitted.
