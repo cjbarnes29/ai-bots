@@ -32,3 +32,6 @@ Thumbs.db
 
 # Optional local tools (OpenClaw), never committed
 /tools/
+
+.codex-remote-attachments/
+.commit-review/
